@@ -1,0 +1,2032 @@
+import { useEffect, useMemo, useState } from 'react';
+import { AlertTriangle, Check, Coins, Copy, Download, FileJson, Info, Layers, Search, Settings2, ShieldAlert, Wand2, XCircle } from 'lucide-react';
+import { clampMultiSetTotal, clampSongCount, MULTI_SET_TOTAL_CAP } from '../../utils/generation';
+import { estimateCost, type TokenRange } from '../../core/costEstimator';
+import { getSetting } from '../../core/settingsStore';
+import { buildSystemInstruction, buildUserInstruction } from '../../core/promptComposer';
+import { channelExhaustionStats, packCapacityWarning, type ExhaustionStats } from '../../core/hookLedger';
+import { useGenerationHistorySnapshot } from '../../hooks/useGenerationHistorySnapshot';
+import { reserveGeneration, releaseReservation, reservedAvoidLists } from '../../core/generationReservationLedger';
+import { selectExplorationTrackNos, type ExplorationSlotPlan } from '../../core/explorationSlots';
+import { selectPolicyExplorationTrackNos, type PolicyExplorationSlotPlan } from '../../core/explorationPolicyEngine';
+import { nextAxisSequence, recordExploration, buildExplorationAttempts } from '../../core/explorationLedger';
+import { effectiveVerifiedCombosWithTriedVariations, resolveFlagshipCombo } from '../../core/verifiedCombos';
+import type { VerifiedCombo } from '../../data/verifiedCombos';
+import { RECOMMENDATION_BADGE, STAGE_ADVICE } from '../../core/apiAdvisor';
+import { defaultModelFor } from '../../data/modelRegistry';
+import { preallocateSongSlots } from '../../core/batchPreallocation';
+import { buildClaudeCodeInstruction, buildMultiSetClaudeCodeInstructions, buildMultiSetClaudeCodeMasterInstruction, type ImportSongsReport, type MultiSetBridgeInstruction } from '../../core/claudeCodeBridge';
+import type { DesignGateResult } from '../../core/designGate';
+import { evaluateDesignGateResponsive } from '../../core/localGenerationClient';
+import { resolveConstraintsFromOptions } from '../../core/constraints';
+import { audienceProfileForChannelArchetype } from '../../data/audienceProfiles';
+import { currentWorkspaceId } from '../../core/workspaceScope';
+import DesignGatePanel from '../DesignGatePanel';
+import {
+  bridgeImportBlockMessage,
+  bridgeImportStatusText,
+  bridgeImportTotals,
+  countBridgeImportReasons,
+  makeBridgeImportFailureReport,
+  runBridgeImportAction,
+  type BridgeImportPrerequisites
+} from '../../core/bridgeImportUi';
+import { copyText, downloadText } from '../../utils/exporters';
+import { getHookDeviceById } from '../../data/hookDevices';
+import { getIntroTextureById } from '../../data/introTextures';
+import { getLyricThemeLabel } from '../../data/lyricThemes';
+import { getGenreById } from '../../data/genreLibrary';
+import { moneyChordPresets } from '../../data/moneyChords';
+import { vocalPresets } from '../../data/vocalPresets';
+import { getWorkspace } from '../../data/workspaces';
+import { moodLabelsKo, seasonLabelsKo } from '../../data/koreanLabels';
+import { DEFAULT_KIDS_AGE_TIER_ID, KIDS_AGE_TIERS } from '../../data/kidsAgeTiers';
+import { isKidsArchetype } from '../../utils/channelArchetype';
+import { resolveBilingualPair, resolveOpeningStyle } from '../../core/localGenerator';
+import { resolveScenePlanningMode } from '../../core/bridgeInstruction';
+import { resolveGenreBlendMode } from '../../core/genreRotation';
+import { buildResolvedGenerationContract, provenanceForSystemFix, userChoicesFromOptions, type ResolvedGenerationContract } from '../../core/userChoices';
+import { resolveGenerationPreflight, type PreflightResult } from '../../core/generationPreflight';
+import { combineMultiSetPreflight, evaluateMultiSetGenerationRequest, type MultiSetPreflightSummary } from '../../core/multiSetGeneration';
+import { resolveVocalAllocationMode, vocalLabel } from '../../core/vocalPlan';
+import { readLastGeneratedByChoice, rememberGeneratedByChoice } from '../../core/generatedByPreference';
+import DryRunPreviewModal from '../DryRunPreviewModal';
+import BatchJobPanel from '../BatchJobPanel';
+import type { BatchJobRecord } from '../../core/batchJobs';
+import type { BatchContext, GenerationOptions, GenrePack, MoodPack, PackGeneratedBy, PreassignedSongSlot, ProviderSettings, ScenePlanningMode, SeasonPack, VocalAllocationMode, WorkspaceId } from '../../types';
+
+const HOOK_EXHAUSTION_WARNING_THRESHOLD = 80;
+/** v3.32 — 40곡부터 Batch API 대량 생성 강조 문구를 띄우는 기준선. */
+const BULK_BATCH_ADVICE_THRESHOLD = 40;
+
+const SONG_COUNT_CHIPS = [1, 5, 10, 12, 20, 30, 40, 60, 80];
+
+type BridgeInstructionMode = 'master' | 'perSet';
+
+const POV_LABELS: Record<string, string> = {
+  firstPerson: '1인칭',
+  secondPerson: '2인칭',
+  thirdPerson: '3인칭',
+  radioHost: '라디오 DJ'
+};
+
+/** TASK v5.13 — 'duet' is a VocalGender (core/vocalPlan.ts), never a VocalType, so vocalLabel (kids/adult-branching) doesn't cover it; its own label is archetype-independent ("듀엣" reads fine for a kids duet or an adult duet alike). */
+const DUET_GENDER_LABEL_KO = '듀엣';
+
+function compactCell(value: string | undefined, fallback = '-'): string {
+  if (!value) return fallback;
+  const normalized = value.replace(/\s+/g, ' ').trim();
+  return normalized.length > 44 ? `${normalized.slice(0, 41)}...` : normalized;
+}
+
+function DiversityAssignmentPreview({ slots, opts }: { slots: PreassignedSongSlot[]; opts: GenerationOptions }) {
+  return (
+    <div className="provider-summary">
+      <div className="panel-title">
+        <Layers size={18} />
+        <h2>생성 전 배정 미리보기</h2>
+      </div>
+      <p className="supporting">실제 브릿지/Batch에 전달될 곡별 다양성 축입니다. auto 상태도 여기서 최종 배정을 확인할 수 있습니다.</p>
+      <div className="table-scroll">
+        <table className="video-table diversity-preview-table">
+          <thead>
+            <tr>
+              <th>트랙</th>
+              <th>제목(미정)</th>
+              <th>보컬</th>
+              <th>인트로</th>
+              <th>훅 장치</th>
+              <th>머니코드</th>
+              <th>BPM</th>
+              <th>Genre</th>
+              <th>구조</th>
+              <th>테마</th>
+            </tr>
+          </thead>
+          <tbody>
+            {slots.map(slot => {
+              const intro = getIntroTextureById(slot.introTextureId);
+              const hook = slot.hookDeviceId ? getHookDeviceById(slot.hookDeviceId) : undefined;
+              const genre = slot.genreId ? getGenreById(slot.genreId) : undefined;
+              const vocal = slot.vocalType
+                ? vocalLabel(slot.vocalType, opts.channel.archetype)
+                : slot.vocalGender
+                  ? (slot.vocalGender === 'duet' ? DUET_GENDER_LABEL_KO : vocalLabel(slot.vocalGender, opts.channel.archetype))
+                  : '단일 보컬';
+              return (
+                <tr key={slot.trackNo}>
+                  <td>{slot.trackNo}</td>
+                  <td>{slot.title || '미정'}</td>
+                  <td>{vocal}</td>
+                  <td>{intro?.labelEn || compactCell(slot.introTextureText)}</td>
+                  <td>{hook?.label || compactCell(slot.hookDeviceText, '서사/auto')}</td>
+                  <td>{slot.moneyChordId || compactCell(slot.moneyChordText)}</td>
+                  <td>{slot.tempo} BPM</td>
+                  <td>{genre?.label || compactCell(slot.genreText)}</td>
+                  <td>{slot.structureTemplate || '-'}</td>
+                  <td>
+                    {getLyricThemeLabel(slot.lyricTheme, opts.channel.archetype, opts.customLyricThemeScene, opts.lyricLanguage)}
+                    {' / '}
+                    {POV_LABELS[slot.pov || opts.perspective] || slot.pov || opts.perspective}
+                    <br />
+                    <span className="supporting">{compactCell(slot.lyricThemeText)} / {slot.verseStyle || '-'}-&gt;{slot.chorusStyle || '-'}</span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/** TASK v5.10 (contract screen) — field id -> Korean row label, matching the task doc's own mockup headers. */
+const MISMATCH_FIELD_LABEL_KO: Record<string, string> = {
+  moneyChordMode: '머니코드',
+  genreIds: '장르',
+  vocalTone: '보컬',
+  // TASK (provenance extension) — negativeStyle is the one newly-protected
+  // field with real mismatch-detection wiring (core/userChoices.ts's
+  // negativeStyleReallyApplied); the generic mismatch renderer below picks
+  // this label up automatically.
+  negativeStyle: '네거티브 스타일'
+};
+
+/**
+ * TASK (provenance extension) — the remaining newly-protected/newly-shown
+ * axes have no allocation/rotation step to mismatch-check (they flow
+ * straight from opts into the prompt, unlike money chord/vocal tone/genre),
+ * so they only get a display row here, mirroring how 채널/워크스페이스
+ * already render a single resolved value with no separate mismatch check.
+ * Label text mirrors each field's own real Step2Concept.tsx ChoiceGrid/chip
+ * labels (those consts aren't exported, so mirrored here rather than
+ * imported) so the contract screen never uses different wording than the
+ * picker the user actually clicked.
+ */
+const DURATION_TARGET_LABEL_KO: Record<string, string> = {
+  under3m30: '표준 (3:10-3:35)',
+  under4m: '조금 여유있게 (4:00 이내)',
+  playlistShort: '짧게 (2:50-3:20)'
+};
+
+const LYRIC_DEPTH_LABEL_KO: Record<string, string> = {
+  commercial: '가벼운 상업용',
+  simple: '아주 단순하게',
+  literary: '문학적으로',
+  poetic: '시적으로 깊게'
+};
+
+const GENRE_BLEND_MODE_LABEL_KO: Record<string, string> = {
+  'shared-primary': '첫 장르를 모든 곡에 섞기',
+  'lead-only': '곡마다 한 장르만'
+};
+
+const PERSPECTIVE_MODE_LABEL_KO: Record<string, string> = {
+  fixed: '고정',
+  dominant: '중심 시점',
+  varied: '자동 분산'
+};
+
+const HOOK_MODE_LABEL_KO: Record<string, string> = {
+  'ai-creative': 'AI가 훅 창작',
+  pool: '로컬 훅 뱅크 사용'
+};
+
+/** TASK (provenance extension) — openingStyle has no real UI control anywhere in this app (grep-confirmed, see types.ts's GenerationChoiceProvenance own doc comment) so this row is display-only: always shows the real resolved value, never a "선택" side. */
+const OPENING_STYLE_LABEL_KO: Record<string, string> = {
+  'hook-forward': '훅으로 바로 시작',
+  'hum-intro': '허밍 인트로 후 시작'
+};
+
+/**
+ * codex 지시문 02 (TASK E) — same "display-only, no fake provenance" call
+ * as openingStyle just above: bilingualPair is grep-confirmed to have no
+ * real click-time UI control anywhere in src/components (it's purely
+ * auto-derived, see core/localGenerator.ts's resolveBilingualPair) — adding
+ * a GenerationChoiceProvenance entry for it would only ever read 'default',
+ * the exact "fake protection" this app's own provenance system already
+ * rejected for openingStyle. Real, own gap this DOES fix: the contract
+ * screen never showed this value anywhere before, despite bilingualPair
+ * being real, resolved, user-visible state (see TASK F earlier this same
+ * spec — kr-2030/jp-2030/kr-idol-* now have real defaults worth showing).
+ */
+const BILINGUAL_PAIR_LABEL_KO: Record<string, string> = {
+  'en-ko': '영어+한국어',
+  'en-ja': '영어+일본어'
+};
+
+/**
+ * codex 지시문 02 (TASK E) — same reasoning as bilingualPair just above:
+ * scenePlanningMode (core/bridgeInstruction.ts's resolveScenePlanningMode)
+ * is a mechanical CONSEQUENCE of whether customConcept is set, not an
+ * independent user choice with its own click moment — display-only.
+ */
+const SCENE_PLANNING_MODE_LABEL_KO: Record<ScenePlanningMode, string> = {
+  'fixed-pool': '고정 장면 풀 사용',
+  'concept-generated': '컨셉 기반 장면 생성',
+  'same-story-comparison': '동일 사건 다중 시점 비교'
+};
+
+/** TASK v5.13 (vocal allocation mode) — VocalAllocationMode -> "적용 방식" row text; the 'channel-fixed' entry is overridden below when a vocal-tone preset was ALSO picked on top of the fixed quota, matching the task doc's own mockup ("채널 고정 성별 + 선택 음색 반영"). */
+const VOCAL_ALLOCATION_MODE_LABEL_KO: Record<VocalAllocationMode, string> = {
+  balanced: '고르게 배분 (기본값)',
+  leaning: '선택한 쏠림 반영',
+  'channel-fixed': '채널 고정 성별',
+  manual: '수동 지정 음색 반영'
+};
+
+function vocalToneLabelKo(opts: GenerationOptions, contract: ResolvedGenerationContract): string {
+  if (contract.vocal.selectedPresetId) {
+    return vocalPresets.find(preset => preset.id === contract.vocal.selectedPresetId)?.label ?? opts.vocalTone;
+  }
+  return opts.vocalTone?.trim() || opts.channel.defaultVocal;
+}
+
+function moneyChordLabelKo(id: string): string {
+  return moneyChordPresets[id]?.labelKo ?? id;
+}
+
+function genreLabelFor(id: string): string {
+  return getGenreById(id)?.label ?? id;
+}
+
+/**
+ * TASK v5.10 (contract screen) — "이대로 생성합니다" summary + (when real
+ * mismatches exist) "⚠ 선택과 다르게 적용됩니다" warning block, per the task
+ * doc's own mockup. Deliberately reads every number off `contract` (built by
+ * core/userChoices.ts's buildResolvedGenerationContract from the SAME
+ * `slots` this screen already previews with) rather than re-deriving
+ * anything — this panel is a renderer, not a second source of truth.
+ * `blocked` is the caller's own generationBlockedByContract(...) result;
+ * this component never decides blocking itself, only displays it and
+ * collects the explicit "이대로 진행" acknowledgment per mismatched field.
+ */
+function GenerationContractPanel({
+  contract,
+  opts,
+  multiSetPreviewOnly,
+  acknowledgedFields,
+  onAcknowledge,
+  onKeepOriginalMoneyChord,
+  onGoToConceptStep
+}: {
+  contract: ResolvedGenerationContract;
+  opts: GenerationOptions;
+  multiSetPreviewOnly: boolean;
+  acknowledgedFields: Set<string>;
+  onAcknowledge: (field: string) => void;
+  onKeepOriginalMoneyChord: () => void;
+  onGoToConceptStep: () => void;
+}) {
+  const workspace = getWorkspace(contract.workspaceId);
+  const genreLine = contract.genreCounts.length
+    ? contract.genreCounts.map(entry => `${genreLabelFor(entry.id)} ${entry.count}`).join(' · ')
+    : contract.genreIds.effective.map(genreLabelFor).join(' · ');
+  const moneyChordLine = contract.moneyChordCounts.length
+    ? contract.moneyChordCounts.map(entry => `${moneyChordLabelKo(entry.id)} ${entry.count}곡`).join(' · ')
+    : contract.moneyChord.effectiveIds.map(id => `${moneyChordLabelKo(id)} 전곡`).join(' · ');
+  const vocalLine = `남성 ${contract.vocal.effectiveQuota.male} · 여성 ${contract.vocal.effectiveQuota.female} · 혼성/듀엣 ${contract.vocal.effectiveQuota.mixed}`;
+  // TASK v5.13 (vocal allocation mode) — see VocalAllocationMode's own doc
+  // comment (types.ts) for why this is no longer a plain balanced/not-balanced
+  // boolean: a K-pop channel's fixed gender quota is never "balanced", even
+  // when a vocal-tone preset is also picked on top of it (that combination
+  // gets its own "채널 고정 성별 + 선택 음색 반영" wording, matching the task
+  // doc's own mockup, rather than collapsing into the plain 'channel-fixed' text).
+  const vocalAllocationMode = resolveVocalAllocationMode(opts);
+  const vocalAllocationLine = vocalAllocationMode === 'channel-fixed' && contract.vocal.presetApplied
+    ? '채널 고정 성별 + 선택 음색 반영'
+    : VOCAL_ALLOCATION_MODE_LABEL_KO[vocalAllocationMode];
+  const vocalToneLine = vocalToneLabelKo(opts, contract);
+  const perspectiveLine = contract.perspective.effective.length
+    ? contract.perspective.effective.map(id => `${POV_LABELS[id] || id} ${contract.perspective.counts[id] ?? 0}곡`).join(' · ')
+    : '-';
+
+  // TASK (provenance extension) — 계절 · 분위기 · 곡 수 · 목표 길이 · 가사 깊이
+  // · 동요 연령 · 장르 혼합 방식 · 시점 적용 방식 · 오프닝 방식 · 훅 모드. Every
+  // value here is read straight off `opts`/`contract` (a renderer, not a
+  // second source of truth — same convention the existing 9 rows above use),
+  // except genreBlendMode/openingStyle which go through their own real
+  // resolvers (resolveGenreBlendMode/resolveOpeningStyle) since both fields
+  // are optional-with-a-resolved-default on GenerationOptions, same as
+  // perspectiveMode (contract.perspective.mode, already resolved) just below.
+  const seasonLine = seasonLabelsKo[opts.seasonId] ?? opts.seasonId;
+  const moodLine = opts.moodIds.length ? opts.moodIds.map(id => moodLabelsKo[id] ?? id).join(' · ') : '-';
+  const durationLine = DURATION_TARGET_LABEL_KO[opts.durationTarget] ?? opts.durationTarget;
+  const lyricDepthLine = LYRIC_DEPTH_LABEL_KO[opts.lyricDepth] ?? opts.lyricDepth;
+  const kidsAgeTierLine = KIDS_AGE_TIERS[opts.kidsAgeTierId ?? opts.channel.kidsAgeTierId ?? DEFAULT_KIDS_AGE_TIER_ID]?.labelKo;
+  const genreBlendModeLine = GENRE_BLEND_MODE_LABEL_KO[resolveGenreBlendMode(opts)] ?? resolveGenreBlendMode(opts);
+  const perspectiveModeLine = PERSPECTIVE_MODE_LABEL_KO[contract.perspective.mode] ?? contract.perspective.mode;
+  const openingStyleLine = OPENING_STYLE_LABEL_KO[resolveOpeningStyle(opts.openingStyle, contract.archetype.effective)];
+  const hookModeLine = HOOK_MODE_LABEL_KO[opts.hookMode ?? 'ai-creative'];
+  // codex 지시문 02 (TASK E) — real gap: referenceMood/negativeStyle/avoidWords
+  // already have a real GenerationChoiceProvenance entry each (Step2Concept.tsx's
+  // own real UI controls — see that type's own doc comment) but were never
+  // surfaced on this 19-row contract screen. bilingualPair/scenePlanningMode
+  // are display-only (see their own *_LABEL_KO doc comments above — no fake
+  // provenance for either).
+  const referenceMoodLine = opts.referenceMood?.trim() || '-';
+  const negativeStyleLine = opts.negativeStyle?.trim() || '-';
+  const avoidWordsLine = opts.avoidWords?.trim() || '-';
+  const bilingualPairValue = resolveBilingualPair(opts);
+  const bilingualPairLine = bilingualPairValue ? BILINGUAL_PAIR_LABEL_KO[bilingualPairValue] : '-';
+  const scenePlanningModeValue = resolveScenePlanningMode(opts, opts.customConcept?.trim() ? { recentSituations: [], recentLyricLines: [] } : undefined);
+  const scenePlanningModeLine = SCENE_PLANNING_MODE_LABEL_KO[scenePlanningModeValue];
+
+  return (
+    <div className="provider-summary generation-contract-panel">
+      <div className="panel-title">
+        <Check size={18} />
+        <h2>이대로 생성합니다</h2>
+      </div>
+      {multiSetPreviewOnly && (
+        <p className="supporting">멀티 세트: 세트당(1세트분) 미리보기 기준 숫자입니다. 세트마다 로테이션은 조금씩 달라질 수 있습니다.</p>
+      )}
+      <dl className="contract-summary-list">
+        <div><dt>워크스페이스</dt><dd>{workspace.labelKo}</dd></div>
+        <div><dt>채널</dt><dd>{opts.channel.name}{opts.channel.englishName ? ` (${opts.channel.englishName})` : ''}</dd></div>
+        <div><dt>가사 언어</dt><dd>{contract.lyricLanguage}</dd></div>
+        <div><dt>장르</dt><dd>{genreLine || '-'}</dd></div>
+        <div><dt>보컬 비율</dt><dd>{vocalLine}</dd></div>
+        <div><dt>중심 음색</dt><dd>{vocalToneLine}</dd></div>
+        <div><dt>적용 방식</dt><dd>{vocalAllocationLine}</dd></div>
+        <div><dt>머니코드</dt><dd>{moneyChordLine || '-'}</dd></div>
+        <div><dt>시점</dt><dd>{perspectiveLine}</dd></div>
+        <div><dt>시점 적용 방식</dt><dd>{perspectiveModeLine}</dd></div>
+        <div><dt>계절</dt><dd>{seasonLine}</dd></div>
+        <div><dt>분위기</dt><dd>{moodLine}</dd></div>
+        <div><dt>곡 수</dt><dd>{opts.songCount}곡</dd></div>
+        <div><dt>목표 길이</dt><dd>{durationLine}</dd></div>
+        <div><dt>가사 깊이</dt><dd>{lyricDepthLine}</dd></div>
+        {isKidsArchetype(contract.archetype.effective) && (
+          <div><dt>동요 연령</dt><dd>{kidsAgeTierLine ?? '-'}</dd></div>
+        )}
+        <div><dt>장르 혼합 방식</dt><dd>{genreBlendModeLine}</dd></div>
+        <div><dt>오프닝 방식</dt><dd>{openingStyleLine}</dd></div>
+        <div><dt>훅 모드</dt><dd>{hookModeLine}</dd></div>
+        <div><dt>Reference mood</dt><dd>{referenceMoodLine}</dd></div>
+        <div><dt>Exclude 스타일</dt><dd>{negativeStyleLine}</dd></div>
+        <div><dt>가사에서 피할 것</dt><dd>{avoidWordsLine}</dd></div>
+        {bilingualPairValue && (
+          <div><dt>이중 언어 조합</dt><dd>{bilingualPairLine}</dd></div>
+        )}
+        <div><dt>장면 계획 방식</dt><dd>{scenePlanningModeLine}</dd></div>
+      </dl>
+
+      {contract.mismatches.length > 0 && (
+        <div className="warning generation-contract-mismatch-block">
+          <div className="panel-title">
+            <AlertTriangle size={16} />
+            <b>선택과 다르게 적용됩니다</b>
+          </div>
+          {contract.mismatches.map(mismatch => {
+            const acknowledged = acknowledgedFields.has(mismatch.field);
+            const isPartialGenreRemoval = mismatch.field === 'genreIds' && contract.genreIds.removed.length > 0 && contract.genreIds.effective.length > 0;
+            return (
+              <div key={mismatch.field} className="option-block compact">
+                <b>{MISMATCH_FIELD_LABEL_KO[mismatch.field] ?? mismatch.field}</b>
+                <p className="supporting">{isPartialGenreRemoval ? '제외' : '선택'}: {mismatch.selected}</p>
+                {!isPartialGenreRemoval && <p className="supporting">적용: {mismatch.effective}</p>}
+                <p className="supporting">이유: {mismatch.reasonKo}</p>
+                <div className="button-row">
+                  {mismatch.field === 'moneyChordMode' && opts.earwormMode && (
+                    <button type="button" onClick={onKeepOriginalMoneyChord}>
+                      {moneyChordLabelKo(opts.moneyChordMode)} 유지 (귀에 잘 붙는 모드 끄기)
+                    </button>
+                  )}
+                  {mismatch.field === 'genreIds' && (
+                    <button type="button" onClick={onGoToConceptStep}>
+                      수정하고 다시
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className={acknowledged ? 'chip active' : 'chip'}
+                    onClick={() => onAcknowledge(mismatch.field)}
+                  >
+                    {acknowledged ? <Check size={14} /> : <XCircle size={14} />}
+                    이대로 진행
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * TASK (multi-set preflight) — the per-set results screen: one row per set
+ * ("Set 01 통과" / "Set 03 <실제 reason.messageKo 문장>"), the multi-set
+ * mirror of the single-set generation-hard-block panel and
+ * GenerationContractPanel above (same "블록이면 진행 버튼 없음, 소프트
+ * 불일치면 명시적 확인 필요" contract, applied to the whole run at once
+ * rather than per field). Deliberately renders each reason's own real
+ * `messageKo` — the SAME sentence a single-set contract/관문1 panel would
+ * show for that exact issue — rather than inventing a new short label set,
+ * so a set's failure reason here is never out of sync with what the
+ * single-set screen would say about the identical issue. `combined` decides
+ * blocked vs warn-only vs clean; this component is a renderer only, same
+ * "never a second source of truth" rule as GenerationContractPanel above.
+ */
+function MultiSetPreflightPanel({
+  perSet,
+  combined,
+  onGoToConceptStep,
+  onAcknowledgeAll
+}: {
+  perSet: PreflightResult[];
+  combined: MultiSetPreflightSummary;
+  onGoToConceptStep: () => void;
+  onAcknowledgeAll: () => void;
+}) {
+  const hasBlock = combined.blockedSetIndexes.length > 0;
+  const hasWarn = combined.warnSetIndexes.length > 0;
+  if (!hasBlock && !hasWarn) return null;
+
+  return (
+    <div className={hasBlock ? 'error generation-hard-block-panel multi-set-preflight-panel' : 'warning generation-mismatch-panel multi-set-preflight-panel'}>
+      <div className="panel-title">
+        {hasBlock ? <XCircle size={16} /> : <AlertTriangle size={16} />}
+        <b>세트별 생성 전 점검</b>
+      </div>
+      <p className="supporting">
+        {hasBlock
+          ? '아래 세트는 "전체 진행"으로 넘어갈 수 없습니다 — 실제로 설정을 고쳐야 합니다.'
+          : '아래 세트는 선택과 다르게 적용됩니다 — "전체 진행"을 눌러야 모든 세트를 생성할 수 있습니다.'}
+      </p>
+      <ul className="multi-set-preflight-list">
+        {perSet.map((result, index) => {
+          const blocked = result.reasons.some(reason => reason.severity === 'block');
+          const warned = !blocked && result.reasons.some(reason => reason.severity === 'warn');
+          const rowClass = blocked ? 'multi-set-preflight-row blocked' : warned ? 'multi-set-preflight-row warned' : 'multi-set-preflight-row passed';
+          return (
+            <li key={index} className={rowClass}>
+              <span className="multi-set-preflight-set-label">Set {String(index + 1).padStart(2, '0')}</span>
+              {result.reasons.length === 0 ? (
+                <span className="multi-set-preflight-status">
+                  <Check size={14} /> 통과
+                </span>
+              ) : (
+                <ul className="multi-set-preflight-reasons">
+                  {result.reasons.map((reason, reasonIndex) => (
+                    <li key={`${reason.field}-${reasonIndex}`}>{reason.messageKo}</li>
+                  ))}
+                </ul>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      <div className="button-row">
+        {hasBlock && (
+          <button type="button" onClick={onGoToConceptStep}>
+            {`Set ${String((combined.blockedSetIndexes[0] ?? 0) + 1).padStart(2, '0')} 설정 수정`}
+          </button>
+        )}
+        {!hasBlock && hasWarn && (
+          <button type="button" className="chip active" onClick={onAcknowledgeAll}>
+            <Check size={14} /> 전체 진행
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function formatRange(range: TokenRange) {
+  return `${Math.round(range.low).toLocaleString()} ~ ${Math.round(range.high).toLocaleString()}`;
+}
+
+function BridgeImportReasonList({ report }: { report: ImportSongsReport | ImportSongsReport[] }) {
+  const reasonCounts = countBridgeImportReasons(report);
+  if (!reasonCounts.length) return null;
+  return (
+    <ul className="import-reason-list">
+      {reasonCounts.map(item => (
+        <li key={item.reason}>
+          {item.reason}
+          {item.count > 1 ? ` (${item.count}건)` : ''}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function BridgeImportReportSummary({ report }: { report: ImportSongsReport }) {
+  const totals = bridgeImportTotals(report);
+  // TASK v3.60 (TASK F-1) — importing everything the agent wrote is not
+  // "success" if that's fewer songs than were actually requested; a real
+  // run showed a green "가져오기 완료" banner for 17/18 delivered.
+  const countMismatch = report.requestedCount > 0 && report.importedCount !== report.requestedCount;
+  const ok = Boolean(report.blueprint) && report.importedCount > 0 && !countMismatch;
+  return (
+    <div className={ok ? 'provider-summary bridge-import-report' : 'error bridge-import-report'}>
+      <b>{ok ? '가져오기 완료' : '가져오기 실패'}</b>
+      <p>
+        {totals.attemptedCount > 0
+          ? `${totals.attemptedCount}곡 중 ${totals.importedCount}곡 성공, ${totals.skippedCount}곡 실패`
+          : `${totals.importedCount}곡 성공`}
+      </p>
+      {countMismatch && (
+        <p>요청한 {report.requestedCount}곡 중 {report.importedCount}곡만 가져왔습니다 — songs-output.json을 확인하십시오.</p>
+      )}
+      <BridgeImportReasonList report={report} />
+    </div>
+  );
+}
+
+function BridgeMultiImportReportSummary({ reports }: { reports: ImportSongsReport[] }) {
+  const totals = bridgeImportTotals(reports);
+  const countMismatch = totals.requestedCount > 0 && totals.importedCount !== totals.requestedCount;
+  const ok = totals.failedReportCount === 0 && totals.importedCount > 0 && !countMismatch;
+  return (
+    <div className={ok ? 'provider-summary bridge-import-report' : 'warning bridge-import-report'}>
+      <b>세트 가져오기 결과</b>
+      <p>
+        파일 {totals.successfulReportCount}/{reports.length}개 성공 · 곡 {totals.importedCount}곡 성공
+        {totals.skippedCount ? `, ${totals.skippedCount}곡 실패` : ''}
+      </p>
+      {countMismatch && (
+        <p>요청한 {totals.requestedCount}곡 중 {totals.importedCount}곡만 가져왔습니다 — songs-output.json을 확인하십시오.</p>
+      )}
+      <BridgeImportReasonList report={reports} />
+    </div>
+  );
+}
+
+/** TASK v3.33 — multi-set generation controls/state, all owned by App.tsx (mirrors batchMode's ownership pattern) so a run survives a step navigation away and back. */
+interface MultiSetControls {
+  mode: boolean;
+  onModeChange: (value: boolean) => void;
+  setCount: number;
+  onSetCountChange: (value: number) => void;
+  songsPerSet: number;
+  onSongsPerSetChange: (value: number) => void;
+  isRunning: boolean;
+  /** 1-based, 0 before the first set starts. */
+  currentSet: number;
+  totalSets: number;
+  setProgress: { done: number; total: number };
+  error: string;
+  warnings: string[];
+  onGenerate: () => void;
+  onCancel: () => void;
+}
+
+interface Step3GenerateProps {
+  opts: GenerationOptions;
+  setOpts: (updater: (prev: GenerationOptions) => GenerationOptions) => void;
+  genres: GenrePack[];
+  moods: MoodPack[];
+  season: SeasonPack;
+  provider: ProviderSettings;
+  onOpenSettings: () => void;
+  isGenerating: boolean;
+  genProgress: { done: number; total: number };
+  error: string;
+  onGenerate: () => void;
+  hybridMode: boolean;
+  onHybridModeChange: (value: boolean) => void;
+  onOpenHookHistory: () => void;
+  batchMode: boolean;
+  onBatchModeChange: (value: boolean) => void;
+  activeBatchJob: BatchJobRecord | null;
+  onCancelBatchJob: () => void;
+  onRetryFailedBatchJob: () => void;
+  onRegenerateMissingBatchTracks: () => void;
+  /** TASK v3.24 — Claude Code bridge: reads a coding agent's songs-output.json back in, runs it through the same quality/safety pipeline as any API-generated pack, and returns a report of what was imported vs. skipped. */
+  onImportSongsJson: (file: File) => Promise<ImportSongsReport>;
+  /** TASK v3.69 (TASK D) — same import, but lands directly on the SRT tab instead of the songs tab: picking an existing lyrics/*.json file jumps straight to SRT generation without regenerating the pack. */
+  onImportSongsJsonForSrt: (file: File) => Promise<ImportSongsReport>;
+  /** TASK v3.35 (bridge split) — multi-set bridge import: one file per set, selected together. */
+  onImportMultiSetSongsJson: (files: File[]) => Promise<ImportSongsReport[]>;
+  /** TASK v3.35 (bridge split) — grows as bridge-imported sets actually land, so not-yet-copied instructions in the list below reflect real titles/hooks instead of only the deterministic preallocated fallback. */
+  bridgeImportedSetAvoid: { usedTitles: string[]; usedHooks: string[] };
+  multiSet: MultiSetControls;
+  hasSelectedChannel: boolean;
+  hasSelectedSeason: boolean;
+  onGoToChannelStep: () => void;
+  onGoToSeasonStep: () => void;
+  basicMode?: boolean;
+  expertMode: boolean;
+  onToggleExpertMode: () => void;
+  onInstructionReady?: (instruction: string) => void;
+  /** TASK (generation preflight) — this screen's own real workspaceId (App.tsx's WizardApp prop), needed so resolveGenerationPreflight's 3 hard-block conditions (channel/workspace archetype mismatch, scaffold workspace) check against the SAME workspace the rest of this app scopes to, not a re-derived guess. */
+  workspaceId: WorkspaceId;
+  /** TASK (gap 2 — workspace recovery) — jumps directly to a different workspace; wired to the "채널의 워크스페이스로 이동" recovery button below (App.tsx's WizardApp threads this to its own handleSelectWorkspace). Optional so this component still renders (minus that one button) in any test/host context that hasn't wired it. */
+  onNavigateToWorkspace?: (id: WorkspaceId) => void;
+  /** TASK (generation preflight) — lifted to App.tsx (shared with every OTHER real generation trigger point there — onGenerate/onGenerateMultiSet/onHookWarningContinueAnyway/onGenerateFreshFromPrompt) so acknowledging a mismatch here carries through to those too, instead of each tracking its own signature. */
+  acknowledgedSignature?: string;
+  onAcknowledgedSignatureChange: (signature: string | undefined) => void;
+}
+
+export default function Step3Generate({
+  opts, setOpts, genres, moods, season, provider, onOpenSettings, isGenerating, genProgress, error, onGenerate,
+  hybridMode, onHybridModeChange, onOpenHookHistory, batchMode, onBatchModeChange, activeBatchJob, onCancelBatchJob, onRetryFailedBatchJob, onRegenerateMissingBatchTracks,
+  onImportSongsJson, onImportSongsJsonForSrt, onImportMultiSetSongsJson, bridgeImportedSetAvoid, multiSet, hasSelectedChannel, hasSelectedSeason, onGoToChannelStep, onGoToSeasonStep, basicMode = false, expertMode, onToggleExpertMode, onInstructionReady,
+  workspaceId, onNavigateToWorkspace, acknowledgedSignature, onAcknowledgedSignatureChange
+}: Step3GenerateProps) {
+  const providerLabel = provider.provider === 'local'
+    ? '로컬 템플릿 (무료)'
+    : provider.provider === 'anthropic'
+      ? `Claude (${provider.model || defaultModelFor('anthropic')})`
+      : `ChatGPT (${provider.model || defaultModelFor('openai')})`;
+
+  const [inputPrice, setInputPrice] = useState<number | null>(null);
+  const [outputPrice, setOutputPrice] = useState<number | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [hookStats, setHookStats] = useState<ExhaustionStats | null>(null);
+  // codex 지시문 01 (TASK H) — was two separate useState+useEffect pairs
+  // (bridgeAvoid via safeAvoidSet, bridgeConceptSceneContext via
+  // recentSituations/recentLyricLines), each fetched once on
+  // channel/language change and never again — the one confirmed staleness
+  // gap this task's own investigation found: generate/save set A, stay on
+  // this same channel/language, copy a bridge instruction for set B, and
+  // that instruction's avoid-list could still miss what set A just wrote.
+  // useGenerationHistorySnapshot also refetches on
+  // core/generationHistoryRevision.ts's own revision counter, bumped at
+  // every real pack save/delete/restore (see that module's own doc
+  // comment) — bridgeAvoid/bridgeConceptSceneContext below are kept as
+  // plain derived objects (not their own state) so every existing
+  // downstream reference stays unchanged.
+  const historySnapshot = useGenerationHistorySnapshot(opts.channel.id, opts.lyricLanguage);
+  // codex 지시문 01 (TASK I) — "지시문만 복사하고 아직 결과를 가져오지 않았거나
+  // 두 세션을 동시에 실행해도 중복을 막는다": one stable runId per
+  // channel+language for this screen instance (regenerated only when the
+  // scope itself changes — a different channel/language is genuinely a
+  // different in-flight attempt, per the spec's own "같은 runId 재시도는
+  // 자신의 예약과 충돌하지 않음"). Reserved/updated on every bridge copy
+  // (handleCopyClaudeCodeInstruction/handleCopyMasterInstruction/
+  // handleCopySetInstruction below) with whatever avoid-list that copy
+  // actually sent, released on successful import.
+  // 지시문 19 (TASK C) — opts.channel.id/opts.lyricLanguage are deliberate
+  // invalidation triggers, not computational inputs (the callback itself
+  // never reads them): per this hook's own doc comment just above, the
+  // intent is "one stable runId per channel+language scope, regenerated
+  // only when that scope changes." Removing them would make every
+  // channel/language switch keep the old runId, defeating the whole point.
+  const generationRunId = useMemo(
+    () => (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `run-${Date.now()}-${Math.random().toString(36).slice(2)}`),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [opts.channel.id, opts.lyricLanguage]
+  );
+  // codex 지시문 01 (TASK I) — the actual consumption half of the
+  // reservation system: every ACTIVE sibling reservation (a different
+  // runId, same channel+language, not yet released/expired) for this scope,
+  // folded into bridgeAvoid below. Refetched on the same revision signal
+  // historySnapshot already uses (a reservation release on import success
+  // doesn't itself bump the revision, but the immediately-following
+  // handleGenerationSuccess/saveImportedPack write does — so this still
+  // settles within one real save, not indefinitely stale). Deliberately
+  // NOT dependent on bridgeAvoid/claudeCodeInstruction themselves — those
+  // are DERIVED from this state, so depending on them back here would be a
+  // circular effect.
+  const [reservedSiblingAvoid, setReservedSiblingAvoid] = useState<{ titles: string[]; hooks: string[] }>({ titles: [], hooks: [] });
+  useEffect(() => {
+    let cancelled = false;
+    reservedAvoidLists(opts.channel.id, opts.lyricLanguage, generationRunId)
+      .then(result => { if (!cancelled) setReservedSiblingAvoid({ titles: result.titles, hooks: result.hooks }); })
+      .catch(() => { if (!cancelled) setReservedSiblingAvoid({ titles: [], hooks: [] }); });
+    return () => { cancelled = true; };
+  }, [opts.channel.id, opts.lyricLanguage, generationRunId, historySnapshot.revision]);
+  // 지시문 14 (Phase 2 TASK A-2) — recentLyricThemeIds/recentSituations,
+  // same workspace-scoped historySnapshot already fetches (지시문 14 TASK C),
+  // now actually threaded into slot assignment (batchPreallocation.ts's own
+  // preallocateSongSlots) instead of only ever reaching the bridge
+  // instruction's TEXT — the real fix for §2-1's "회피 목록이 배정에 쓰이지
+  // 않는다".
+  const bridgeAvoid = useMemo(
+    () => ({
+      usedTitles: [...historySnapshot.usedTitles, ...reservedSiblingAvoid.titles],
+      usedHooks: [...historySnapshot.usedHooks, ...reservedSiblingAvoid.hooks],
+      recentLyricThemeIds: historySnapshot.recentSceneSignatures.map(s => s.lyricTheme).filter((id): id is string => Boolean(id)),
+      recentSituations: historySnapshot.recentSituations
+    }),
+    [historySnapshot.usedTitles, historySnapshot.usedHooks, historySnapshot.recentSceneSignatures, historySnapshot.recentSituations, reservedSiblingAvoid]
+  );
+  /** v5.22 (AXIS 1) — same cross-pack-history purpose as bridgeAvoid just above, for the concept-driven scene generation instruction (see bridgeInstruction.ts's ConceptSceneContext). */
+  const bridgeConceptSceneContext = useMemo(
+    () => ({ recentSituations: historySnapshot.recentSituations, recentLyricLines: historySnapshot.recentLyricLines, recentOpenings: historySnapshot.recentOpenings }),
+    [historySnapshot.recentSituations, historySnapshot.recentLyricLines, historySnapshot.recentOpenings]
+  );
+  /** v5.23 (TASK C) — core/explorationSlots.ts's own plan, resolved once nextAxisSequence is fetched (senior-oldpop only — every other workspace's plan stays `enabled: false`). */
+  const [bridgeExplorationPlan, setBridgeExplorationPlan] = useState<ExplorationSlotPlan | undefined>(undefined);
+  /** v5.24 (TASK A/B/C/D) — core/explorationPolicyEngine.ts's own plan for every workspace except senior-oldpop (see bridgeExplorationPlan just above for that one). */
+  const [bridgePolicyExplorationPlan, setBridgePolicyExplorationPlan] = useState<PolicyExplorationSlotPlan | undefined>(undefined);
+  /** v5.23 (TASK D) — the same flagship combo core/batchPreallocation.ts's preallocateSongSlots already resolves for bridgePreassignedSongs (see resolveFlagshipCombo), refetched here so buildClaudeCodeInstruction can add its own variation-track instruction (see comboVariations.ts's resolveFlagshipVariationPlan). undefined for every workspace with no verified-good combo. */
+  const [bridgeFlagshipCombo, setBridgeFlagshipCombo] = useState<VerifiedCombo | undefined>(undefined);
+  /** v5.23 (TASK D multi-set gap) — the raw effective (seed + approved) combo list, same fetch as bridgeFlagshipCombo's own effect below but kept as a list rather than pre-resolved to one combo: the multi-set path resolves a combo PER SET (each set can have a different genre pool — see bridgeInstruction.ts's buildMultiSetClaudeCodeInstructions own per-set resolveFlagshipCombo call), so it needs the full candidate list, not a single-set answer. */
+  const [bridgeVerifiedCombos, setBridgeVerifiedCombos] = useState<VerifiedCombo[]>([]);
+  /** v5.23 (TASK C/D multi-set gap) — the raw nextAxisSequence number (same source as bridgeExplorationPlan's own effect below), kept separately so the multi-set builders can advance it by +index per set instead of reusing one resolved plan for every set in the run. */
+  const [bridgeAxisSequence, setBridgeAxisSequence] = useState<number | undefined>(undefined);
+  const [bridgeCopied, setBridgeCopied] = useState(false);
+  const [importReport, setImportReport] = useState<ImportSongsReport | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const [masterBridgeCopied, setMasterBridgeCopied] = useState(false);
+  const [bridgeInstructionMode, setBridgeInstructionMode] = useState<BridgeInstructionMode>('master');
+  // TASK v3.35 (bridge split) — per-set copy/completion tracking for the multi-set instruction list; session-only (not persisted), reset implicitly whenever the instruction list itself is recomputed (channel/set-count/set-size change) since those are different sets entirely.
+  const [copiedSetIndexes, setCopiedSetIndexes] = useState<Set<number>>(new Set());
+  const [completedSetIndexes, setCompletedSetIndexes] = useState<Set<number>>(new Set());
+  const [multiImportReports, setMultiImportReports] = useState<ImportSongsReport[] | null>(null);
+  const [isMultiImporting, setIsMultiImporting] = useState(false);
+
+  useEffect(() => {
+    void getSetting<string>('pricing:inputPerM').then(value => setInputPrice(value ? Number(value) : null));
+    void getSetting<string>('pricing:outputPerM').then(value => setOutputPrice(value ? Number(value) : null));
+  }, []);
+
+  // TASK v3.24 — the Claude Code bridge instruction needs the same
+  // cross-pack usedTitles/usedHooks avoid-list as a real generation call, so
+  // a coding agent's output doesn't collide with a channel's prior packs
+  // either. v5.22 (AXIS 1) added the same fetch shape for the
+  // concept-driven scene generation instruction. codex 지시문 01 (TASK H) —
+  // both are now sourced from useGenerationHistorySnapshot above instead of
+  // their own separate effects (see that hook's own call site comment).
+
+  // v5.23 (TASK C) — resolves the exploration-slot plan once nextAxisSequence
+  // is known; selectExplorationTrackNos itself already gates on workspaceId
+  // (senior-oldpop only), so every other workspace's fetch here just
+  // resolves to `enabled: false` harmlessly.
+  useEffect(() => {
+    let cancelled = false;
+    const workspaceId = currentWorkspaceId();
+    void nextAxisSequence(workspaceId).then(sequence => {
+      if (cancelled) return;
+      setBridgeExplorationPlan(selectExplorationTrackNos(opts.songCount, workspaceId, sequence));
+      setBridgeAxisSequence(sequence);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [opts.songCount]);
+
+  // v5.24 (TASK A/B/C/D) — same nextAxisSequence source as bridgeExplorationPlan
+  // just above, but through core/explorationPolicyEngine.ts; that engine
+  // itself skips senior-oldpop (see data/explorationPolicies.ts's own
+  // legacyEngine flag), so the two plans never both resolve `enabled: true`
+  // for the same workspace.
+  useEffect(() => {
+    let cancelled = false;
+    const workspaceId = currentWorkspaceId();
+    void nextAxisSequence(workspaceId).then(sequence => {
+      if (!cancelled) setBridgePolicyExplorationPlan(selectPolicyExplorationTrackNos(opts.songCount, workspaceId, sequence));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [opts.songCount]);
+
+  // v5.23 (TASK D gap 3) — was getApprovedCombos + effectiveVerifiedCombos;
+  // now effectiveVerifiedCombosWithTriedVariations, which additionally
+  // folds core/comboVariationLedger.ts's own recorded outcomes into each
+  // combo's triedVariations, so nextComboVariation (comboVariations.ts)
+  // never re-suggests a variation this workspace already tried and rated
+  // in an earlier set. resolveFlagshipCombo's own availableGenreIds gate
+  // still naturally resolves to undefined for a workspace with no
+  // verified-good combo in this pack's genre pool.
+  useEffect(() => {
+    let cancelled = false;
+    const workspaceId = currentWorkspaceId();
+    const genreIds = opts.genreIds ?? genres.map(genre => genre.id);
+    effectiveVerifiedCombosWithTriedVariations(workspaceId)
+      .then(effective => {
+        if (cancelled) return;
+        setBridgeFlagshipCombo(resolveFlagshipCombo(effective, genreIds));
+        setBridgeVerifiedCombos(effective);
+      })
+      .catch(() => { if (!cancelled) { setBridgeFlagshipCombo(undefined); setBridgeVerifiedCombos([]); } });
+    return () => {
+      cancelled = true;
+    };
+  }, [opts.genreIds, genres]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void channelExhaustionStats(opts.channel.id, opts.lyricLanguage, opts.channel.archetype)
+      .then(stats => {
+        if (!cancelled) setHookStats(stats);
+      })
+      .catch(() => {
+        // IndexedDB unavailable — the warning is a convenience, not required to generate.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [opts.channel.id, opts.lyricLanguage, opts.channel.archetype]);
+
+  const costEstimate = estimateCost(opts.songCount, provider, inputPrice, outputPrice);
+  // TASK v3.33 — multi-set mode's real cost/pool projection uses the whole
+  // run's total songCount (setCount x songsPerSet), not opts.songCount.
+  const multiSetClamped = clampMultiSetTotal(multiSet.setCount, multiSet.songsPerSet);
+  const multiSetTotalSongs = multiSetClamped.setCount * multiSetClamped.songsPerSet;
+  const multiSetCostEstimate = estimateCost(multiSetClamped.songsPerSet, provider, inputPrice, outputPrice);
+  const effectiveSongCount = multiSet.mode ? multiSetTotalSongs : opts.songCount;
+  const packWarning = hookStats && hookStats.poolSize > 0 ? packCapacityWarning(hookStats, effectiveSongCount) : null;
+  const bridgePrerequisites: BridgeImportPrerequisites = { hasSelectedChannel, hasSelectedSeason };
+  const bridgeBlockMessage = bridgeImportBlockMessage(bridgePrerequisites);
+  const canImportBridge = !bridgeBlockMessage;
+
+  // Representative preview of the first batch — later batches add accumulated
+  // usedTitles/usedHooks, called out in the modal's own copy.
+  const previewBatch: BatchContext = { trackNoOffset: 0, totalSongCount: opts.songCount, usedTitles: [], usedHooks: [], lockedIdentity: null };
+  const previewSystemPrompt = buildSystemInstruction(opts, previewBatch, undefined, provider.generateThumbnailText ?? false);
+  const previewUserPrompt = JSON.stringify(buildUserInstruction(opts, genres, moods, season, previewBatch, provider.generateThumbnailText ?? false), null, 2);
+
+  // TASK v3.24 — same locally pre-decided title/hook assignment the Batch
+  // API path already uses (preallocateSongSlots), so a coding agent's
+  // free-form generation can't collide with itself across tracks, and the
+  // import step below can reconcile against the same slots.
+  const bridgePreassignedSongs = useMemo(
+    () => preallocateSongSlots(opts, genres, bridgeAvoid),
+    [opts, genres, bridgeAvoid]
+  );
+  // TASK v5.10 (contract screen) — the "이대로 생성합니다" confirmation this
+  // whole task exists for: built off the SAME opts/slots every generation
+  // path from this screen actually uses (bridgePreassignedSongs above),
+  // never a separately-recomputed preview. userChoicesFromOptions(opts) is
+  // the same provenance builder Step2Plan.tsx's own plan preview already
+  // calls — see core/userChoices.ts's own doc comment for why this is the
+  // one place "user picked this" gets decided.
+  const generationChoices = useMemo(() => userChoicesFromOptions(opts), [opts]);
+  const generationContract = useMemo(
+    () => buildResolvedGenerationContract(opts, generationChoices, bridgePreassignedSongs, workspaceId),
+    [opts, generationChoices, bridgePreassignedSongs, workspaceId]
+  );
+  const [acknowledgedMismatchFields, setAcknowledgedMismatchFields] = useState<Set<string>>(new Set());
+  // TASK (generation preflight) — this used to reset on a signature built
+  // from WHICH FIELDS mismatched only (mismatch.field, sorted+joined), the
+  // exact naive-signature bug the new preflight module's own doc comment
+  // warns about: changing a mismatched choice to a DIFFERENT WRONG value
+  // that happens to trip the SAME field kept the OLD acknowledgment valid.
+  // The reset effect below is now keyed on `preflight.mismatchSignature`
+  // (defined further down) — a content-based hash covering the actual
+  // selected/effective values, not just field names — so this file's own
+  // instance of that bug is fixed here rather than just documented as a
+  // known gap. (The final gating boolean is now `preflight.allowed`, defined
+  // further down — generationBlockedByContract's own pure predicate is still
+  // used by other callers/tests, just not re-derived as a separate local
+  // here anymore.)
+
+  function handleAcknowledgeMismatch(field: string) {
+    setAcknowledgedMismatchFields(prev => {
+      const next = new Set(prev);
+      if (next.has(field)) next.delete(field);
+      else next.add(field);
+      return next;
+    });
+  }
+
+  // "겨울 발라드 유지" — the one concrete, realistically wireable fix
+  // investigated for this task: earworm mode (Step2Concept's "🎧 익숙한
+  // 멜로디로") is the only real, structural cause this app has ever had for
+  // a money-chord mismatch (see core/userChoices.ts's own doc comment on
+  // buildResolvedGenerationContract) — turning it off is a real, undoable
+  // action, not a relabel. There is no equivalent concrete fix for a genre
+  // mismatch (a foreign id is simply invalid for this channel, nothing to
+  // toggle off), so that mismatch's own action re-focuses Step2Concept
+  // instead (onGoToConceptStep below).
+  function handleKeepOriginalMoneyChord() {
+    setOpts(prev => ({ ...prev, earwormMode: false }));
+  }
+  // v3.78-style step navigation — currentStep 2 (Step2Concept) is where both
+  // the earworm toggle and the genre chip picker actually live; App.tsx's
+  // own onGoToSeasonStep already navigates there (see that prop's own
+  // wiring — season selection lives on the same screen), so this reuses it
+  // rather than adding a parallel navigation prop for the same destination.
+  const onGoToConceptStep = onGoToSeasonStep;
+  // v3.78 (TASK A, §2-1) — 관문 1 gates this screen's own bridge copy button
+  // (the "801행" button this task's own spec names explicitly), evaluated
+  // against the SAME preallocated slots the instruction/import actually use
+  // (bridgePreassignedSongs), not a separate re-derivation.
+  const designGateConstraints = useMemo(
+    () => resolveConstraintsFromOptions(opts, audienceProfileForChannelArchetype(opts.channel.archetype, opts.audience), currentWorkspaceId()),
+    [opts]
+  );
+  // v4.4 (TASK F) — designGateConstraints (already computed above for 관문1)
+  // was never actually passed into the instruction the agent receives, so
+  // buildResolvedConstraintsSection's era/title/vocabulary guidance
+  // (bridgeInstruction.ts) was real, working, dead code — no production
+  // call site populated instructionOptions.resolvedConstraints. Wiring it
+  // through here is the fix, not a new mechanism.
+  const claudeCodeInstruction = useMemo(
+    () =>
+      buildClaudeCodeInstruction(
+        opts,
+        genres,
+        moods,
+        season,
+        bridgeAvoid,
+        bridgePreassignedSongs,
+        provider.generateThumbnailText ?? false,
+        { resolvedConstraints: designGateConstraints },
+        bridgeConceptSceneContext,
+        bridgeExplorationPlan,
+        bridgeFlagshipCombo,
+        bridgePolicyExplorationPlan
+      ),
+    [
+      opts,
+      genres,
+      moods,
+      season,
+      bridgeAvoid,
+      bridgePreassignedSongs,
+      provider.generateThumbnailText,
+      designGateConstraints,
+      bridgeConceptSceneContext,
+      bridgeExplorationPlan,
+      bridgeFlagshipCombo,
+      bridgePolicyExplorationPlan
+    ]
+  );
+  // v4.0 (TASK A) — evaluateDesignGate runs inside a Worker now (see
+  // core/localGenerationClient.ts) — mirrors Step2Plan.tsx's identical
+  // conversion/rationale. `designGateResult` starts null; `bridgeGateBlocksCopy`
+  // stays true (fail-closed) until a real result exists, so the "801행" copy
+  // button never unblocks based on a stale/premature default.
+  const [designGateResult, setDesignGateResult] = useState<DesignGateResult | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    evaluateDesignGateResponsive(bridgePreassignedSongs, designGateConstraints, opts)
+      .then(result => { if (!cancelled) setDesignGateResult(result); })
+      .catch(error => {
+        if (cancelled) return;
+        const message = error instanceof Error ? error.message : String(error);
+        setDesignGateResult({
+          passed: false,
+          blocking: [{
+            id: 'design-gate-worker-error',
+            labelKo: '관문 1 실행 오류',
+            expected: '정상 실행',
+            actual: message,
+            fixHintKo: '페이지를 새로고침해 다시 시도하세요. 계속되면 /?repair=1 로 접속해 복구 모드를 사용하세요.'
+          }],
+          advisory: []
+        });
+      });
+    return () => { cancelled = true; };
+  }, [bridgePreassignedSongs, designGateConstraints, opts]);
+  const [bridgeGateAcknowledged, setBridgeGateAcknowledged] = useState(false);
+  // (The final gating boolean for the bridge-copy buttons is now
+  // `preflight.allowed`, defined below — this used to be a separate local
+  // `bridgeGateBlocksCopy = !designGateResult?.passed && !bridgeGateAcknowledged`
+  // combined ad hoc with `contractBlocked` at each call site; both are now
+  // folded into the one preflight decision instead.)
+
+  /**
+   * TASK (generation preflight) — the ONE real gating decision this whole
+   * screen (and, transitively, App.tsx's top button / multi-set button /
+   * hook-warning-continue / cache-bypass-regenerate, all of which read the
+   * SAME lifted acknowledgedSignature prop) now goes through, combining:
+   *  - the 3 new hard-block conditions (channel/workspace archetype
+   *    mismatch, genre selection resolving to 0 real songs, scaffold
+   *    workspace) that neither generationContract nor designGateResult ever
+   *    covered on their own — see core/generationPreflight.ts.
+   *  - generationContract.mismatches (unchanged source, still v5.10's own
+   *    buildResolvedGenerationContract).
+   *  - designGateResult.blocking (unchanged source, still 관문 1's own
+   *    evaluateDesignGateResponsive) — falls back to a single synthetic
+   *    blocking issue while designGateResult is still null (worker result
+   *    pending), matching bridgeGateBlocksCopy's own pre-existing
+   *    fail-closed behavior above.
+   * This does NOT replace the granular per-mismatch/"관문1 무시하고 진행"
+   * checkboxes below (acknowledgedMismatchFields/bridgeGateAcknowledged) —
+   * those stay the review UI; this is what those checkboxes' state actually
+   * feeds into (see the effect just below) and what every real trigger
+   * point actually gates on.
+   */
+  const preflight = useMemo(
+    () => resolveGenerationPreflight({
+      workspaceId,
+      options: opts,
+      slots: bridgePreassignedSongs,
+      contract: generationContract,
+      designGate: designGateResult ?? {
+        passed: false,
+        blocking: [{
+          id: 'design-gate-pending',
+          labelKo: '관문 1 검사',
+          expected: '검사 완료',
+          actual: '아직 실행 중',
+          fixHintKo: '검사가 끝날 때까지 잠시 기다리세요.'
+        }],
+        advisory: []
+      },
+      acknowledgedSignature,
+      // 지시문 14 (Phase 2 TASK A-2) — same recentLyricThemeIds/recentSituations bridgeAvoid already carries into slot assignment; lets this hard-block check run without a second fetch.
+      lyricThemeAvoid: { recentThemeIds: bridgeAvoid.recentLyricThemeIds, recentSituations: bridgeAvoid.recentSituations }
+    }),
+    [workspaceId, opts, bridgePreassignedSongs, generationContract, designGateResult, acknowledgedSignature, bridgeAvoid.recentLyricThemeIds, bridgeAvoid.recentSituations]
+  );
+
+  // A real change in the actual mismatch/design-gate CONTENT (not just which
+  // fields/ids are involved — see preflight.mismatchSignature's own doc
+  // comment) resets both granular acknowledgment UIs. Content-unchanged
+  // re-renders (e.g. the parent echoing the same acknowledgedSignature back
+  // down once acknowledged) do NOT refire this, so a user's checkmarks don't
+  // flicker the moment they finish acknowledging.
+  useEffect(() => {
+    setAcknowledgedMismatchFields(new Set());
+    setBridgeGateAcknowledged(false);
+     
+  }, [preflight.mismatchSignature]);
+
+  // Once the user has reviewed and checked every currently-required item in
+  // BOTH granular panels, push the current content signature up to App.tsx
+  // (shared with every other real trigger point) — this is the only place
+  // `acknowledgedSignature` is ever set to a non-undefined value.
+  useEffect(() => {
+    if (!preflight.mismatchSignature) return; // nothing to acknowledge (clean, or a hard block with no ack path at all)
+    const allMismatchesChecked = generationContract.mismatches.every(mismatch => acknowledgedMismatchFields.has(mismatch.field));
+    const designGateChecked = !designGateResult || designGateResult.passed || bridgeGateAcknowledged;
+    if (allMismatchesChecked && designGateChecked) onAcknowledgedSignatureChange(preflight.mismatchSignature);
+  }, [preflight.mismatchSignature, generationContract.mismatches, acknowledgedMismatchFields, designGateResult, bridgeGateAcknowledged, onAcknowledgedSignatureChange]);
+
+  const preflightBlockReasonKo = !preflight.allowed
+    ? (preflight.reasons.find(reason => reason.severity === 'block')?.messageKo
+      ?? '위 "선택과 다르게 적용됩니다" / 관문 1 항목에 모두 "이대로 진행"을 눌러야 계속할 수 있습니다.')
+    : undefined;
+
+  /**
+   * TASK (multi-set preflight) — real, verified gap this closes: this
+   * screen's own `preflight` above (and, transitively, every real trigger
+   * point that reads it) only ever checked ONE set's worth of options —
+   * `opts` itself — even while `multiSet.mode` is on, when the real run uses
+   * per-set options (songsPerSet overriding opts.songCount, set 2+'s
+   * palette-family/genre rotation — core/multiSetGeneration.ts's
+   * buildSetOptions) that can genuinely differ enough to trip a contract
+   * mismatch or 관문 1 failure `opts` alone never would. Computed the same
+   * reactive way `designGateResult` above is (evaluateGenerationRequest's
+   * own evaluateDesignGateResponsive call is Worker-async, so
+   * evaluateMultiSetGenerationRequest — N of those — is too): starts null,
+   * recomputed whenever `opts`/set-count/set-size/workspace change, and
+   * every real multi-set trigger point (this screen's own generate button
+   * below, App.tsx's onGenerateMultiSet) fails closed (disallowed) while
+   * still null rather than defaulting to allowed.
+   */
+  const [multiSetPreflightResults, setMultiSetPreflightResults] = useState<PreflightResult[] | null>(null);
+  useEffect(() => {
+    if (!multiSet.mode) {
+      setMultiSetPreflightResults(null);
+      return;
+    }
+    let cancelled = false;
+    void evaluateMultiSetGenerationRequest({
+      workspaceId,
+      baseOptions: opts,
+      setCount: multiSetClamped.setCount,
+      songsPerSet: multiSetClamped.songsPerSet,
+      genres
+    }).then(results => {
+      if (!cancelled) setMultiSetPreflightResults(results);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [multiSet.mode, workspaceId, opts, multiSetClamped.setCount, multiSetClamped.songsPerSet, genres]);
+
+  /**
+   * TASK (multi-set preflight) — the ONE gating decision for the whole
+   * multi-set run, combining every set's own raw PreflightResult
+   * (combineMultiSetPreflight never re-derives block/warn logic itself — see
+   * that function's own doc comment in core/multiSetGeneration.ts). Any set
+   * hard-blocked -> the whole run is unblockable (no "전체 진행" path, same
+   * rule as a single-set hard block); otherwise every set's warn reasons
+   * share ONE acknowledgment (`acknowledgedSignature`, the SAME lifted prop
+   * the single-set panel above uses) — acknowledging once via "전체 진행"
+   * below covers every set in this run, not per-set.
+   */
+  const multiSetPreflight = useMemo<MultiSetPreflightSummary | null>(
+    () => (multiSetPreflightResults ? combineMultiSetPreflight(multiSetPreflightResults, acknowledgedSignature) : null),
+    [multiSetPreflightResults, acknowledgedSignature]
+  );
+  function handleAcknowledgeAllSets() {
+    if (multiSetPreflight?.mismatchSignature) onAcknowledgedSignatureChange(multiSetPreflight.mismatchSignature);
+  }
+
+  const multiSetAllowed = multiSet.mode ? Boolean(multiSetPreflight?.allowed) : true;
+  const multiSetPreflightBlockReasonKo = multiSet.mode && multiSetPreflight && !multiSetPreflight.allowed
+    ? (multiSetPreflight.reasons.find(reason => reason.severity === 'block')?.messageKo
+      ?? '아래 세트별 점검에서 "전체 진행"을 눌러야 계속할 수 있습니다.')
+    : (multiSet.mode && !multiSetPreflight ? '세트별 점검 중입니다 — 잠시 기다리세요.' : undefined);
+
+  function applyDesignGateAutoFix(fix: Partial<GenerationOptions>) {
+    // TASK (provenance) — 'system' provenance for whichever of the 13
+    // tracked axes `fix` actually touches (see core/userChoices.ts's
+    // provenanceForSystemFix doc comment: today's real design-gate autoFixes
+    // only ever patch diversityAllocations, none of the 13, so this is a
+    // no-op in practice today but stays correct for a future autoFix that
+    // does).
+    setOpts(prev => ({ ...prev, ...fix, choiceProvenance: { ...prev.choiceProvenance, ...provenanceForSystemFix(fix) } }));
+  }
+
+  // v3.78 (TASK B) — 관문 2 itself lives in Step4Result.tsx, not here: a real
+  // bridge import (single or multi-set) always navigates straight to the
+  // result screen on success (App.tsx's onImportSongsJson/
+  // onImportMultiSetSongsJson both call setCurrentStep(5) unconditionally
+  // once report.blueprint exists), so anything rendered in THIS component
+  // conditioned on importReport.blueprint would never actually be seen —
+  // confirmed live in this task's own §5 stress testing (a real bridge
+  // import unmounts this screen before a render here could ever show).
+  // Step4Result.tsx's own pre-existing TASK v3.62 blockingSongs/재작곡 지시문
+  // mechanism is the real, reachable "관문 2" surface — extended to use
+  // evaluateGenerationGate there instead of bare scoreComposition.
+
+  async function handleCopyClaudeCodeInstruction() {
+    // TASK (generation preflight) — checked INSIDE the handler itself, not
+    // just via the button's own `disabled` prop below: this is one of the
+    // real trigger points named explicitly in the task doc ("801행" bridge
+    // copy button) that used to gate only via `disabled`.
+    if (!preflight.allowed) return;
+    await copyText(claudeCodeInstruction);
+    setBridgeCopied(true);
+    setTimeout(() => setBridgeCopied(false), 2000);
+    // codex 지시문 01 (TASK I) — "생성 시작/브릿지 복사 시 예약": best-effort,
+    // never blocks the copy itself if IndexedDB is unavailable.
+    void reserveGeneration({
+      runId: generationRunId,
+      channelId: opts.channel.id,
+      language: opts.lyricLanguage,
+      titles: bridgeAvoid.usedTitles,
+      hooks: bridgeAvoid.usedHooks,
+      sceneSignatures: historySnapshot.recentSceneSignatures
+    }).catch(() => {});
+  }
+
+  function handleDownloadClaudeCodeInstruction() {
+    downloadText('claude-code-instruction.txt', claudeCodeInstruction, 'text/plain;charset=utf-8');
+  }
+
+  // 지시문 18 (TASK C-2) — "기본값은 직전에 고른 값". opts.generatedBy가
+  // 아직 없을 때만(이 세션에서 아직 한 번도 안 건드렸을 때만) 마운트
+  // 시점에 저장된 마지막 선택으로 채운다 — 사용자가 이미 명시적으로 고른
+  // 값을 이 effect가 덮어쓰지 않는다.
+  useEffect(() => {
+    if (opts.generatedBy) return;
+    const last = readLastGeneratedByChoice();
+    if (last) setOpts(prev => (prev.generatedBy ? prev : { ...prev, generatedBy: last }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function handleGeneratedByChange(value: PackGeneratedBy) {
+    setOpts(prev => ({ ...prev, generatedBy: value, ...(value === 'other' ? {} : { generatedByNote: undefined }) }));
+    rememberGeneratedByChoice(value);
+  }
+
+  async function handleImportSongsFile(file: File) {
+    const report = await runBridgeImportAction({
+      prerequisites: bridgePrerequisites,
+      run: () => onImportSongsJson(file),
+      makeBlockedReport: makeBridgeImportFailureReport,
+      makeErrorReport: makeBridgeImportFailureReport,
+      setLoading: setIsImporting,
+      setReport: setImportReport
+    });
+    // codex 지시문 01 (TASK I) — "정상 import 후 실제 이력으로 승격": the real
+    // ledger (hookLedger/situationLedger/lyricLineLedger, via
+    // handleGenerationSuccess/saveImportedPack) now has this generation's
+    // real data (or will, once the user saves) — the reservation's job is
+    // done, whether this specific report ended up 'valid'/'repairable'/
+    // 'blocked' (a blocked import never produces a real blueprint at all,
+    // so there's nothing left to protect against a sibling copy either way).
+    if (report.blueprint) void releaseReservation(generationRunId).catch(() => {});
+    // v5.23 (TASK E UI) — records this import's real exploration attempts
+    // (distinctChoice text on the plan's own trackNos) right here rather
+    // than in a post-import render: this component's own doc comment just
+    // above (v3.78 TASK B) already established that App.tsx navigates
+    // straight to Step4Result.tsx on a successful import, unmounting this
+    // screen before any render here could run — but an async side-effect
+    // fired from this handler (not a state update) completes fine
+    // regardless. setCode isn't assigned yet at import time (see
+    // core/library.ts's withAssignedSetCode — only a real, non-autosave
+    // save assigns one), so packLabel/setCode both fall back to a
+    // synthetic per-import id; the exploration ledger's own grouping never
+    // depends on this matching the pack's eventual saved setCode.
+    if (report.blueprint && bridgeExplorationPlan?.enabled && bridgeExplorationPlan.axis) {
+      const attempts = buildExplorationAttempts(report.blueprint.songs, bridgeExplorationPlan.trackNos);
+      if (attempts.length) {
+        void recordExploration({
+          setCode: report.blueprint.meta?.setCode ?? `import-${Date.now()}`,
+          axis: bridgeExplorationPlan.axis,
+          trackNos: bridgeExplorationPlan.trackNos,
+          attempts,
+          packLabel: report.blueprint.projectTitle
+        }).catch(() => {});
+      }
+    }
+    // v5.24 (TASK A/B/C/D) — same recording, for the policy-driven plan
+    // (every workspace except senior-oldpop, whose plan stays undefined —
+    // see bridgePolicyExplorationPlan's own doc comment above).
+    if (report.blueprint && bridgePolicyExplorationPlan?.enabled && bridgePolicyExplorationPlan.axis) {
+      const attempts = buildExplorationAttempts(report.blueprint.songs, bridgePolicyExplorationPlan.trackNos);
+      if (attempts.length) {
+        void recordExploration({
+          setCode: report.blueprint.meta?.setCode ?? `import-${Date.now()}`,
+          axis: bridgePolicyExplorationPlan.axis.id,
+          trackNos: bridgePolicyExplorationPlan.trackNos,
+          attempts,
+          packLabel: report.blueprint.projectTitle
+        }).catch(() => {});
+      }
+    }
+  }
+
+  // TASK v3.69 (TASK D) — "lyrics file -> SRT" entry point: same import
+  // pipeline as handleImportSongsFile above, just landing on the SRT tab
+  // instead of the songs tab (see onImportSongsJsonForSrt in App.tsx).
+  async function handleImportSongsFileForSrt(file: File) {
+    await runBridgeImportAction({
+      prerequisites: bridgePrerequisites,
+      run: () => onImportSongsJsonForSrt(file),
+      makeBlockedReport: makeBridgeImportFailureReport,
+      makeErrorReport: makeBridgeImportFailureReport,
+      setLoading: setIsImporting,
+      setReport: setImportReport
+    });
+  }
+
+  // TASK v3.35 (bridge split) — real measurement: a single coding-agent
+  // response can't safely produce more than ~18-20 songs' worth of output
+  // (see claudeCodeBridge.ts's ClaudeCodeInstructionOptions doc comment for
+  // the token math), so a multi-set bridge export is one instruction per
+  // set instead of one instruction for the whole run. Folds in
+  // bridgeImportedSetAvoid so a not-yet-copied set's instruction reflects
+  // real titles/hooks from sets already imported in this session, on top of
+  // the channel's own cross-pack ledger history.
+  const combinedBridgeAvoid = useMemo(
+    () => ({
+      usedTitles: [...bridgeAvoid.usedTitles, ...bridgeImportedSetAvoid.usedTitles],
+      usedHooks: [...bridgeAvoid.usedHooks, ...bridgeImportedSetAvoid.usedHooks],
+      // v5.23 (TASK D multi-set gap) — same bridgeVerifiedCombos state the
+      // single-set path's own bridgeFlagshipCombo effect already resolves;
+      // bridgeInstruction.ts's own buildMultiSetClaudeCodeInstructions
+      // resolves ONE combo per set from this list (each set can draw a
+      // different genre pool), so the raw list travels here, not a single
+      // pre-resolved combo.
+      verifiedCombos: bridgeVerifiedCombos
+    }),
+    [bridgeAvoid, bridgeImportedSetAvoid, bridgeVerifiedCombos]
+  );
+  const multiSetBridgeInstructions = useMemo<MultiSetBridgeInstruction[]>(
+    () => multiSet.mode
+      ? buildMultiSetClaudeCodeInstructions(
+        opts,
+        multiSetClamped.setCount,
+        multiSetClamped.songsPerSet,
+        genres,
+        moods,
+        season,
+        combinedBridgeAvoid,
+        provider.generateThumbnailText ?? false,
+        bridgeAxisSequence
+      )
+      : [],
+    [multiSet.mode, opts, multiSetClamped.setCount, multiSetClamped.songsPerSet, genres, moods, season, combinedBridgeAvoid, provider.generateThumbnailText, bridgeAxisSequence]
+  );
+  const multiSetMasterInstruction = useMemo(
+    () => multiSet.mode
+      ? buildMultiSetClaudeCodeMasterInstruction(
+        opts,
+        multiSetClamped.setCount,
+        multiSetClamped.songsPerSet,
+        genres,
+        moods,
+        season,
+        combinedBridgeAvoid,
+        provider.generateThumbnailText ?? false,
+        bridgeAxisSequence
+      ).instruction
+      : '',
+    [multiSet.mode, opts, multiSetClamped.setCount, multiSetClamped.songsPerSet, genres, moods, season, combinedBridgeAvoid, provider.generateThumbnailText, bridgeAxisSequence]
+  );
+
+  useEffect(() => {
+    onInstructionReady?.(multiSet.mode ? multiSetMasterInstruction : claudeCodeInstruction);
+  }, [claudeCodeInstruction, multiSet.mode, multiSetMasterInstruction, onInstructionReady]);
+
+  async function handleCopyMasterInstruction() {
+    // TASK (generation preflight) — same handler-internal check as
+    // handleCopyClaudeCodeInstruction above (multi-set's own bridge copy).
+    if (!preflight.allowed) return;
+    await copyText(multiSetMasterInstruction);
+    setMasterBridgeCopied(true);
+    setTimeout(() => setMasterBridgeCopied(false), 2000);
+    // codex 지시문 01 (TASK I) — "멀티세트는 전체 세트를 한 번에 예약": the
+    // master instruction already embeds every set's own request payload, so
+    // combinedBridgeAvoid (this screen's own running total across
+    // channel history + whatever sets were already copied/imported this
+    // session) is the real "whole batch" avoid-list to reserve.
+    void reserveGeneration({
+      runId: generationRunId,
+      channelId: opts.channel.id,
+      language: opts.lyricLanguage,
+      titles: combinedBridgeAvoid.usedTitles,
+      hooks: combinedBridgeAvoid.usedHooks,
+      sceneSignatures: historySnapshot.recentSceneSignatures
+    }).catch(() => {});
+  }
+
+  function handleDownloadMasterInstruction() {
+    downloadText('claude-code-master-instruction.txt', multiSetMasterInstruction, 'text/plain;charset=utf-8');
+  }
+
+  async function handleCopySetInstruction(item: MultiSetBridgeInstruction) {
+    // TASK (generation preflight) — same handler-internal check as
+    // handleCopyClaudeCodeInstruction above (per-set bridge copy).
+    if (!preflight.allowed) return;
+    await copyText(item.instruction);
+    setCopiedSetIndexes(prev => new Set(prev).add(item.setIndex));
+    setCompletedSetIndexes(prev => new Set(prev).add(item.setIndex));
+    // codex 지시문 01 (TASK I) — same "whole batch, one runId" reservation
+    // as handleCopyMasterInstruction above, updated (idempotent put) with
+    // this set's own preassigned titles/hooks folded in too.
+    void reserveGeneration({
+      runId: generationRunId,
+      channelId: opts.channel.id,
+      language: opts.lyricLanguage,
+      titles: [...combinedBridgeAvoid.usedTitles, ...item.preassignedSongs.map(slot => slot.title)],
+      hooks: [...combinedBridgeAvoid.usedHooks, ...item.preassignedSongs.map(slot => slot.hookPhrase)],
+      sceneSignatures: historySnapshot.recentSceneSignatures
+    }).catch(() => {});
+  }
+
+  function handleToggleSetCompleted(setIndex: number) {
+    setCompletedSetIndexes(prev => {
+      const next = new Set(prev);
+      if (next.has(setIndex)) next.delete(setIndex);
+      else next.add(setIndex);
+      return next;
+    });
+  }
+
+  async function handleMultiImportFiles(fileList: FileList) {
+    const reports = await runBridgeImportAction({
+      prerequisites: bridgePrerequisites,
+      run: () => onImportMultiSetSongsJson(Array.from(fileList)),
+      makeBlockedReport: reason => [makeBridgeImportFailureReport(reason)],
+      makeErrorReport: reason => [makeBridgeImportFailureReport(reason)],
+      setLoading: setIsMultiImporting,
+      setReport: setMultiImportReports
+    });
+    // codex 지시문 01 (TASK I) — same "promote to real history, release the
+    // reservation" as handleImportSongsFile above — a multi-set batch shares
+    // ONE runId (see generationRunId's own doc comment), released once any
+    // set in this batch actually produced a real blueprint.
+    if (reports.some(report => report.blueprint)) void releaseReservation(generationRunId).catch(() => {});
+  }
+
+  return (
+    <section className="panel">
+      <div className="ui-mode-banner">
+        <div>
+          <b>현재 모드: {expertMode ? '자세히' : '간단히'}</b>
+          <span>{expertMode ? '생성 경로와 검토 정보를 모두 표시합니다.' : '브릿지 지시문과 가져오기는 계속 표시합니다.'}</span>
+        </div>
+        <button type="button" className="mode-toggle-button" onClick={onToggleExpertMode}>
+          {expertMode ? '간단히' : '자세히'}
+        </button>
+      </div>
+      <p className="step-hint">몇 곡을 만들지 정하고 생성 버튼을 누르세요. 생성 중에도 화면을 벗어나지 않아도 됩니다.</p>
+
+      <div className="provider-summary">
+        <div className="panel-title">
+          <Layers size={18} />
+          <h2>생성 모드</h2>
+        </div>
+        <div className="chips">
+          <button type="button" className={!multiSet.mode ? 'chip active' : 'chip'} onClick={() => multiSet.onModeChange(false)}>
+            단일 팩
+          </button>
+          <button type="button" className={multiSet.mode ? 'chip active' : 'chip'} onClick={() => multiSet.onModeChange(true)}>
+            멀티 세트 (세트별 영상 여러 개를 한 번에)
+          </button>
+        </div>
+        <p className="supporting">
+          {multiSet.mode
+            ? '세트 수 x 세트당 곡수만큼 생성해, 세트마다 독립된 콜드오픈/플래그십을 갖는 별도 팩으로 저장합니다 (예: 5세트 x 18곡 = 90곡, "{프로젝트명} Set 01" ~ "Set 05").'
+            : '한 번에 팩 하나(최대 80곡)를 만듭니다. 주 여러 세트를 몰아서 만들려면 "멀티 세트"를 선택하세요.'}
+        </p>
+      </div>
+
+      {!multiSet.mode && (
+        <>
+          <label>Songs (곡 수)</label>
+          <div className="inline">
+            <input
+              type="range"
+              min={1}
+              max={80}
+              value={opts.songCount}
+              onChange={event => setOpts(prev => ({ ...prev, songCount: clampSongCount(Number(event.target.value)), choiceProvenance: { ...prev.choiceProvenance, songCount: 'user' } }))}
+            />
+            <input
+              type="number"
+              min={1}
+              max={80}
+              value={opts.songCount}
+              onChange={event => setOpts(prev => ({ ...prev, songCount: clampSongCount(Number(event.target.value)), choiceProvenance: { ...prev.choiceProvenance, songCount: 'user' } }))}
+            />
+          </div>
+          <div className="chips">
+            {SONG_COUNT_CHIPS.map(count => (
+              <button
+                type="button"
+                key={count}
+                className={opts.songCount === count ? 'chip active' : 'chip'}
+                onClick={() => setOpts(prev => ({ ...prev, songCount: clampSongCount(count), choiceProvenance: { ...prev.choiceProvenance, songCount: 'user' } }))}
+              >
+                {count === 1 ? '1곡 (테스트)' : `${count}곡`}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+
+      {multiSet.mode && (
+        <div className="provider-summary">
+          <div className="panel-title">
+            <Layers size={18} />
+            <h2>세트 설정</h2>
+          </div>
+          <div className="form-grid two">
+            <div>
+              <label>세트 수 (1~10)</label>
+              <input
+                type="number"
+                min={1}
+                max={10}
+                value={multiSet.setCount}
+                onChange={event => multiSet.onSetCountChange(Number(event.target.value))}
+              />
+            </div>
+            <div>
+              <label>세트당 곡수 (6~20)</label>
+              <input
+                type="number"
+                min={6}
+                max={20}
+                value={multiSet.songsPerSet}
+                onChange={event => multiSet.onSongsPerSetChange(Number(event.target.value))}
+              />
+            </div>
+          </div>
+          <p className="supporting">
+            총 {multiSetTotalSongs}곡 ({multiSetClamped.setCount}세트 x {multiSetClamped.songsPerSet}곡) — 합계 상한 {MULTI_SET_TOTAL_CAP}곡.
+            {multiSetTotalSongs !== multiSet.setCount * multiSet.songsPerSet && ' 입력값이 상한을 넘어 자동으로 줄었습니다.'}
+          </p>
+          <label className="avoid-word-item">
+            <input
+              type="checkbox"
+              checked={opts.setNumberPrefix ?? true}
+              onChange={event => setOpts(prev => ({ ...prev, setNumberPrefix: event.target.checked }))}
+            />
+            제목에 세트 연번 포함 (예: "01. Winterglass", 세트마다 01부터 다시 시작)
+          </label>
+          {provider.provider !== 'local' && (
+            <>
+              <p className="supporting">
+                예상 비용(세트당 약 {multiSetCostEstimate.costKrw ? `${Math.round(multiSetCostEstimate.costKrw.low).toLocaleString()}~${Math.round(multiSetCostEstimate.costKrw.high).toLocaleString()}원` : '단가 미입력'}) x {multiSetClamped.setCount}세트.
+                실시간보다 최대 24시간 걸릴 수 있는 Batch API가 이 규모에서는 50% 저렴하고 안정적입니다 — 위 "처리 속도"에서 Batch를 선택하세요.
+              </p>
+              {!batchMode && (
+                <div className="warning">
+                  <AlertTriangle size={16} />
+                  <span>💡 멀티 세트({multiSetTotalSongs}곡)는 Batch API를 강력히 권장합니다. 위에서 "여유 있게 — Batch API"를 선택하세요.</span>
+                </div>
+              )}
+            </>
+          )}
+          {multiSet.isRunning && (
+            <p className="supporting">
+              진행 중: Set {multiSet.currentSet}/{multiSet.totalSets} — {multiSet.setProgress.done}/{multiSet.setProgress.total}곡
+            </p>
+          )}
+          {multiSet.warnings.length > 0 && (
+            <p className="warning">
+              {multiSet.warnings.join(' / ')}
+            </p>
+          )}
+          {multiSet.error && <p className="error">{multiSet.error}</p>}
+          {multiSet.isRunning && (
+            <div className="button-row">
+              <button type="button" onClick={multiSet.onCancel}>남은 세트 취소 (진행 중인 세트는 완료)</button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {hookStats && hookStats.poolSize > 0 && (
+        <div className={hookStats.percentUsed >= HOOK_EXHAUSTION_WARNING_THRESHOLD ? 'warning' : 'provider-summary'}>
+          {hookStats.percentUsed >= HOOK_EXHAUSTION_WARNING_THRESHOLD ? (
+            <>
+              <AlertTriangle size={16} />
+              <span>
+                🔴 이 채널에서 사용 가능한 훅이 얼마 남지 않았습니다. 사용: {hookStats.used.toLocaleString()}개 / 전체 {hookStats.poolSize.toLocaleString()}개 ({hookStats.percentUsed}%)
+                남은 훅이 부족합니다. 훅 뱅크를 확장하거나, 오래된 팩을 삭제해 이력을 비우세요.
+                <button type="button" onClick={onOpenHookHistory}>훅 이력 관리</button>
+              </span>
+            </>
+          ) : (
+            <p className="supporting">
+              🎵 이 채널의 훅 사용량: {hookStats.used.toLocaleString()}개 / 전체 {hookStats.poolSize.toLocaleString()}개 ({hookStats.percentUsed}%)
+            </p>
+          )}
+        </div>
+      )}
+
+      {packWarning && (
+        <div className={packWarning.level === 'none' ? 'provider-summary' : 'warning'}>
+          {packWarning.level === 'none' ? (
+            <p className="supporting">
+              이 채널 훅 잔여 {packWarning.remainingBeforePack.toLocaleString()}개 — 이번 {multiSet.mode ? '전체 세트' : '팩'}({effectiveSongCount}곡) 후 잔여{' '}
+              {packWarning.remainingAfterPack.toLocaleString()}개
+              {packWarning.packsWorthAfter !== null && ` (약 ${packWarning.packsWorthAfter.toLocaleString()}팩 분량)`}
+            </p>
+          ) : (
+            <>
+              <AlertTriangle size={16} />
+              <span>
+                {packWarning.level === 'red' ? '🔴 ' : '🟡 '}
+                이 채널 훅 잔여 {packWarning.remainingBeforePack.toLocaleString()}개 — 이번 {multiSet.mode ? '전체 세트' : '팩'}({effectiveSongCount}곡) 후 잔여{' '}
+                {packWarning.remainingAfterPack.toLocaleString()}개
+                {packWarning.packsWorthAfter !== null && ` (약 ${packWarning.packsWorthAfter.toLocaleString()}팩 분량)`}
+                {packWarning.level === 'red'
+                  ? ' — 훅 풀이 부족해 일부 곡이 생성 실패할 수 있습니다.'
+                  : ' — 다음 팩부터는 부족해질 수 있으니 미리 훅 이력을 정리하세요.'}
+              </span>
+            </>
+          )}
+        </div>
+      )}
+
+      {!basicMode && !multiSet.mode && (
+        <DiversityAssignmentPreview slots={bridgePreassignedSongs} opts={opts} />
+      )}
+
+      <div className="provider-summary">
+        <div className="panel-title">
+          <ShieldAlert size={18} />
+          <h2>AI Provider (AI 제공자)</h2>
+        </div>
+        <p className="supporting">
+          현재: {providerLabel}
+          {provider.provider !== 'local' && (provider.keyStorageMode === 'local' ? ' · 브라우저에 저장된 키 사용' : ' · 서버 환경변수 사용')}
+        </p>
+        <button type="button" onClick={onOpenSettings}>
+          <Settings2 size={16} />
+          제공자 / API 키 설정 열기
+        </button>
+      </div>
+
+      {provider.provider === 'local' && (
+        <div className="warning">
+          <Info size={16} />
+          <span>
+            ℹ️ 지금은 로컬 템플릿 모드입니다 (무료 · API 불필요). 곡 구조와 스타일 프롬프트는 바로 쓸 수 있지만, 가사는 조합형이라 다소 단조로울 수 있습니다.
+            더 자연스러운 가사를 원하시면 ⚙️ 설정에서 Claude 또는 ChatGPT를 연결하세요.
+          </span>
+          <button type="button" onClick={onOpenSettings}>
+            <Settings2 size={14} />
+            설정 열기
+          </button>
+        </div>
+      )}
+
+      {provider.provider !== 'local' && (
+        <div className="provider-summary">
+          <div className="panel-title">
+            <Wand2 size={18} />
+            <h2>생성 방식</h2>
+          </div>
+          <div className="chips">
+            <button type="button" className={!hybridMode ? 'chip active' : 'chip'} onClick={() => onHybridModeChange(false)}>
+              AI로 전체 생성
+            </button>
+            <button type="button" className={hybridMode ? 'chip active' : 'chip'} onClick={() => onHybridModeChange(true)}>
+              하이브리드: 로컬 초안 + 선택 보정 (비용 절약)
+            </button>
+          </div>
+          <p className="supporting">
+            {hybridMode
+              ? '먼저 무료 로컬 템플릿으로 전체 초안을 만들고, 결과 화면에서 마음에 드는 곡만 골라 AI로 다듬을 수 있어요. 선택하지 않은 곡은 API로 전송되지 않습니다.'
+              : `모든 곡을 ${providerLabel}로 바로 생성합니다.`}
+          </p>
+        </div>
+      )}
+
+      {provider.provider === 'anthropic' && !hybridMode && !isGenerating && !activeBatchJob && (
+        <div className="provider-summary">
+          <div className="panel-title">
+            <Wand2 size={18} />
+            <h2>처리 속도</h2>
+          </div>
+          <div className="chips">
+            <button type="button" className={!batchMode ? 'chip active' : 'chip'} onClick={() => onBatchModeChange(false)}>
+              지금 바로 (몇 초~1분 · 표준 요금)
+            </button>
+            <button type="button" className={batchMode ? 'chip active' : 'chip'} onClick={() => onBatchModeChange(true)}>
+              여유 있게 — Batch API [추천 · 50% 저렴]
+            </button>
+          </div>
+          <p className="supporting">
+            {batchMode
+              ? '보통 몇 분 내에 끝나지만 최대 24시간까지 걸릴 수 있습니다. 주 1회 발행하는 워크플로우라면 이 시간차는 대체로 문제되지 않아요. 이 탭을 닫아도 진행 상황은 저장됩니다.'
+              : '80곡 기준 출력 약 65~70K 토큰입니다 (실시간 약 $2.6 · Batch 약 $1.3). 여유가 있다면 Batch API로 50% 저렴하게 생성할 수 있어요.'}
+          </p>
+          {!multiSet.mode && !batchMode && opts.songCount >= BULK_BATCH_ADVICE_THRESHOLD && (
+            <div className="warning">
+              <AlertTriangle size={16} />
+              <span>💡 대량 생성({opts.songCount}곡)은 Batch API가 50% 저렴하고 안정적입니다. 위에서 "여유 있게 — Batch API"를 선택하세요.</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeBatchJob && (
+        <BatchJobPanel
+          job={activeBatchJob}
+          currentOpts={opts}
+          onCancel={onCancelBatchJob}
+          onRetryFailed={onRetryFailedBatchJob}
+          onRegenerateMissing={onRegenerateMissingBatchTracks}
+        />
+      )}
+
+      {provider.provider !== 'local' && !hybridMode && (
+        <div className="provider-summary">
+          <div className="panel-title">
+            <Coins size={18} />
+            <h2>예상 비용 (참고용 · 대략적인 범위)</h2>
+          </div>
+          <p className="supporting">
+            API 호출 약 {costEstimate.apiCalls}회 · 예상 입력 토큰 {formatRange(costEstimate.inputTokens)} · 예상 출력 토큰 {formatRange(costEstimate.outputTokens)}
+          </p>
+          {costEstimate.costKrw ? (
+            <p className="supporting">
+              예상 비용: 약 {Math.round(costEstimate.costKrw.low).toLocaleString()}원 ~ {Math.round(costEstimate.costKrw.high).toLocaleString()}원
+              (설정에 입력한 단가 기준의 대략적인 범위이며, 실제 청구 금액과 다를 수 있습니다. 정확한 사용량은 생성 후 설정의 "API 사용 기록"에서 확인하세요.)
+            </p>
+          ) : (
+            <p className="supporting">⚙️ 설정에서 토큰 단가를 입력하면 예상 비용 범위도 함께 볼 수 있어요. 실제 사용량은 생성 후 정확히 기록됩니다.</p>
+          )}
+        </div>
+      )}
+
+      {provider.provider !== 'local' && hybridMode && (
+        <p className="supporting">
+          💡 하이브리드 모드에서는 초안 생성이 무료입니다. 실제 API 비용은 결과 화면에서 다듬을 곡을 선택한 만큼만 발생해요.
+        </p>
+      )}
+
+      {provider.provider !== 'local' && (
+        <div className="button-row">
+          <button type="button" onClick={() => setPreviewOpen(true)}>
+            <Search size={16} />
+            API로 보낼 프롬프트 미리보기 (호출 없음)
+          </button>
+        </div>
+      )}
+
+      <div className="provider-summary">
+        <div className="panel-title">
+          <FileJson size={18} />
+          <h2>Claude Code 브릿지 (API 비용 0)</h2>
+        </div>
+        <p className="supporting">
+          정액제 코딩 에이전트(Claude Code, Codex 등)로 곡을 만들어 API 비용을 0으로 만드는 경로입니다.
+          정액제 서비스의 대량 사용은 해당 서비스 약관을 직접 확인하세요.
+        </p>
+        <p className="supporting">
+          브릿지는 한 번에 최대 18곡까지 안정적입니다. 180곡은 세트 10개로 나눠 순서대로 진행하세요.
+          한 번에 대량이 필요하면 Batch API를 쓰세요 (서버가 자동 분할하므로 180곡도 한 번에 가능).
+        </p>
+        <div className={canImportBridge ? 'provider-summary bridge-import-status' : 'warning bridge-import-status'}>
+          <div>
+            <b>{bridgeImportStatusText(bridgePrerequisites)}</b>
+            <p className="supporting">
+              {canImportBridge ? 'songs-output.json을 가져올 준비가 되었습니다.' : bridgeBlockMessage}
+            </p>
+          </div>
+          {!canImportBridge && (
+            <div className="button-row">
+              {!hasSelectedChannel && <button type="button" onClick={onGoToChannelStep}>채널 선택으로 이동</button>}
+              {!hasSelectedSeason && <button type="button" onClick={onGoToSeasonStep}>시즌 선택으로 이동</button>}
+            </div>
+          )}
+        </div>
+
+        {!multiSet.mode ? (
+          <>
+            {designGateResult
+              ? (
+                <DesignGatePanel
+                  result={designGateResult}
+                  onAutoFix={applyDesignGateAutoFix}
+                  acknowledged={bridgeGateAcknowledged}
+                  onAcknowledgedChange={setBridgeGateAcknowledged}
+                />
+              )
+              : <div className="option-block compact">관문 1 검사 중...</div>}
+            <p className="supporting">
+              아래 지시문을 복사해 Claude Code에 붙여넣으면, 결과를 "songs-output.json" 파일로 저장하도록 안내되어 있어요.
+              그 파일을 다시 이 화면에서 가져오면 API 경로와 동일한 품질·안전 검사를 거쳐 결과 화면에 반영됩니다.
+            </p>
+            {/* 지시문 18 (TASK C-2) — 이 지시문을 어느 코딩 에이전트에 붙여넣을 예정인지 선택. 가져오기를 막지 않는다 — 고르지 않으면 'other'로 정직하게 기록될 뿐이다. */}
+            <div className="option-block compact generated-by-select">
+              <label htmlFor="generated-by-select">이번 세트를 만든 생성 에이전트</label>
+              <select
+                id="generated-by-select"
+                value={opts.generatedBy ?? 'other'}
+                onChange={event => handleGeneratedByChange(event.target.value as PackGeneratedBy)}
+              >
+                <option value="claude-code">Claude Code</option>
+                <option value="codex">Codex</option>
+                <option value="fable-5">Fable 5</option>
+                <option value="api-direct">API 직접 호출</option>
+                <option value="local">로컬 생성(에이전트 아님)</option>
+                <option value="other">기타</option>
+              </select>
+              {opts.generatedBy === 'other' && (
+                <input
+                  type="text"
+                  placeholder="어떤 도구인지 적어 주세요 (선택)"
+                  value={opts.generatedByNote ?? ''}
+                  onChange={event => setOpts(prev => ({ ...prev, generatedByNote: event.target.value }))}
+                />
+              )}
+            </div>
+            <div className="button-row">
+              <button
+                type="button"
+                disabled={!preflight.allowed}
+                title={preflightBlockReasonKo}
+                onClick={() => void handleCopyClaudeCodeInstruction()}
+              >
+                <Copy size={16} />
+                {bridgeCopied ? '복사됨 ✅' : 'Claude Code용 지시문 복사'}
+              </button>
+              <button type="button" onClick={handleDownloadClaudeCodeInstruction}>
+                <Download size={16} />
+                .txt로 다운로드
+              </button>
+              <label className={canImportBridge ? 'import-button' : 'import-button disabled'} title={canImportBridge ? 'Claude Code가 만든 songs-output.json 가져오기' : bridgeBlockMessage}>
+                <input
+                  type="file"
+                  accept="application/json"
+                  disabled={!canImportBridge || isImporting}
+                  style={{ display: 'none' }}
+                  onChange={event => {
+                    const file = event.target.files?.[0];
+                    if (file) void handleImportSongsFile(file);
+                    event.target.value = '';
+                  }}
+                />
+                <FileJson size={16} />
+                {isImporting ? '가져오는 중...' : '곡 JSON 가져오기'}
+              </label>
+              <label className={canImportBridge ? 'import-button' : 'import-button disabled'} title={canImportBridge ? '기존 lyrics/*.json 파일로 팩 재생성 없이 바로 SRT 자막 만들기 — 라이브러리에는 저장되지 않습니다' : bridgeBlockMessage}>
+                <input
+                  type="file"
+                  accept="application/json"
+                  disabled={!canImportBridge || isImporting}
+                  style={{ display: 'none' }}
+                  onChange={event => {
+                    const file = event.target.files?.[0];
+                    if (file) void handleImportSongsFileForSrt(file);
+                    event.target.value = '';
+                  }}
+                />
+                <FileJson size={16} />
+                {isImporting ? '가져오는 중...' : '가사 파일 → 바로 SRT 만들기'}
+              </label>
+            </div>
+            {/* TASK v5.18 (TASK F, P2) — real gap: onImportSongsJsonForSrt (App.tsx) is deliberately read-only (no library.saveImportedPack, no hookLedger registration — see that function's own doc comment for the bug this behavior fixed), but nothing in the UI ever said so; a user could reasonably expect "가사 파일 → 바로 SRT 만들기" to behave like the normal import button right above it and later go looking for the pack in their saved library, where it will never appear. */}
+            <p className="basic-import-srt-only-notice">
+              "가사 파일 → 바로 SRT 만들기"는 자막 생성 전용입니다 — 라이브러리에 저장하거나 훅 이력에 등록하지 않습니다. 이 팩을 저장하려면 "곡 JSON 가져오기"를 사용하세요.
+            </p>
+            <div
+              className={canImportBridge ? 'basic-import-drop' : 'basic-import-drop disabled'}
+              onDragOver={event => event.preventDefault()}
+              onDrop={event => {
+                event.preventDefault();
+                const file = event.dataTransfer.files?.[0];
+                if (file) void handleImportSongsFile(file);
+              }}
+            >
+              {canImportBridge ? 'Drop songs-output.json here to import, or use the file picker above.' : bridgeBlockMessage}
+            </div>
+            {importReport && <BridgeImportReportSummary report={importReport} />}
+            {importReport?.warnings.length ? (
+              <p className="warning">
+                Import warnings: {importReport.warnings.join(' / ')}
+              </p>
+            ) : null}
+          </>
+        ) : (
+          <>
+            <div className="chips">
+              <button type="button" className={bridgeInstructionMode === 'master' ? 'chip active' : 'chip'} onClick={() => setBridgeInstructionMode('master')}>
+                마스터 지시문 1개
+              </button>
+              <button type="button" className={bridgeInstructionMode === 'perSet' ? 'chip active' : 'chip'} onClick={() => setBridgeInstructionMode('perSet')}>
+                세트별 개별 지시문
+              </button>
+            </div>
+            <p className="supporting">
+              세트별로 지시문이 분리되어 있어 각 지시문은 그 세트({multiSetClamped.songsPerSet}곡)만 요청합니다 — LLM 응답이 잘리지 않아요.
+              Set 01부터 순서대로 복사해 코딩 에이전트에 붙여넣고 결과 파일을 받은 뒤, 완료 체크하고 다음 세트로 넘어가세요.
+              세트2 이후 지시문에는 앞선 세트들의 제목/훅이 회피 목록으로 자동 반영됩니다(가져오기를 마칠 때마다 갱신).
+            </p>
+            <p className="supporting">
+              진행 상황: 복사 {copiedSetIndexes.size}/{multiSetBridgeInstructions.length} · 완료 체크 {completedSetIndexes.size}/{multiSetBridgeInstructions.length}
+            </p>
+            {bridgeInstructionMode === 'master' && (
+              <div className="button-row">
+                <button
+                  type="button"
+                  disabled={!preflight.allowed}
+                  title={preflightBlockReasonKo}
+                  onClick={() => void handleCopyMasterInstruction()}
+                >
+                  <Copy size={16} />
+                  {masterBridgeCopied ? 'Master copied' : 'Copy master instruction'}
+                </button>
+                <button type="button" onClick={handleDownloadMasterInstruction}>
+                  <Download size={16} />
+                  Download master .txt
+                </button>
+              </div>
+            )}
+            {bridgeInstructionMode === 'perSet' && (
+              <div className="bridge-set-list">
+              {multiSetBridgeInstructions.map(item => (
+                <div key={item.setIndex} className="bridge-set-row">
+                  <label className="avoid-word-item">
+                    <input
+                      type="checkbox"
+                      checked={completedSetIndexes.has(item.setIndex)}
+                      onChange={() => handleToggleSetCompleted(item.setIndex)}
+                    />
+                    Set {String(item.setIndex + 1).padStart(2, '0')} ({multiSetClamped.songsPerSet}곡) — {item.outputFilename}
+                  </label>
+                  <button
+                    type="button"
+                    disabled={!preflight.allowed}
+                    title={preflightBlockReasonKo}
+                    onClick={() => void handleCopySetInstruction(item)}
+                  >
+                    {copiedSetIndexes.has(item.setIndex) ? <Check size={16} /> : <Copy size={16} />}
+                    {copiedSetIndexes.has(item.setIndex) ? '복사됨' : '복사'}
+                  </button>
+                </div>
+              ))}
+              </div>
+            )}
+            <div className="button-row">
+              <label className={canImportBridge ? 'import-button' : 'import-button disabled'} title={canImportBridge ? 'songs-output-set01.json ~ setNN.json 파일을 한 번에 선택' : bridgeBlockMessage}>
+                <input
+                  type="file"
+                  accept="application/json"
+                  multiple
+                  disabled={!canImportBridge || isMultiImporting}
+                  style={{ display: 'none' }}
+                  onChange={event => {
+                    const files = event.target.files;
+                    if (files && files.length) void handleMultiImportFiles(files);
+                    event.target.value = '';
+                  }}
+                />
+                <FileJson size={16} />
+                {isMultiImporting ? '가져오는 중...' : '세트 파일 일괄 가져오기 (여러 개 선택)'}
+              </label>
+            </div>
+            {multiImportReports && <BridgeMultiImportReportSummary reports={multiImportReports} />}
+            {multiImportReports?.some(report => report.warnings.length) ? (
+              <p className="warning">
+                {multiImportReports.flatMap(report => report.warnings).join(' / ')}
+              </p>
+            ) : null}
+          </>
+        )}
+      </div>
+
+      <DryRunPreviewModal
+        open={previewOpen}
+        systemPrompt={previewSystemPrompt}
+        userPrompt={previewUserPrompt}
+        onClose={() => setPreviewOpen(false)}
+      />
+
+      {provider.provider === 'local' && (
+        <p className="supporting api-advice-line">
+          {RECOMMENDATION_BADGE[STAGE_ADVICE.lyrics.recommendation].emoji} {RECOMMENDATION_BADGE[STAGE_ADVICE.lyrics.recommendation].labelKo} ({STAGE_ADVICE.lyrics.suggestedModelKo}): {STAGE_ADVICE.lyrics.reasonKo}
+        </p>
+      )}
+
+      {preflight.reasons.some(reason => reason.severity === 'block') && (
+        <div className="error generation-hard-block-panel">
+          <div className="panel-title">
+            <XCircle size={16} />
+            <b>생성할 수 없습니다</b>
+          </div>
+          <p className="supporting">아래 항목은 "이대로 진행"으로 넘어갈 수 없습니다 — 실제로 문제를 고쳐야 합니다.</p>
+          <ul>
+            {preflight.reasons.filter(reason => reason.severity === 'block').map(reason => (
+              <li key={reason.field}>{reason.messageKo}</li>
+            ))}
+          </ul>
+          {/* TASK (gap 2 — workspace recovery) — the channelArchetype hard
+              block above has no "proceed anyway" path by design (see
+              generationPreflight.ts's channelArchetypeHardBlock), so this
+              offers real, non-silent ways OUT of it instead — the 4 recovery
+              actions the task doc names. Data comes straight from
+              core/userChoices.ts's buildResolvedGenerationContract
+              (generationContract.workspaceRecovery), never re-derived here. */}
+          {generationContract.workspaceRecovery.mismatched && (
+            <div className="button-row workspace-recovery-actions">
+              {generationContract.workspaceRecovery.suggestedDefaultChannel && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const defaultChannel = generationContract.workspaceRecovery.suggestedDefaultChannel;
+                    if (defaultChannel) setOpts(prev => ({ ...prev, channel: defaultChannel }));
+                  }}
+                >
+                  현재 워크스페이스 기본 채널로 전환
+                </button>
+              )}
+              {generationContract.workspaceRecovery.correctWorkspaceId && onNavigateToWorkspace && (
+                <button
+                  type="button"
+                  onClick={() => onNavigateToWorkspace(generationContract.workspaceRecovery.correctWorkspaceId!)}
+                >
+                  채널의 워크스페이스({getWorkspace(generationContract.workspaceRecovery.correctWorkspaceId).labelKo})로 이동
+                </button>
+              )}
+              <button type="button" onClick={onGoToChannelStep}>채널 편집</button>
+              <button type="button" onClick={onGoToChannelStep}>채널 관리에서 삭제</button>
+            </div>
+          )}
+        </div>
+      )}
+
+      <GenerationContractPanel
+        contract={generationContract}
+        opts={opts}
+        multiSetPreviewOnly={multiSet.mode}
+        acknowledgedFields={acknowledgedMismatchFields}
+        onAcknowledge={handleAcknowledgeMismatch}
+        onKeepOriginalMoneyChord={handleKeepOriginalMoneyChord}
+        onGoToConceptStep={onGoToConceptStep}
+      />
+
+      {multiSet.mode && multiSetPreflightResults && multiSetPreflight && (
+        <MultiSetPreflightPanel
+          perSet={multiSetPreflightResults}
+          combined={multiSetPreflight}
+          onGoToConceptStep={onGoToConceptStep}
+          onAcknowledgeAll={handleAcknowledgeAllSets}
+        />
+      )}
+
+      {multiSet.mode ? (
+        <button
+          type="button"
+          className="primary full-width action-button"
+          disabled={multiSet.isRunning || !multiSetAllowed}
+          title={multiSetPreflightBlockReasonKo}
+          onClick={multiSet.onGenerate}
+        >
+          <Layers size={18} />
+          {multiSet.isRunning
+            ? `생성 중... Set ${multiSet.currentSet}/${multiSet.totalSets} (${multiSet.setProgress.done}/${multiSet.setProgress.total}곡)`
+            : batchMode && provider.provider === 'anthropic'
+              ? `${multiSetTotalSongs}곡 (${multiSetClamped.setCount}세트) Batch API로 제출하기`
+              : `${multiSetTotalSongs}곡 (${multiSetClamped.setCount}세트) 생성하기`}
+        </button>
+      ) : (
+        <button
+          type="button"
+          className="primary full-width action-button"
+          disabled={isGenerating || activeBatchJob?.status === 'in_progress' || activeBatchJob?.status === 'submitting' || activeBatchJob?.status === 'canceling' || !preflight.allowed}
+          title={preflightBlockReasonKo}
+          onClick={onGenerate}
+        >
+          <Wand2 size={18} />
+          {isGenerating
+            ? `생성 중... (${genProgress.done}/${genProgress.total})`
+            : batchMode && provider.provider === 'anthropic' && !hybridMode
+              ? `${opts.songCount}곡 Batch API로 제출하기`
+              : hybridMode && provider.provider !== 'local'
+                ? `${opts.songCount}곡 무료 초안 만들기`
+                : `${opts.songCount}곡 생성하기`}
+        </button>
+      )}
+
+      {error && <p className="error">{error}</p>}
+    </section>
+  );
+}

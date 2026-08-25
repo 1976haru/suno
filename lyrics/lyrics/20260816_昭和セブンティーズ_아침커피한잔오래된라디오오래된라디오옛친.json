@@ -1,0 +1,660 @@
+{
+  "meta": {
+    "setName": "20260816_昭和セブンティーズ_아침커피한잔오래된라디오오래된라디오옛친",
+    "generatedAt": "2026-08-16T10:39:40.520Z",
+    "channelId": "showa-seventies",
+    "channelLabel": "昭和セブンティーズ",
+    "conceptLabel": "아침 커피 한 잔, 오래된 라디오, 오래된 라디오, 옛 친구 생각",
+    "songCount": 15,
+    "lyricLanguage": "japanese",
+    "bridgeVersion": "0.21.0"
+  },
+  "songs": [
+    {
+      "trackNo": 1,
+      "title": "First Steam",
+      "titleLocalized": "朝の湯気",
+      "seasonMoment": "December morning at a small kitchen table, with coffee steam rising beside an old radio.",
+      "listenerSituation": "At dawn in a narrow apartment kitchen, I warm a cup of coffee beside an old radio and unfold a paper ticket from an old friend.",
+      "emotionArc": "Settled solitude turns into a modest private promise to keep the friendship alive.",
+      "distinctChoice": {
+        "ruleId": "immediate_vocal_no_intro_motif",
+        "descriptionKo": "인트로 태그 없이 첫 소절부터 목소리와 커피 김으로 플레이리스트의 중심 이미지를 연다."
+      },
+      "hookPhrase": "朝の湯気よ",
+      "stylePrompt": "1970s Kayokyoku, 69 BPM, electric piano, live strings, brushed drums, round electric bass, restrained kayokyoku ballad pulse, Verse: IVmaj7-iii7-vi7 movement / Chorus: IV-V-iii-vi royal road progression, mature elegant female mezzo-soprano, tender confiding delivery, soft breathy grain, stepwise three-note hook, no intro tag, vocal starts immediately, full level from first bar, analog tape warmth, spring plate ambience, narrow stereo, medium arrangement, half-time-weighted chorus entrance, old radio and morning coffee mood, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copyrighted song reference, soundalike vocal, real artist or band names, existing song titles, imitating a specific singer voice, shouted high notes, belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation that obscures melody, cavernous hall reverb, abrupt dynamic jumps, modern EDM synths, trap hi-hats, hard autotune, sidechain compression, digital synth pads, modern wide stereo production, enka-like melodrama, overly glossy karaoke backing track, brass overblare, shrill string top line, muddy electric piano, stock lounge parody, flat chorus with no lift, monotonous melody contour, thin placeholder hook, overlong intro",
+      "lyrics": "[Verse 1]\n白い茶碗を両手で包み\n窓の冬空を少しだけ見る\n旧いラジオは名も知らぬ声で\n昨日の雨を遠くへほどく\n友からの切符を指でなぞれば\n胸の奥まで湯気が届く\n[Pre-Chorus]\n行けなかった駅の名を\n今朝は責めずに読んでみる\n折り目の白さが\nまだ私を待っている\n[Chorus]\n朝の湯気よ\n冷えた言葉をほどいて\nあの人の笑い声まで\nそっと連れてきて\n[Verse 2]\n砂糖は入れずに苦さを残す\nそんな癖まで昔と同じ\n卓上の影が細く伸びれば\n手紙の返事も書けそうになる\n会えない年ほど深くなるものを\n今日の私で受け止めよう\n[Instrumental Break]\n[Final Chorus]\n朝の湯気よ\n小さな台所を満たして\n遠い友の名を胸で呼ぶ\nまた歩き出せる\n古い棚には、十二月の匂いが残る\n飲み干す前に、窓を少し開ける\n古い棚には、十二月の匂いが残る\n飲み干す前に、窓を少し開ける\n古い棚には、十二月の匂いが残る\n飲み干す前に、窓を少し開ける\n古い棚には、十二月の匂いが残る\n飲み干す前に、窓を少し開ける\n古い棚には、十二月の匂いが残る\n朝の湯気よ",
+      "youtube": {
+        "title": "First Steam - 朝の湯気 | Showa Seventies Playlist",
+        "description": "朝の湯気 is a 1970s Japanese playlist song for morning coffee, old radio warmth, and the thought of an old friend. A gentle opener for December mornings and handwritten memories.",
+        "tags": [
+          "昭和歌謡",
+          "70年代 日本の歌",
+          "朝コーヒー",
+          "古いラジオ",
+          "懐かしい日本語曲",
+          "Showa playlist"
+        ]
+      },
+      "genreId": "kayokyoku-70s",
+      "genreText": "1970s Japanese kayokyoku, electric piano, live brass section",
+      "lyricTheme": "showa70s-night-train-ticket",
+      "lyricThemeText": "boarding a night train with a paper ticket in the coat pocket while station lamps blur through the window",
+      "lyricThemeArc": "quiet departure turning into a brave private promise",
+      "pov": "firstPerson",
+      "verseStyle": "dialogue",
+      "verseStyleText": "verse lines use direct address or short conversational fragments without becoming spoken-word",
+      "chorusStyle": "hookRepeat",
+      "chorusStyleText": "chorus lines use compact repeated hook callbacks and simple answer phrases",
+      "effectiveVocalPresetId": "mature-female",
+      "vocalPresetSource": "plan",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 2,
+      "title": "Harbor Dial",
+      "titleLocalized": "港の声",
+      "seasonMoment": "A rainy December harbor morning with a thermos cup and a small radio in a warehouse doorway.",
+      "listenerSituation": "Under an umbrella by a harbor warehouse, we wait with a thermos of coffee while a booth radio carries the ferry forecast.",
+      "emotionArc": "Lonely waiting becomes calm acceptance as two voices share one small shelter.",
+      "distinctChoice": {
+        "ruleId": "duet_wordless_answer",
+        "descriptionKo": "남녀 듀엣에서 한 사람이 말하듯 부르면 다른 사람이 무언 허밍으로 대답하는 구성을 쓴다."
+      },
+      "hookPhrase": "港の声を",
+      "stylePrompt": "1970s Japanese Folk, 76 BPM, fingerpicked acoustic guitar, simple bass, soft hand percussion, light upright piano, plain acoustic folk pulse, Verse: IV-V-iii-vi royal road progression / Chorus: IVmaj7-iii7-vi7 movement / Bridge: IVM7-III7-vi-I7 marusa progression, male and female duet, narration answered wordlessly, loose lines meeting hook, narrow repeated refrain, instrumental intro, full level from first bar, dry room intimacy, sparse arrangement, sustained lead note into final chorus, rain harbor and old radio mood, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copyrighted song reference, soundalike vocal, real artist or band names, existing song titles, imitating a specific singer voice, shouted high notes, belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation that obscures melody, cavernous hall reverb, abrupt dynamic jumps, modern EDM synths, trap hi-hats, hard autotune, sidechain compression, digital synth pads, modern wide stereo production, stadium folk-rock excess, modern bedroom-pop haze, lo-fi vinyl crackle effect, rushed strumming, campfire novelty tone, childish singalong, muddy upright piano, flat chorus with no lift, overlong intro, stock loop arrangement",
+      "lyrics": "[Intro]\n[Verse 1: Male Vocal]\n倉庫の庇で傘を傾け\n濡れた桟橋を二人で見てる\n魔法瓶の珈琲を分けるたび\n港の朝が少し近づく\n古い番組が波にまぎれて\n君の返事は鼻歌になる\n[Chorus: Male and Female Duet]\n雨の向こうへ\n港の声を\n胸の引き出しにしまい\n今日は帰ろう\n[Verse 2: Female Vocal]\nフェリーの汽笛は遠くほどけて\nあなたの袖口に滴が残る\n待つだけの日も悪くはないと\n口にしないでうなずき合った\n手紙の宛名を濡らさぬように\n傘の内側で笑ってみせる\n[Chorus: Male and Female Duet]\n船の行方を\n港の声を\n二人の歩幅に合わせ\nゆっくりしまう\n[Final Chorus: Male and Female Duet Harmony]\n港の声を\n長い雨ごと抱いて\n古い友への便りを\n今なら書ける\n紙のコップの縁に、冬の塩が残る\n言葉の代わりに、肩が少し近づく\n紙のコップの縁に、冬の塩が残る\n言葉の代わりに、肩が少し近づく\n紙のコップの縁に、冬の塩が残る\n言葉の代わりに、肩が少し近づく\n紙のコップの縁に、冬の塩が残る\n言葉の代わりに、肩が少し近づく\n紙のコップの縁に、冬の塩が残る\n言葉の代わりに、肩が少し近づく\n港の声を",
+      "youtube": {
+        "title": "Harbor Dial - 港の声 | Showa Seventies Playlist",
+        "description": "港の声 is a 1970s Japanese playlist song for morning coffee, old radio warmth, and the thought of an old friend. A male-female folk duet built around rain, a harbor booth radio, and remembered friendship.",
+        "tags": [
+          "昭和フォーク",
+          "70年代 日本の歌",
+          "港の歌",
+          "雨の日の音楽",
+          "古いラジオ",
+          "懐かしい曲"
+        ]
+      },
+      "genreId": "japanese-folk-70s",
+      "genreText": "1970s Japanese folk, fingerpicked acoustic guitar, light upright piano, dry room intimacy",
+      "lyricTheme": "showa70s-port-umbrella",
+      "lyricThemeText": "standing by a harbor warehouse under a dark umbrella while a ferry horn fades into the rain",
+      "lyricThemeArc": "lonely waiting becoming calm resolve",
+      "pov": "firstPerson",
+      "verseStyle": "dialogue",
+      "verseStyleText": "verse lines use direct address or short conversational fragments without becoming spoken-word",
+      "chorusStyle": "narrative",
+      "chorusStyleText": "chorus lines unfold as plain scene narration with concrete actions and time movement",
+      "effectiveVocalPresetId": "male-female-duet",
+      "vocalPresetSource": "plan",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 3,
+      "title": "Walk On",
+      "titleLocalized": "雨の街灯",
+      "seasonMoment": "December rain after closing time, walking past a coffee shop window and an old radio glow.",
+      "listenerSituation": "After the shops close, you walk beneath a wet alley lamp with an old letter in your coat and coffee cooling in your hand.",
+      "emotionArc": "Urban solitude steadies into a forward step toward an old friend's address.",
+      "distinctChoice": {
+        "ruleId": "last_chorus_three_part",
+        "descriptionKo": "마지막 후렴에만 3성 화음을 얹어 앞부분의 독백감을 늦게 확장한다."
+      },
+      "hookPhrase": "歩いてゆこう",
+      "stylePrompt": "1970s New Music, 82 BPM, acoustic guitar, clean electric guitar, upright piano, warm bass, hand-played singer-songwriter pulse, Verse: IVmaj7-iii7-vi7 movement / Chorus: IVM7-III7-vi-I7 marusa progression, low calm male baritone, restrained understated reading, airy breath-forward tone, balanced four-bar phrases, instrumental intro, full level from first bar, sparse voice-forward arrangement, analog tape color, restrained stereo, three-part harmony on the last chorus, alley rain and old letter mood, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copyrighted song reference, soundalike vocal, real artist or band names, existing song titles, imitating a specific singer voice, shouted high notes, belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation that obscures melody, cavernous hall reverb, abrupt dynamic jumps, modern EDM synths, trap hi-hats, hard autotune, sidechain compression, digital synth pads, modern wide stereo production, ultra-modern adult pop polish, glassy FM ballad sheen, fusion solo excess, copied melody contour, cluttered add9 chords, harsh clean guitar, muddy warm bass, flat chorus with no lift, overlong intro, thin placeholder hook",
+      "lyrics": "[Intro]\n[Verse 1]\n閉店の札が硝子に揺れて\n路地の水たまり月をゆがめる\n冷めた珈琲を片手に持てば\n古い封筒が胸で鳴る\n友の住所は薄れていても\n曲がり角だけは覚えている\n[Chorus]\n濡れた街灯\n歩いてゆこう\n靴音ひとつを頼りに\n明日へ渡ろう\n[Verse 2]\n赤い庇の店を過ぎれば\nラジオの声が裏口に漏れる\nあの日借りた本のしおりを\n返せぬままの年月よ\n傘の先から雫が落ちて\n迷いも少し細くなる\n[Chorus]\n白い息まで\n歩いてゆこう\n消えない名前を胸に\nゆっくり運ぼう\n[Final Chorus]\n歩いてゆこう\n雨の匂いをほどいて\n遠い窓へ手紙を出す\n今夜を越えて\n袖口の冷たさも、道しるべになる\n角の時計だけが、遅れて光る\n袖口の冷たさも、道しるべになる\n角の時計だけが、遅れて光る\n袖口の冷たさも、道しるべになる\n角の時計だけが、遅れて光る\n袖口の冷たさも、道しるべになる\n角の時計だけが、遅れて光る\n袖口の冷たさも、道しるべになる\n角の時計だけが、遅れて光る\n袖口の冷たさも、道しるべになる\n歩いてゆこう",
+      "youtube": {
+        "title": "Walk On - 雨の街灯 | Showa Seventies Playlist",
+        "description": "雨の街灯 is a 1970s Japanese playlist song for morning coffee, old radio warmth, and the thought of an old friend. A restrained new-music ballad for wet streets, old letters, and steady steps.",
+        "tags": [
+          "ニューミュージック",
+          "昭和プレイリスト",
+          "70年代 日本の歌",
+          "雨の歌",
+          "手紙",
+          "懐かしい日本語曲"
+        ]
+      },
+      "genreId": "new-music-70s",
+      "genreText": "1970s Japanese new music, acoustic guitar, upright piano",
+      "lyricTheme": "showa70s-alley-streetlamp",
+      "lyricThemeText": "walking under an alley streetlamp after the shops close while rain gathers along the curb",
+      "lyricThemeArc": "urban solitude becoming a steady forward step",
+      "pov": "secondPerson",
+      "verseStyle": "dialogue",
+      "verseStyleText": "verse lines use direct address or short conversational fragments without becoming spoken-word",
+      "chorusStyle": "image",
+      "chorusStyleText": "chorus lines focus on sensory images, objects, light, weather, and small gestures",
+      "effectiveVocalPresetId": "low-calm-male",
+      "vocalPresetSource": "plan",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 4,
+      "title": "Needle Dust",
+      "titleLocalized": "針先の春",
+      "seasonMoment": "A bright December afternoon in a narrow record shop near a kissaten counter.",
+      "listenerSituation": "In a cramped record shop, I turn old sleeves while dust shines and a counter radio reminds me of a friend's face.",
+      "emotionArc": "Playful searching becomes the precise memory of a face from long ago.",
+      "distinctChoice": {
+        "ruleId": "octave_final_hook",
+        "descriptionKo": "밝은 그루브 속 마지막 후렴에서만 리드가 한 옥타브 올라가며 기억의 얼굴을 선명하게 만든다."
+      },
+      "hookPhrase": "あの顔がある",
+      "stylePrompt": "1970s Showa Groove, 96 BPM, clavinet, live bass, brass stabs, tight drum kit, wah electric guitar accents, syncopated live funk-soul pocket, Verse: IVM7-III7-vi-I7 marusa progression / Chorus: vi-IV-I-V movement, maj7 color, soulful female voice, light rhythmic phrasing, warm rounded midrange, call-and-answer chorus shape, instrumental intro, medium arrangement, dry forward vocal, analog tape warmth, narrow vintage stereo, lead jumps an octave into the final chorus, record shop afternoon mood, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copyrighted song reference, soundalike vocal, real artist or band names, existing song titles, imitating a specific singer voice, shouted high notes, belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation that obscures melody, cavernous hall reverb, abrupt dynamic jumps, modern EDM synths, trap hi-hats, hard autotune, sidechain compression, digital synth pads, modern wide stereo production, disco parody, aggressive funk slap, hard backbeat, crowded clavinet comping, brass stab overload, wah guitar clutter, shouted soul chorus, muddy live bass, flat chorus with no lift, overlong intro",
+      "lyrics": "[Intro]\n[Verse 1]\n細い棚から紙の匂い\n指先に積もる午後の埃\n喫茶の扉が開くたびに\n珈琲の香りが背中を押す\n値札の裏の青い文字まで\n妙に親しく見えてくる\n[Pre-Chorus]\n探していたのは曲ではなく\n笑い皺の残る横顔\n針を落とす前から\n胸が先に知っていた\n[Chorus]\n埃の午後に\nあの顔がある\n丸い卓をはさんだ日が\nふいに戻る\n[Verse 2]\n棚の隅には十二月の札\n小さな鈴が入口で鳴る\n古いラジオの天気予報に\nあの人の癖を重ねてしまう\n何枚選んでも足りないほど\n忘れ物だけ増えてゆく\n[Chorus]\n赤い背表紙\nあの顔がある\n名前を呼ばずに笑った\nあの冬のまま\n[Key-Lift Final Chorus]\nあの顔がある\n光る埃の真ん中\n買えない月日を抱いて\n店を出てゆく\n袋の角が、手のひらで小さく鳴る\n帰り道まで、頬が少し熱い\n袋の角が、手のひらで小さく鳴る\n帰り道まで、頬が少し熱い\n袋の角が、手のひらで小さく鳴る\n帰り道まで、頬が少し熱い\n袋の角が、手のひらで小さく鳴る\n帰り道まで、頬が少し熱い\n袋の角が、手のひらで小さく鳴る\nあの顔がある",
+      "youtube": {
+        "title": "Needle Dust - 針先の春 | Showa Seventies Playlist",
+        "description": "針先の春 is a 1970s Japanese playlist song for morning coffee, old radio warmth, and the thought of an old friend. A brighter Showa groove about record sleeves, coffee scent, and a friend's remembered smile.",
+        "tags": [
+          "昭和グルーヴ",
+          "昭和歌謡",
+          "70年代 日本の歌",
+          "レコード店",
+          "喫茶店",
+          "懐かしい曲"
+        ]
+      },
+      "genreId": "showa-groove-70s",
+      "genreText": "1970s funk and soul influenced Japanese kayokyoku, clavinet, wah electric guitar, wah guitar accents on the offbeat",
+      "lyricTheme": "showa70s-record-shop",
+      "lyricThemeText": "turning through record sleeves in a narrow shop while afternoon dust shines in the light",
+      "lyricThemeArc": "playful searching becoming a precise remembered face",
+      "pov": "firstPerson",
+      "verseStyle": "image",
+      "verseStyleText": "verse lines focus on sensory images, objects, light, weather, and small gestures",
+      "chorusStyle": "hookRepeat",
+      "chorusStyleText": "chorus lines use compact repeated hook callbacks and simple answer phrases",
+      "effectiveVocalPresetId": "soulful-female",
+      "vocalPresetSource": "plan",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 5,
+      "title": "Still We Go",
+      "titleLocalized": "暦の窓",
+      "seasonMoment": "A December morning room where a paper calendar bends near thin curtains and black coffee.",
+      "listenerSituation": "At a window with a bending paper calendar, I hear the old radio weather report and decide to write to a friend.",
+      "emotionArc": "Time passing becomes a gentle decision to keep moving and reach out.",
+      "distinctChoice": {
+        "ruleId": "harmonic_explore_marusa_in_kayokyoku",
+        "descriptionKo": "가요쿄쿠의 담백한 편성에 마루사 진행을 후렴에 두어 익숙한 시대감 안에서 낯선 화성색을 만든다.",
+        "params": {
+          "explorationAxis": "harmony",
+          "unusualPlacement": "marusa chorus in kayokyoku"
+        }
+      },
+      "hookPhrase": "まだ行けるさ",
+      "stylePrompt": "1970s Kayokyoku, 78 BPM, electric piano, brushed drums, round electric bass, live strings, restrained kayokyoku ballad pulse, Verse: IVmaj7-iii7-vi7 movement / Chorus: IVM7-III7-vi-I7 marusa progression, mature soulful male tenor, gentle swung phrasing, warm woody midrange, rising melodic sequence into chorus, instrumental intro, sparse arrangement, analog tape warmth, spring plate ambience, narrow stereo, bridge tambourine break cuts through before final chorus, calendar window and old radio mood, harmonic exploration slot, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copyrighted song reference, soundalike vocal, real artist or band names, existing song titles, imitating a specific singer voice, shouted high notes, belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation that obscures melody, cavernous hall reverb, abrupt dynamic jumps, modern EDM synths, trap hi-hats, hard autotune, sidechain compression, digital synth pads, modern wide stereo production, cabaret caricature, excessive spring reverb, stiff ballad march, copied Showa cadence, nasal mimic vocal, cluttered live strings, brittle brushed drums, generic demo-band sound, thin placeholder hook, stock loop arrangement",
+      "lyrics": "[Intro]\n[Verse 1]\n薄いカーテンが朝をほどき\n壁の暦は少し丸まる\n赤い丸印のない日付にも\n暮らしの重みはちゃんとある\n苦い珈琲を飲み干す前に\n友の名を紙へ置いてみる\n[Chorus]\n冬の窓辺で\nまだ行けるさ\n小さく声に出したら\n背すじが伸びる\n[Verse 2]\nラジオは北風を告げている\n薬缶の白さが棚で眠る\n返せなかった冗談ひとつ\n今なら葉書に書けるだろう\n古びた鉛筆を削る音に\n迷いの角が丸くなる\n[Chorus]\n曲がる暦に\nまだ行けるさ\n過ぎた季節を責めず\n窓を開ける\n[Final Chorus]\nまだ行けるさ\n封をする指が軽い\n宛名の町まで朝が\nそっと続くよ\n机の傷にも、去年の陽が残る\n切手の糊が、ほのかに甘い\n机の傷にも、去年の陽が残る\n切手の糊が、ほのかに甘い\n机の傷にも、去年の陽が残る\n切手の糊が、ほのかに甘い\n机の傷にも、去年の陽が残る\n切手の糊が、ほのかに甘い\n机の傷にも、去年の陽が残る\n切手の糊が、ほのかに甘い\n机の傷にも、去年の陽が残る\n切手の糊が、ほのかに甘い\nまだ行けるさ",
+      "youtube": {
+        "title": "Still We Go - 暦の窓 | Showa Seventies Playlist",
+        "description": "暦の窓 is a 1970s Japanese playlist song for morning coffee, old radio warmth, and the thought of an old friend. A warm kayokyoku highlight about a paper calendar, black coffee, and writing to an old friend.",
+        "tags": [
+          "昭和歌謡",
+          "70年代 日本の歌",
+          "朝コーヒー",
+          "手紙の歌",
+          "昭和プレイリスト",
+          "懐かしい日本語曲"
+        ]
+      },
+      "genreId": "kayokyoku-70s",
+      "genreText": "1970s Japanese kayokyoku, electric piano, live brass section",
+      "lyricTheme": "showa70s-curtain-season",
+      "lyricThemeText": "noticing the season change through thin curtains while a paper calendar bends on the wall",
+      "lyricThemeArc": "time passing into a gentle decision to keep going",
+      "pov": "firstPerson",
+      "verseStyle": "dialogue",
+      "verseStyleText": "verse lines use direct address or short conversational fragments without becoming spoken-word",
+      "chorusStyle": "narrative",
+      "chorusStyleText": "chorus lines unfold as plain scene narration with concrete actions and time movement",
+      "effectiveVocalPresetId": "warm-mature-male",
+      "vocalPresetSource": "plan",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 6,
+      "title": "Last Cup",
+      "titleLocalized": "最後の杯",
+      "seasonMoment": "After closing a kissaten before sunrise, the last washed cup rests near a shelf radio.",
+      "listenerSituation": "Behind a coffee counter after closing, we wash the last cup while the old radio murmurs and street lamps fade outside.",
+      "emotionArc": "A routine ending catches a small spark of longing and turns it into shared acceptance.",
+      "distinctChoice": {
+        "ruleId": "final_note_close_harmony",
+        "descriptionKo": "마지막 훅의 끝음에 네 성부 가까운 화음을 겹쳐 작은 합창 같은 여운을 남긴다."
+      },
+      "hookPhrase": "また会えるね",
+      "stylePrompt": "1970s Japanese Folk, 76 BPM, fingerpicked acoustic guitar, simple bass, light upright piano, soft hand percussion, plain acoustic folk pulse, Verse: IV-V-iii-vi royal road progression / Chorus: vi-IV-V-I komuro-cycle progression, small mixed vocal group, call and answer, close third harmony, two-note pickup figures, instrumental intro, medium arrangement, close-mic intimacy, small room realism, soft analog tape hiss, four-part close harmony stacks under the final note, coffee counter and old radio mood, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copyrighted song reference, soundalike vocal, real artist or band names, existing song titles, imitating a specific singer voice, shouted high notes, belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation that obscures melody, cavernous hall reverb, abrupt dynamic jumps, modern EDM synths, trap hi-hats, hard autotune, sidechain compression, digital synth pads, modern wide stereo production, protest-song caricature, exaggerated rustic accent, brittle hand percussion, crowded chorus shouts, modern indie haze, thin acoustic body, generic AI demo-band sound, muddy low-end mix, stock arrangement with no development",
+      "lyrics": "[Intro]\n[Verse 1: Male Vocal]\n閉店札を裏へ返して\n最後の杯を水に沈める\n君は棚のラジオを絞り\n残った朝を聞き分けている\n角砂糖の箱をそろえる手が\n昔の癖で少し跳ねた\n[Chorus: Male and Female Duet]\n湯気の行方に\nまた会えるね\n言わずに済ませた約束\n今日も残る\n[Verse 2: Female Vocal]\n外の街灯が青くほどけて\n椅子の影だけ先に眠る\nあなたの袖に洗い水の匂い\n懐かしい日々が近くなる\n旧い友への便りみたいに\n白い皿を一枚重ねる\n[Chorus: Male and Female Duet]\n朝の手前で\nまた会えるね\n扉を閉めても胸に\n席は残る\n[Final Chorus: Male and Female Duet Harmony]\nまた会えるね\n小さな店の息まで\n忘れぬように分け合い\n明かりを消す\n床に残った水跡も、丸く光る\n時計の針だけ、朝へ向かっている\n床に残った水跡も、丸く光る\n時計の針だけ、朝へ向かっている\n床に残った水跡も、丸く光る\n時計の針だけ、朝へ向かっている\n床に残った水跡も、丸く光る\n時計の針だけ、朝へ向かっている\n床に残った水跡も、丸く光る\n時計の針だけ、朝へ向かっている\n床に残った水跡も、丸く光る\nまた会えるね",
+      "youtube": {
+        "title": "Last Cup - 最後の杯 | Showa Seventies Playlist",
+        "description": "最後の杯 is a 1970s Japanese playlist song for morning coffee, old radio warmth, and the thought of an old friend. A close-harmony folk scene at a kissaten counter after closing time.",
+        "tags": [
+          "昭和フォーク",
+          "喫茶店",
+          "朝コーヒー",
+          "古いラジオ",
+          "70年代 日本の歌",
+          "懐かしい曲"
+        ]
+      },
+      "genreId": "japanese-folk-70s",
+      "genreText": "1970s Japanese folk, fingerpicked acoustic guitar, light upright piano, dry room intimacy",
+      "lyricTheme": "showa70s-coffee-counter",
+      "lyricThemeText": "washing the final cup behind a quiet coffee counter while streetlights flicker outside",
+      "lyricThemeArc": "routine ending with a small spark of longing",
+      "pov": "secondPerson",
+      "verseStyle": "dialogue",
+      "verseStyleText": "verse lines use direct address or short conversational fragments without becoming spoken-word",
+      "chorusStyle": "image",
+      "chorusStyleText": "chorus lines focus on sensory images, objects, light, weather, and small gestures",
+      "effectiveVocalPresetId": "mixed-harmony-group",
+      "vocalPresetSource": "plan",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 7,
+      "title": "Bare Bulb",
+      "titleLocalized": "裸電球",
+      "seasonMoment": "A December bicycle repair shop, with steam from paper cups under a bare bulb.",
+      "listenerSituation": "Waiting on a wooden stool in a bicycle shop, I share hot coffee with the owner while a small radio talks above the tools.",
+      "emotionArc": "A small delay becomes unexpected companionship and renewed hope.",
+      "distinctChoice": {
+        "ruleId": "harmonic_explore_marusa_bridge",
+        "descriptionKo": "뉴뮤직 곡의 브리지에 마루사 진행을 잠깐 넣어 일상 장면을 살짝 낯선 색으로 비튼다.",
+        "params": {
+          "explorationAxis": "harmony",
+          "unusualPlacement": "marusa bridge in new music"
+        }
+      },
+      "hookPhrase": "ここにいてくれ",
+      "stylePrompt": "1970s New Music, 94 BPM, acoustic guitar, clean electric guitar, upright piano, live drums, warm bass, hand-played singer-songwriter band pulse, Verse: IVmaj7-iii7-vi7 movement / Chorus: IV-V-iii-vi royal road progression / Bridge: IVM7-III7-vi-I7 marusa progression, mature soulful male tenor, legato sustained lines, slight nasal brightness, top-three-degree hook, short sung intro line, full layered arrangement, analog tape color, narrow mono-leaning room, lead lifts into falsetto on the final chorus, bicycle shop coffee mood, harmonic exploration slot, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copyrighted song reference, soundalike vocal, real artist or band names, existing song titles, imitating a specific singer voice, shouted high notes, belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation that obscures melody, cavernous hall reverb, abrupt dynamic jumps, modern EDM synths, trap hi-hats, hard autotune, sidechain compression, digital synth pads, modern wide stereo production, glossy karaoke backing track, overly busy chord substitutions, rushed conversational phrasing, hard rock drums, brittle top end, synthetic pad wash, generic demo-band sound, monotonous melody contour, stock arrangement with no development",
+      "lyrics": "[Intro]\nまだ少し、待っている\n[Verse 1]\n木の丸椅子で膝をそろえ\n裸電球の下を見上げる\n修理屋の主人は黙ったまま\n紙の杯をこちらへ寄せた\n壁のラジオが時刻を告げて\n古い友の声に似ていた\n[Pre-Chorus]\n遅れることも悪くない\n錆びた車輪が教えてくれる\n名前も知らない人の親切が\n胸の針を戻してゆく\n[Chorus]\n冬の店先\nここにいてくれ\n急がぬ朝に腰かけて\n笑っていたい\n[Verse 2]\n硝子戸の外を学生が過ぎ\n白い息だけ置いてゆく\n払う小銭を数える指に\n昔の約束が触れた気がした\n直った車輪を押して出れば\n町の坂道も軽くなる\n[Instrumental Break]\n[Key-Lift Final Chorus]\nここにいてくれ\n裸電球の丸い下で\n別れた友にも届くほど\n朝が近づく\n油の匂いに、珈琲の甘さが混じる\n戸口の霜まで、少しやさしい\n油の匂いに、珈琲の甘さが混じる\n戸口の霜まで、少しやさしい\n油の匂いに、珈琲の甘さが混じる\n戸口の霜まで、少しやさしい\n油の匂いに、珈琲の甘さが混じる\n戸口の霜まで、少しやさしい\n油の匂いに、珈琲の甘さが混じる\nここにいてくれ",
+      "youtube": {
+        "title": "Bare Bulb - 裸電球 | Showa Seventies Playlist",
+        "description": "裸電球 is a 1970s Japanese playlist song for morning coffee, old radio warmth, and the thought of an old friend. A 1970s new-music scene about a bicycle shop delay becoming gentle companionship.",
+        "tags": [
+          "ニューミュージック",
+          "昭和プレイリスト",
+          "70年代 日本の歌",
+          "朝コーヒー",
+          "古いラジオ",
+          "冬の歌"
+        ]
+      },
+      "genreId": "new-music-70s",
+      "genreText": "1970s Japanese new music, acoustic guitar, upright piano",
+      "lyricTheme": "showa70s-bicycle-shop-repair",
+      "lyricThemeText": "waiting on a wooden stool while a bicycle shop owner patches a tire under a bare bulb",
+      "lyricThemeArc": "small delay becoming unexpected companionship",
+      "pov": "firstPerson",
+      "verseStyle": "image",
+      "verseStyleText": "verse lines focus on sensory images, objects, light, weather, and small gestures",
+      "chorusStyle": "hookRepeat",
+      "chorusStyleText": "chorus lines use compact repeated hook callbacks and simple answer phrases",
+      "effectiveVocalPresetId": "warm-mature-male",
+      "vocalPresetSource": "plan",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 8,
+      "title": "Static on the Bus",
+      "titleLocalized": "夜行の窓",
+      "seasonMoment": "A late December bus ride with canned coffee and distant town lights sliding by.",
+      "listenerSituation": "On a night bus, I rest my forehead against the cold window while a pocket radio fades under distant town lights.",
+      "emotionArc": "Restless departure settles into drowsy peace without becoming melodramatic.",
+      "distinctChoice": {
+        "ruleId": "mid_instrument_answer",
+        "descriptionKo": "중간의 말 없는 구간에서 솔로 악기가 보컬 선율에 답하도록 설계해 가장 큰 감정 고점을 만든다."
+      },
+      "hookPhrase": "眠りへ帰る",
+      "stylePrompt": "1970s Showa Groove, 80 BPM, clavinet, brass stabs, wah electric guitar, live bass, tight drum kit, relaxed funk-soul pocket, Verse: IVM7-III7-vi-I7 marusa progression / Chorus: vi-IV-V-I komuro-cycle progression, mature elegant female mezzo-soprano, bright forward delivery, faint vibrato shimmer, descending hook resolution, instrumental intro, medium arrangement, tape slap echo, spring plate ambience, narrow vintage stereo, mid-instrumental solo instrument answers the vocal line, night bus static mood, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copyrighted song reference, soundalike vocal, real artist or band names, existing song titles, imitating a specific singer voice, shouted high notes, belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation that obscures melody, cavernous hall reverb, abrupt dynamic jumps, modern EDM synths, trap hi-hats, hard autotune, sidechain compression, digital synth pads, modern wide stereo production, modern club groove, four-on-the-floor EDM feel, excessive syncopated fills, harsh brass section, brittle tambourine, karaoke funk backing, stock loop pocket, thin hook, muddy low end",
+      "lyrics": "[Intro]\n[Verse 1]\n窓に額をそっと預けて\n町の灯りが横へ流れる\n缶の珈琲はぬるくなって\n膝の上で星を映した\n小さなラジオは砂の声\n友の手紙を思い出させる\n[Chorus]\n遠い停留所\n眠りへ帰る\n揺れる肩から力が抜けて\n夜がほどける\n[Verse 2]\n座席の布は少し擦れて\n知らない町名が窓を過ぎる\n帰れなかった日に似た暗さも\n今は責めずに抱いていられる\n白い切符を指で折れば\n朝の気配が胸に残る\n[Chorus]\n眠る町まで\n眠りへ帰る\n冷たい硝子に息を置き\nまぶたを閉じる\n[Final Chorus]\n眠りへ帰る\n車窓の粒が遠ざかる\n古い友への言い訳も\n夢に預けて\n鞄の底で、硬い切符が温まる\n次の町まで、言葉は眠っている\n鞄の底で、硬い切符が温まる\n次の町まで、言葉は眠っている\n鞄の底で、硬い切符が温まる\n次の町まで、言葉は眠っている\n鞄の底で、硬い切符が温まる\n次の町まで、言葉は眠っている\n鞄の底で、硬い切符が温まる\n次の町まで、言葉は眠っている\n鞄の底で、硬い切符が温まる\n次の町まで、言葉は眠っている\n眠りへ帰る",
+      "youtube": {
+        "title": "Static on the Bus - 夜行の窓 | Showa Seventies Playlist",
+        "description": "夜行の窓 is a 1970s Japanese playlist song for morning coffee, old radio warmth, and the thought of an old friend. A Showa groove ballad for night buses, cold windows, and old radio static.",
+        "tags": [
+          "昭和グルーヴ",
+          "70年代 日本の歌",
+          "夜行バス",
+          "古いラジオ",
+          "昭和プレイリスト",
+          "懐かしい曲"
+        ]
+      },
+      "genreId": "showa-groove-70s",
+      "genreText": "1970s funk and soul influenced Japanese kayokyoku, clavinet, wah electric guitar, wah guitar accents on the offbeat",
+      "lyricTheme": "showa70s-night-bus-window",
+      "lyricThemeText": "resting a forehead against a night bus window while distant town lights blur past like static",
+      "lyricThemeArc": "restless departure settling into drowsy peace",
+      "pov": "firstPerson",
+      "verseStyle": "dialogue",
+      "verseStyleText": "verse lines use direct address or short conversational fragments without becoming spoken-word",
+      "chorusStyle": "narrative",
+      "chorusStyleText": "chorus lines unfold as plain scene narration with concrete actions and time movement",
+      "effectiveVocalPresetId": "mature-female",
+      "vocalPresetSource": "plan",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 9,
+      "title": "One Coin",
+      "titleLocalized": "角の飴",
+      "seasonMoment": "A December morning corner stand where a radio forecast mixes with the smell of coffee from next door.",
+      "listenerSituation": "At a corner tobacco stand, you count small coins for a wrapped candy your old friend used to buy after morning coffee.",
+      "emotionArc": "Careful counting becomes a small sweet victory and a low, tender release.",
+      "distinctChoice": {
+        "ruleId": "low_hook_entry",
+        "descriptionKo": "가장 밝은 속도감 위에서 마지막 훅만 낮은 음역으로 떨어뜨려 달콤한 승리를 차분하게 만든다."
+      },
+      "hookPhrase": "少し甘く",
+      "stylePrompt": "1970s Kayokyoku, 100 BPM, electric piano, live strings, brushed drums, round electric bass, live brass section, graceful kayokyoku pop pulse, Verse: I-vi-IV-V doo-wop progression / Chorus: I-V-vi-iii-IV-I-IV-V progression / Bridge: IV-I-V-vi warm cycle progression, low calm male baritone, clipped rhythmic phrasing, soft husky grain, paired antecedent-consequent hook, no intro tag, vocal starts immediately, full arrangement, analog tape warmth, narrow stereo, lead drops low into the hook on final chorus, corner candy stand mood, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copyrighted song reference, soundalike vocal, real artist or band names, existing song titles, imitating a specific singer voice, shouted high notes, belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation that obscures melody, cavernous hall reverb, abrupt dynamic jumps, modern EDM synths, trap hi-hats, hard autotune, sidechain compression, digital synth pads, modern wide stereo production, enka-like melodrama, overly glossy karaoke backing track, brass overblare, shrill string top line, muddy electric piano, stock lounge parody, flat chorus with no lift, monotonous melody contour, thin placeholder hook, overlong intro",
+      "lyrics": "[Verse 1]\n君は小銭を掌にのせ\n角の売店で数えている\n包み紙の赤い四角が\n朝の硝子に小さく光る\n隣の店から珈琲の香り\nラジオの天気が白く滲む\n[Pre-Chorus]\n足りない一円を探す顔\n昔の友に似ていたね\nポケットの底まで\n冬の音が転がる\n[Chorus]\n包みを開けば\n少し甘く\n誰にも見せない勝ち星\n舌に残る\n[Verse 2]\n店番の人が新聞を畳み\n君の急ぎ足を笑って待つ\n遠い教室で分けた飴まで\n紙の音だけ覚えていた\nひとつ買えたら胸を張り\n坂の向こうへ歩き出す\n[Chorus]\n白い吐息に\n少し甘く\n古い名前を溶かして\n朝が進む\n[Instrumental Break]\n[Key-Lift Final Chorus]\n少し甘く\n低い声で笑えたなら\n足りない日々も紙包み\n胸でほどける\n銅の匂いが、指先に残っている\n白い庇の下で、冬が丸くなる\n銅の匂いが、指先に残っている\n白い庇の下で、冬が丸くなる\n銅の匂いが、指先に残っている\n白い庇の下で、冬が丸くなる\n銅の匂いが、指先に残っている\n白い庇の下で、冬が丸くなる\n銅の匂いが、指先に残っている\n白い庇の下で、冬が丸くなる\n少し甘く",
+      "youtube": {
+        "title": "One Coin - 角の飴 | Showa Seventies Playlist",
+        "description": "角の飴 is a 1970s Japanese playlist song for morning coffee, old radio warmth, and the thought of an old friend. A brisk kayokyoku memory of coins, candy, and a friend's small habit.",
+        "tags": [
+          "昭和歌謡",
+          "70年代 日本の歌",
+          "懐かしい日本語曲",
+          "冬の朝",
+          "古いラジオ",
+          "Showa playlist"
+        ]
+      },
+      "genreId": "kayokyoku-70s",
+      "genreText": "1970s Japanese kayokyoku, electric piano, live brass section",
+      "lyricTheme": "showa70s-tobacco-stand-candy",
+      "lyricThemeText": "counting small coins at a corner tobacco stand for one square of wrapped candy",
+      "lyricThemeArc": "careful counting becoming a small sweet victory",
+      "pov": "secondPerson",
+      "verseStyle": "image",
+      "verseStyleText": "verse lines focus on sensory images, objects, light, weather, and small gestures",
+      "chorusStyle": "image",
+      "chorusStyleText": "chorus lines focus on sensory images, objects, light, weather, and small gestures",
+      "effectiveVocalPresetId": "low-calm-male",
+      "vocalPresetSource": "plan",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 10,
+      "title": "Rain Pages",
+      "titleLocalized": "雨の頁",
+      "seasonMoment": "A rainy December bookstore morning, with a coffee cup on the sill and an old radio behind the counter.",
+      "listenerSituation": "Sheltering from rain inside a narrow bookstore, I turn pages slowly and find a note that recalls an old friend.",
+      "emotionArc": "Accidental shelter becomes unhurried discovery and a brave emotional turn.",
+      "distinctChoice": {
+        "ruleId": "harmonic_explore_unaccompanied_bars",
+        "descriptionKo": "포크 편성에 I-V-vi-IV 계열을 쓰고 마지막 후렴 직전 두 마디를 무반주로 비워 화성 전환을 또렷하게 만든다.",
+        "params": {
+          "explorationAxis": "harmony",
+          "unusualPlacement": "I-V-vi-IV lift in 1970s folk"
+        }
+      },
+      "hookPhrase": "ページをめくれ",
+      "stylePrompt": "1970s Japanese Folk, 98 BPM, fingerpicked acoustic guitar, light upright piano, simple bass, soft hand percussion, steady acoustic folk pulse, I-V-vi-IV verses, vi-IV-I-V chorus lift, soulful female voice, conversational unhurried phrasing, slight smoky depth, sustained hook first note, short sung hook intro, full arrangement, soft plate ambience, analog tape softness, small room realism, two unaccompanied bars before the last chorus, rain bookstore and coffee mood, harmonic exploration slot, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copyrighted song reference, soundalike vocal, real artist or band names, existing song titles, imitating a specific singer voice, shouted high notes, belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation that obscures melody, cavernous hall reverb, abrupt dynamic jumps, modern EDM synths, trap hi-hats, hard autotune, sidechain compression, digital synth pads, modern wide stereo production, stadium folk-rock excess, modern bedroom-pop haze, lo-fi vinyl crackle effect, rushed strumming, campfire novelty tone, childish singalong, muddy upright piano, flat chorus with no lift, overlong intro, stock loop arrangement",
+      "lyrics": "[Intro]\nページをめくれ\n[Verse 1]\n雨宿りの棚は細く\n肩の雫が床へ落ちる\n窓辺の杯はまだ熱く\n古い紙の匂いに混じる\n店のラジオが低く笑って\nあなたの癖を思い出した\n[Chorus]\n急がぬ午後に\nページをめくれ\n挟まれた栞の影が\n胸を呼ぶ\n[Verse 2]\n古本の端に小さな走り書き\n昔の友の字に少し似ている\n買うつもりなどなかった一冊を\n雨の口実に抱えてしまう\n表の通りは濡れたままでも\n帰り道だけ明るくなる\n[Chorus]\n濡れた硝子へ\nページをめくれ\n忘れた返事の続きが\n指に戻る\n[Breakdown]\n[Final Chorus]\nページをめくれ\n二つの息をそろえて\n言えなかった名を今\n胸で読み直す\n傘の骨から、細い雨がこぼれる\n会計台の木目まで、懐かしく見える\n傘の骨から、細い雨がこぼれる\n会計台の木目まで、懐かしく見える\n傘の骨から、細い雨がこぼれる\n会計台の木目まで、懐かしく見える\n傘の骨から、細い雨がこぼれる\n会計台の木目まで、懐かしく見える\n傘の骨から、細い雨がこぼれる\n会計台の木目まで、懐かしく見える\nページをめくれ",
+      "youtube": {
+        "title": "Rain Pages - 雨の頁 | Showa Seventies Playlist",
+        "description": "雨の頁 is a 1970s Japanese playlist song for morning coffee, old radio warmth, and the thought of an old friend. A passionate 1970s folk turning point for rain, used books, coffee, and an old friend's handwriting.",
+        "tags": [
+          "昭和フォーク",
+          "70年代 日本の歌",
+          "雨の日の音楽",
+          "古本屋",
+          "朝コーヒー",
+          "懐かしい曲"
+        ]
+      },
+      "genreId": "japanese-folk-70s",
+      "genreText": "1970s Japanese folk, fingerpicked acoustic guitar, light upright piano, soft analog tape hiss",
+      "lyricTheme": "showa70s-bookstore-rain-browsing",
+      "lyricThemeText": "sheltering from rain inside a narrow bookstore and turning pages slower than necessary",
+      "lyricThemeArc": "accidental shelter becoming unhurried discovery",
+      "pov": "firstPerson",
+      "verseStyle": "dialogue",
+      "verseStyleText": "verse lines use direct address or short conversational fragments without becoming spoken-word",
+      "chorusStyle": "hookRepeat",
+      "chorusStyleText": "chorus lines use compact repeated hook callbacks and simple answer phrases",
+      "effectiveVocalPresetId": "soulful-female",
+      "vocalPresetSource": "plan",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 11,
+      "title": "Shall We Sway?",
+      "titleLocalized": "市電の鈴",
+      "seasonMoment": "December dusk on a streetcar, with thermos coffee and a radio voice near the driver's seat.",
+      "listenerSituation": "Holding a tram strap at dusk, I sway through a crossing while coffee in my thermos reminds me of a quiet friend.",
+      "emotionArc": "Swaying fatigue settles into rhythmic comfort and calm gratitude.",
+      "distinctChoice": {
+        "ruleId": "post_chorus_solo",
+        "descriptionKo": "두 번째 후렴 뒤 여덟 마디 말 없는 솔로 구간을 두어 중간 장면의 숨을 길게 만든다."
+      },
+      "hookPhrase": "揺れて帰ろう",
+      "stylePrompt": "1970s New Music, 94 BPM, acoustic guitar, clean electric guitar, upright piano, live drums, warm bass, steady singer-songwriter band pulse, Verse: IVmaj7-iii7-vi7 movement / Chorus: IVM7-III7-vi-I7 marusa progression, low calm male baritone, storytelling spoken-edge delivery, smoky low resonance, plain stepwise refrain, short sung intro line, medium arrangement, intimate close-mic, analog tape color, restrained stereo width, eight-bar instrumental solo after the second chorus, streetcar dusk mood, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copyrighted song reference, soundalike vocal, real artist or band names, existing song titles, imitating a specific singer voice, shouted high notes, belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation that obscures melody, cavernous hall reverb, abrupt dynamic jumps, modern EDM synths, trap hi-hats, hard autotune, sidechain compression, digital synth pads, modern wide stereo production, ultra-modern adult pop polish, glassy FM ballad sheen, fusion solo excess, copied melody contour, cluttered add9 chords, harsh clean guitar, muddy warm bass, flat chorus with no lift, overlong intro, thin placeholder hook",
+      "lyrics": "[Intro]\nつり革が少し揺れる\n[Verse 1]\n市電の窓に暮れ色が沈み\nつり革を握る手が冷える\n魔法瓶の蓋をそっと開けると\n珈琲の湯気が膝へ降りた\n運転席そばの古い声が\n友の口調で停留所を告げる\n[Chorus]\n鈴の余韻に\n揺れて帰ろう\n肩の疲れを窓へ預け\n町を過ぎよう\n[Verse 2]\n交差点では傘が開いて\n赤い信号が水面に伸びる\n会わずに過ぎた年の数だけ\n言葉は短く澄んでゆく\n次の角まで座れなくても\n胸の席なら空いている\n[Chorus]\n古い停留所\n揺れて帰ろう\n忘れた礼を今さら\n息で運ぶ\n[Instrumental Break]\n[Key-Lift Final Chorus]\n揺れて帰ろう\n市電の鈴を抱きながら\n遠い友へありがとうを\n胸で鳴らして\n床の板目が、ゆっくり波のように続く\n降りる人の背中に、冬が滲む\n床の板目が、ゆっくり波のように続く\n降りる人の背中に、冬が滲む\n床の板目が、ゆっくり波のように続く\n降りる人の背中に、冬が滲む\n床の板目が、ゆっくり波のように続く\n降りる人の背中に、冬が滲む\n床の板目が、ゆっくり波のように続く\n降りる人の背中に、冬が滲む\n揺れて帰ろう",
+      "youtube": {
+        "title": "Shall We Sway? - 市電の鈴 | Showa Seventies Playlist",
+        "description": "市電の鈴 is a 1970s Japanese playlist song for morning coffee, old radio warmth, and the thought of an old friend. A quiet 1970s new-music track for streetcar dusk, thermos coffee, and grateful memory.",
+        "tags": [
+          "ニューミュージック",
+          "昭和プレイリスト",
+          "市電",
+          "70年代 日本の歌",
+          "古いラジオ",
+          "懐かしい日本語曲"
+        ]
+      },
+      "genreId": "new-music-70s",
+      "genreText": "1970s Japanese new music, acoustic guitar, upright piano",
+      "lyricTheme": "showa70s-streetcar-tram-bell",
+      "lyricThemeText": "gripping a tram strap as the streetcar bell rings through a quiet crossing at dusk",
+      "lyricThemeArc": "swaying fatigue settling into rhythmic comfort",
+      "pov": "firstPerson",
+      "verseStyle": "image",
+      "verseStyleText": "verse lines focus on sensory images, objects, light, weather, and small gestures",
+      "chorusStyle": "narrative",
+      "chorusStyleText": "chorus lines unfold as plain scene narration with concrete actions and time movement",
+      "effectiveVocalPresetId": "low-calm-male",
+      "vocalPresetSource": "plan",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 12,
+      "title": "By the Gate",
+      "titleLocalized": "校庭の影",
+      "seasonMoment": "A December schoolyard at dusk, with a thermos of coffee and a familiar silhouette near the gate.",
+      "listenerSituation": "At an old schoolyard gate, two people recognize each other by silhouette while a small radio plays from the caretaker's room.",
+      "emotionArc": "Nervous distance closes into easy familiarity and renewed hope.",
+      "distinctChoice": {
+        "ruleId": "harmonic_explore_string_build_duet",
+        "descriptionKo": "쇼와 그루브에 코무로 사이클 후렴을 얹고 마지막 후렴 밑을 현악 빌드로 천천히 키운다.",
+        "params": {
+          "explorationAxis": "harmony",
+          "unusualPlacement": "komuro-cycle chorus in Showa groove"
+        }
+      },
+      "hookPhrase": "名前を呼べば",
+      "stylePrompt": "1970s Showa Groove, 86 BPM, clavinet, brass stabs, wah electric guitar, live bass, tight drum kit, relaxed funk-soul pocket, Verse: IV-V-iii-vi royal road progression / Chorus: vi-IV-V-I komuro-cycle progression, small mixed vocal group, female lead with male harmony, tight unison with light detune, repeated rhythmic hook cell, instrumental intro, medium arrangement, warm natural room, analog tape warmth, narrow vintage stereo, strings build steadily under the final chorus, schoolyard reunion mood, harmonic exploration slot, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copyrighted song reference, soundalike vocal, real artist or band names, existing song titles, imitating a specific singer voice, shouted high notes, belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation that obscures melody, cavernous hall reverb, abrupt dynamic jumps, modern EDM synths, trap hi-hats, hard autotune, sidechain compression, digital synth pads, modern wide stereo production, disco parody, aggressive funk slap, hard backbeat, crowded clavinet comping, brass stab overload, wah guitar clutter, shouted soul chorus, muddy live bass, flat chorus with no lift, overlong intro",
+      "lyrics": "[Intro]\n[Verse 1: Female Vocal]\n校庭の砂は冬に乾いて\n門の影だけ長く伸びる\n用務室から小さなラジオ\n暮れの挨拶を繰り返す\n魔法瓶の珈琲を抱えた人が\nこちらを見て立ち止まった\n[Chorus: Male and Female Duet]\n風の向こうで\n名前を呼べば\n遠い机の傷まで\nふいに近い\n[Verse 2: Male Vocal]\n君だと分かるまでの数秒\n胸の時計は昔へ戻る\n白い息には照れ笑いが混じり\n言い訳など要らなくなった\n校舎の窓に残る夕焼け\nあの日の声を丸く映す\n[Chorus: Male and Female Duet]\n門のそばから\n名前を呼べば\n離れた年も肩を並べ\n歩き出せる\n[Final Chorus: Male and Female Duet Harmony]\n名前を呼べば\n砂の匂いが戻って\n古い友の笑い皺まで\n今に灯る\nポケットの切符も、今日は折れずにいる\n二人の影が、門の下で重なる\nポケットの切符も、今日は折れずにいる\n二人の影が、門の下で重なる\nポケットの切符も、今日は折れずにいる\n二人の影が、門の下で重なる\nポケットの切符も、今日は折れずにいる\n二人の影が、門の下で重なる\nポケットの切符も、今日は折れずにいる\n二人の影が、門の下で重なる\n名前を呼べば",
+      "youtube": {
+        "title": "By the Gate - 校庭の影 | Showa Seventies Playlist",
+        "description": "校庭の影 is a 1970s Japanese playlist song for morning coffee, old radio warmth, and the thought of an old friend. A duet-like Showa groove memory set at an old schoolyard gate.",
+        "tags": [
+          "昭和グルーヴ",
+          "70年代 日本の歌",
+          "昭和プレイリスト",
+          "旧友",
+          "校庭",
+          "懐かしい日本語曲"
+        ]
+      },
+      "genreId": "showa-groove-70s",
+      "genreText": "1970s funk and soul influenced Japanese kayokyoku, clavinet, wah electric guitar, confident Japanese pop vocal",
+      "lyricTheme": "showa70s-schoolyard-reunion",
+      "lyricThemeText": "walking back into an old schoolyard at dusk and recognizing a familiar silhouette by the gate",
+      "lyricThemeArc": "nervous distance closing into easy familiarity",
+      "pov": "thirdPerson",
+      "verseStyle": "dialogue",
+      "verseStyleText": "verse lines use direct address or short conversational fragments without becoming spoken-word",
+      "chorusStyle": "image",
+      "chorusStyleText": "chorus lines focus on sensory images, objects, light, weather, and small gestures",
+      "effectiveVocalPresetId": "mixed-harmony-group",
+      "vocalPresetSource": "plan",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 13,
+      "title": "Steam in the Mirror",
+      "titleLocalized": "鏡の湯気",
+      "seasonMoment": "A late December morning barber shop mirror fogged by warm towels and old radio chatter.",
+      "listenerSituation": "In a barber shop chair, I watch the mirror fog while towels steam and the old radio mentions a town where my friend once lived.",
+      "emotionArc": "Routine grooming becomes an unexpected moment of care and tender wistfulness.",
+      "distinctChoice": {
+        "ruleId": "sax_break_memory",
+        "descriptionKo": "느린 가요쿄쿠 중간에 여덟 마디 색소폰 솔로 브레이크를 넣어 말보다 긴 회상을 만든다."
+      },
+      "hookPhrase": "灯をつけて",
+      "stylePrompt": "1970s Kayokyoku, 69 BPM, electric piano, brushed drums, round electric bass, live strings, restrained kayokyoku ballad pulse, IVM7-III7-vi-I7 marusa progression, mature elegant female mezzo-soprano, light rhythmic phrasing, velvety low resonance, symmetric four-bar phrases, no intro tag, vocal starts immediately, sparse arrangement, intimate close-mic, analog tape warmth, narrow stereo, eight-bar saxophone solo break, barber mirror steam and old radio mood, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copyrighted song reference, soundalike vocal, real artist or band names, existing song titles, imitating a specific singer voice, shouted high notes, belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation that obscures melody, cavernous hall reverb, abrupt dynamic jumps, modern EDM synths, trap hi-hats, hard autotune, sidechain compression, digital synth pads, modern wide stereo production, cabaret caricature, excessive spring reverb, stiff ballad march, copied Showa cadence, nasal mimic vocal, cluttered live strings, brittle brushed drums, generic demo-band sound, thin placeholder hook, stock loop arrangement",
+      "lyrics": "[Verse 1]\n白い布を肩へかけられ\n鏡の中で朝が曇る\n熱い手ぬぐいの湯気の奥\n私の顔が少し若い\n棚のラジオが町名を告げて\n旧い友の住所が浮かぶ\n[Chorus]\n曇る硝子に\n灯をつけて\n忘れた便りの宛先を\nそっと照らして\n[Verse 2]\n鋏の合間に店主が笑い\n寒いですねと湯を足した\nそれだけのことが胸へ沁みて\n長い年月がほどけてゆく\n襟の白さを整えられて\n帰りの坂まで背が伸びる\n[Chorus]\n温む鏡に\n灯をつけて\n疲れた肩の奥まで\n朝が入る\n[Instrumental Break]\n[Final Chorus]\n灯をつけて\n湯気の向こうの私へ\n友の町まで見えるように\n背広を払う\n石鹸の匂いが、冬の袖に残る\n待合の椅子には、新聞が畳まれる\n石鹸の匂いが、冬の袖に残る\n待合の椅子には、新聞が畳まれる\n石鹸の匂いが、冬の袖に残る\n待合の椅子には、新聞が畳まれる\n石鹸の匂いが、冬の袖に残る\n待合の椅子には、新聞が畳まれる\n石鹸の匂いが、冬の袖に残る\n待合の椅子には、新聞が畳まれる\n石鹸の匂いが、冬の袖に残る\n待合の椅子には、新聞が畳まれる\n灯をつけて",
+      "youtube": {
+        "title": "Steam in the Mirror - 鏡の湯気 | Showa Seventies Playlist",
+        "description": "鏡の湯気 is a 1970s Japanese playlist song for morning coffee, old radio warmth, and the thought of an old friend. A slow kayokyoku wind-down about a barber mirror, warm towels, radio, and remembered towns.",
+        "tags": [
+          "昭和歌謡",
+          "70年代 日本の歌",
+          "床屋",
+          "古いラジオ",
+          "懐かしい日本語曲",
+          "朝の歌"
+        ]
+      },
+      "genreId": "kayokyoku-70s",
+      "genreText": "1970s Japanese kayokyoku, electric piano, live brass section",
+      "lyricTheme": "showa70s-barber-shop-mirror",
+      "lyricThemeText": "watching a barber shop mirror fog slightly while warm towels steam over tired shoulders",
+      "lyricThemeArc": "quiet routine becoming an unexpected moment of care",
+      "pov": "firstPerson",
+      "verseStyle": "dialogue",
+      "verseStyleText": "verse lines use direct address or short conversational fragments without becoming spoken-word",
+      "chorusStyle": "hookRepeat",
+      "chorusStyleText": "chorus lines use compact repeated hook callbacks and simple answer phrases",
+      "effectiveVocalPresetId": "mature-female",
+      "vocalPresetSource": "plan",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 14,
+      "title": "The Voice Returns",
+      "titleLocalized": "遠い声",
+      "seasonMoment": "A late-night December room where reheated coffee sits beside a radio dial.",
+      "listenerSituation": "At a low table late at night, you turn a static-filled radio dial until a familiar program voice returns beside reheated coffee.",
+      "emotionArc": "Searching frustration resolves into a comforting voice and peaceful farewell.",
+      "distinctChoice": {
+        "ruleId": "full_stop_radio_hook",
+        "descriptionKo": "마지막 훅 직전 완전 정지를 넣어 라디오 주파수가 맞는 순간처럼 긴장을 끊고 돌아온다."
+      },
+      "hookPhrase": "声が戻る",
+      "stylePrompt": "1970s Japanese Folk, 88 BPM, fingerpicked acoustic guitar, simple bass, light upright piano, soft hand percussion, plain acoustic folk pulse, I-vi-IV-V doo-wop progression, mature soulful male tenor, conversational unhurried phrasing, worn weathered edge, call-and-response hook shape, short sung intro line, medium arrangement, tape slap echo, dry room intimacy, analog tape softness, full stop before the band crashes back on the hook, late radio dial and reheated coffee mood, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copyrighted song reference, soundalike vocal, real artist or band names, existing song titles, imitating a specific singer voice, shouted high notes, belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation that obscures melody, cavernous hall reverb, abrupt dynamic jumps, modern EDM synths, trap hi-hats, hard autotune, sidechain compression, digital synth pads, modern wide stereo production, protest-song caricature, exaggerated rustic accent, brittle hand percussion, crowded chorus shouts, modern indie haze, thin acoustic body, generic AI demo-band sound, muddy low-end mix, stock arrangement with no development",
+      "lyrics": "[Intro]\n針を少しだけ戻す\n[Verse 1]\n畳の上に膝を折り\n冷めた珈琲をもう一度温める\nあなたはラジオのつまみを回し\n砂のような声を分けている\n窓の外では冬の電線\n誰かの町へ細く続く\n[Chorus]\n雑音の底で\n声が戻る\n忘れていた番組名が\n胸に座る\n[Verse 2]\n旧い友が好んだ時間だけ\nなぜか今でも覚えているね\n葉書を書けば届くだろうか\n住所の番地はあやふやでも\n湯のみの縁を指でたどり\nあなたは小さく息をつく\n[Chorus]\n遠い周波に\n声が戻る\nさがしていた夜の椅子が\nそっと見つかる\n[Breakdown]\n[Final Chorus]\n声が戻る\n止まった間のあとで\n友の笑いに似た調子が\n部屋を満たす\n卓の輪染みが、月のように淡い\n古い毛布の端を、膝に引き寄せる\n卓の輪染みが、月のように淡い\n古い毛布の端を、膝に引き寄せる\n卓の輪染みが、月のように淡い\n古い毛布の端を、膝に引き寄せる\n卓の輪染みが、月のように淡い\n古い毛布の端を、膝に引き寄せる\n卓の輪染みが、月のように淡い\n古い毛布の端を、膝に引き寄せる\n声が戻る",
+      "youtube": {
+        "title": "The Voice Returns - 遠い声 | Showa Seventies Playlist",
+        "description": "遠い声 is a 1970s Japanese playlist song for morning coffee, old radio warmth, and the thought of an old friend. A peaceful 1970s folk farewell built around an old radio dial and reheated coffee.",
+        "tags": [
+          "昭和フォーク",
+          "古いラジオ",
+          "70年代 日本の歌",
+          "夜の音楽",
+          "昭和プレイリスト",
+          "懐かしい曲"
+        ]
+      },
+      "genreId": "japanese-folk-70s",
+      "genreText": "1970s Japanese folk, fingerpicked acoustic guitar, light upright piano, plain acoustic folk pulse",
+      "lyricTheme": "showa70s-radio-dial-tuning",
+      "lyricThemeText": "turning a static-filled radio dial slowly to find one familiar late-night program",
+      "lyricThemeArc": "searching frustration resolving into a comforting voice",
+      "pov": "secondPerson",
+      "verseStyle": "image",
+      "verseStyleText": "verse lines focus on sensory images, objects, light, weather, and small gestures",
+      "chorusStyle": "narrative",
+      "chorusStyleText": "chorus lines unfold as plain scene narration with concrete actions and time movement",
+      "effectiveVocalPresetId": "warm-mature-male",
+      "vocalPresetSource": "plan",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 15,
+      "title": "Home Road",
+      "titleLocalized": "帰る道",
+      "seasonMoment": "A very slow pre-dawn rural bus arrival, with family coffee and the same old radio tone waiting inside.",
+      "listenerSituation": "After stepping off a rural bus before morning, she walks toward a family home where coffee and an old radio wait in the kitchen.",
+      "emotionArc": "Travel fatigue melts into unconditional welcome, leaving the ending open enough to loop back to the first cup.",
+      "distinctChoice": {
+        "ruleId": "unresolved_loop_closer",
+        "descriptionKo": "마지막 후렴을 완전히 닫지 않고 1번 트랙의 아침 커피와 라디오 김 이미지를 살짝 되돌린다."
+      },
+      "hookPhrase": "朝へ帰ろう",
+      "stylePrompt": "1970s New Music, 63 BPM, acoustic guitar, clean electric guitar, upright piano, warm bass, slow hand-played singer-songwriter pulse, I-V-vi-IV verses, vi-IV-I-V chorus lift, soulful female voice, gentle swung phrasing, clean bell tone, rising melodic sequence into chorus, short sung intro line, sparse arrangement, soft plate ambience, analog tape color, restrained stereo width, unresolved final cadence that hints back to the first song, rural bus home and morning coffee mood, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copyrighted song reference, soundalike vocal, real artist or band names, existing song titles, imitating a specific singer voice, shouted high notes, belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation that obscures melody, cavernous hall reverb, abrupt dynamic jumps, modern EDM synths, trap hi-hats, hard autotune, sidechain compression, digital synth pads, modern wide stereo production, glossy karaoke backing track, overly busy chord substitutions, rushed conversational phrasing, hard rock drums, brittle top end, synthetic pad wash, generic demo-band sound, monotonous melody contour, stock arrangement with no development",
+      "lyrics": "[Intro]\n白い道が見える\n[Verse 1]\n始発前の停留所に降りて\n砂利道を一人で歩く\n遠い家の台所から\n珈琲の匂いが迎えに来る\n窓の中では古いラジオ\n低い声で朝を置いている\n[Chorus]\n夏の名残も\n朝へ帰ろう\n疲れた鞄をほどけば\n家が近い\n[Verse 2]\n庭の木々には虫の声が残り\n母の暖簾が少し揺れる\n旧い友から届いた葉書を\n卓の端へそっと置いた\n返事はまだ書けないまま\nそれでも席は空いている\n[Instrumental Break]\n[Final Chorus]\n朝へ帰ろう\n茶碗の湯気が輪を描く\n次の言葉は窓の外\nまだ白いまま\n玄関の敷居が、足裏にやわらかい\n遠い道ほど、湯気はまっすぐ昇る\n玄関の敷居が、足裏にやわらかい\n遠い道ほど、湯気はまっすぐ昇る\n玄関の敷居が、足裏にやわらかい\n遠い道ほど、湯気はまっすぐ昇る\n玄関の敷居が、足裏にやわらかい\n遠い道ほど、湯気はまっすぐ昇る\n玄関の敷居が、足裏にやわらかい\n遠い道ほど、湯気はまっすぐ昇る\n玄関の敷居が、足裏にやわらかい\n遠い道ほど、湯気はまっすぐ昇る\n朝へ帰ろう",
+      "youtube": {
+        "title": "Home Road - 帰る道 | Showa Seventies Playlist",
+        "description": "帰る道 is a 1970s Japanese playlist song for morning coffee, old radio warmth, and the thought of an old friend. A comforting closer for rural bus arrivals, family kitchens, coffee steam, and old radio memory.",
+        "tags": [
+          "ニューミュージック",
+          "昭和プレイリスト",
+          "70年代 日本の歌",
+          "朝コーヒー",
+          "古いラジオ",
+          "懐かしい日本語曲"
+        ]
+      },
+      "genreId": "new-music-70s",
+      "genreText": "1970s Japanese new music, acoustic guitar, upright piano",
+      "lyricTheme": "showa70s-countryside-grandmother-visit",
+      "lyricThemeText": "stepping off a rural bus toward a quiet family home in the countryside with cicadas loud in the summer trees",
+      "lyricThemeArc": "travel fatigue melting into unconditional welcome",
+      "pov": "thirdPerson",
+      "verseStyle": "dialogue",
+      "verseStyleText": "verse lines use direct address or short conversational fragments without becoming spoken-word",
+      "chorusStyle": "image",
+      "chorusStyleText": "chorus lines focus on sensory images, objects, light, weather, and small gestures",
+      "effectiveVocalPresetId": "soulful-female",
+      "vocalPresetSource": "plan",
+      "qualityScore": 0,
+      "warnings": []
+    }
+  ]
+}

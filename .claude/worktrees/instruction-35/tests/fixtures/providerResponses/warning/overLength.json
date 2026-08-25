@@ -1,0 +1,84 @@
+{
+  "songs": [
+    {
+      "trackNo": 1,
+      "title": "Stay",
+      "hookPhrase": "Stay Here With Me",
+      "stylePrompt": "warm acoustic pop, I-V-vi-IV progression, gentle stop-time break before the final chorus, 92 BPM, tender intimate mood, descriptor phrase number 1, descriptor phrase number 2, descriptor phrase number 3, descriptor phrase number 4, descriptor phrase number 5, descriptor phrase number 6, descriptor phrase number 7, descriptor phrase number 8, descriptor phrase number 9, descriptor phrase number 10, descriptor phrase number 11, descriptor phrase number 12, descriptor phrase number 13, descriptor phrase number 14, descriptor phrase number 15, descriptor phrase number 16, descriptor phrase number 17, descriptor phrase number 18, descriptor phrase number 19, descriptor phrase number 20, descriptor phrase number 21, descriptor phrase number 22, descriptor phrase number 23, descriptor phrase number 24, descriptor phrase number 25, descriptor phrase number 26, descriptor phrase number 27, descriptor phrase number 28, descriptor phrase number 29, descriptor phrase number 30, descriptor phrase number 31, descriptor phrase number 32, descriptor phrase number 33, descriptor phrase number 34, descriptor phrase number 35, descriptor phrase number 36, descriptor phrase number 37, descriptor phrase number 38, descriptor phrase number 39, descriptor phrase number 40, descriptor phrase number 41, descriptor phrase number 42, descriptor phrase number 43, descriptor phrase number 44, descriptor phrase number 45, descriptor phrase number 46, descriptor phrase number 47, descriptor phrase number 48, descriptor phrase number 49, descriptor phrase number 50, descriptor phrase number 51, descriptor phrase number 52, descriptor phrase number 53, descriptor phrase number 54, descriptor phrase number 55, descriptor phrase number 56, descriptor phrase number 57, descriptor phrase number 58, descriptor phrase number 59, descriptor phrase number 60",
+      "lyrics": "[Verse 1]\nSunlight falls across the old back porch\nThe kettle hums a slow familiar song\nI trace the grain of wood beneath my hand\nAnother quiet afternoon rolls on\n\n[Chorus]\nStay Here With Me\nThe evening always finds its own slow pace\nThe garden light still warm against the wall\nStay Here With Me\n\n[Verse 2]\nThe garden gate creaks open in the breeze\nA paper note still folded on the shelf\nI keep the porch light burning after dark\nWaiting for the sound of your own step\n\n[Chorus]\nStay Here With Me\nDon't let the evening pull you far away\nStay Here With Me\nThe porch light waits until you're home to stay\n\n[Bridge]\nMaybe the years will soften every mile\nMaybe the road will finally bring you back\n\n[Chorus]\nStay Here With Me\nDon't let the evening pull you far away\nStay Here With Me\nThe porch light waits until you're home to stay\n\n[Verse 3]\nfiller line number 1 about the same porch and the same evening light\nfiller line number 2 about the same porch and the same evening light\nfiller line number 3 about the same porch and the same evening light\nfiller line number 4 about the same porch and the same evening light\nfiller line number 5 about the same porch and the same evening light\nfiller line number 6 about the same porch and the same evening light\nfiller line number 7 about the same porch and the same evening light\nfiller line number 8 about the same porch and the same evening light\nfiller line number 9 about the same porch and the same evening light\nfiller line number 10 about the same porch and the same evening light\nfiller line number 11 about the same porch and the same evening light\nfiller line number 12 about the same porch and the same evening light\nfiller line number 13 about the same porch and the same evening light\nfiller line number 14 about the same porch and the same evening light\nfiller line number 15 about the same porch and the same evening light\nfiller line number 16 about the same porch and the same evening light\nfiller line number 17 about the same porch and the same evening light\nfiller line number 18 about the same porch and the same evening light\nfiller line number 19 about the same porch and the same evening light\nfiller line number 20 about the same porch and the same evening light\nfiller line number 21 about the same porch and the same evening light\nfiller line number 22 about the same porch and the same evening light\nfiller line number 23 about the same porch and the same evening light\nfiller line number 24 about the same porch and the same evening light\nfiller line number 25 about the same porch and the same evening light\nfiller line number 26 about the same porch and the same evening light\nfiller line number 27 about the same porch and the same evening light\nfiller line number 28 about the same porch and the same evening light\nfiller line number 29 about the same porch and the same evening light\nfiller line number 30 about the same porch and the same evening light\nfiller line number 31 about the same porch and the same evening light\nfiller line number 32 about the same porch and the same evening light\nfiller line number 33 about the same porch and the same evening light\nfiller line number 34 about the same porch and the same evening light\nfiller line number 35 about the same porch and the same evening light\nfiller line number 36 about the same porch and the same evening light\nfiller line number 37 about the same porch and the same evening light\nfiller line number 38 about the same porch and the same evening light\nfiller line number 39 about the same porch and the same evening light\nfiller line number 40 about the same porch and the same evening light\nfiller line number 41 about the same porch and the same evening light\nfiller line number 42 about the same porch and the same evening light\nfiller line number 43 about the same porch and the same evening light\nfiller line number 44 about the same porch and the same evening light\nfiller line number 45 about the same porch and the same evening light\nfiller line number 46 about the same porch and the same evening light\nfiller line number 47 about the same porch and the same evening light\nfiller line number 48 about the same porch and the same evening light\nfiller line number 49 about the same porch and the same evening light\nfiller line number 50 about the same porch and the same evening light\nfiller line number 51 about the same porch and the same evening light\nfiller line number 52 about the same porch and the same evening light\nfiller line number 53 about the same porch and the same evening light\nfiller line number 54 about the same porch and the same evening light\nfiller line number 55 about the same porch and the same evening light\nfiller line number 56 about the same porch and the same evening light\nfiller line number 57 about the same porch and the same evening light\nfiller line number 58 about the same porch and the same evening light\nfiller line number 59 about the same porch and the same evening light\nfiller line number 60 about the same porch and the same evening light",
+      "youtube": {
+        "title": "Stay",
+        "description": "A heartfelt addition to your listening pack.",
+        "tags": [
+          "playlist",
+          "evening",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "trackNo": 2,
+      "title": "Carry Home",
+      "hookPhrase": "Carry Me Home",
+      "stylePrompt": "soft mid-tempo pop, ii-V-I progression, subtle key change lifting the last chorus, 100 BPM, warm nostalgic mood",
+      "lyrics": "[Verse 1]\nThe last bus rolls down an empty avenue\nStreetlights blink awake one by one\nI count the stops until the road turns familiar\nEvery mile a little closer to done\n\n[Chorus]\nThe fields blur past in gentle shapes tonight\nCarry Me Home\nThe radio hums a tune I half recall\nCarry Me Home\n\n[Verse 2]\nThe radio hums an old forgotten tune\nWindow cracked to let the night air in\nI watch the fields blur into gentle shapes\nAnd feel the weight of the day begin to thin\n\n[Chorus]\nCarry Me Home\nThrough every turn I know so well\nCarry Me Home\nWhere the porch steps still remember my name\n\n[Bridge]\nEvery road I've taken led me back again\nEvery light still burning just the same\n\n[Chorus]\nCarry Me Home\nThrough every turn I know so well\nCarry Me Home\nWhere the porch steps still remember my name",
+      "youtube": {
+        "title": "Carry Home",
+        "description": "A heartfelt addition to your listening pack.",
+        "tags": [
+          "playlist",
+          "evening",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "trackNo": 3,
+      "title": "Hold On Until Tonight",
+      "hookPhrase": "Hold On Tonight",
+      "stylePrompt": "gentle piano pop, I-vi-IV-V progression, quiet breakdown before the chorus returns, 88 BPM, reflective evening mood",
+      "lyrics": "[Verse 1]\nThe kitchen clock ticks softer than before\nA single lamp still burning down the hall\nI fold the letters no one ever sent\nAnd listen for a footstep in the wall\n\n[Chorus]\nHold On Tonight\nThe quiet always passes before dawn\nThe lamp stays lit however long it takes\n\n[Verse 2]\nThe old piano gathers dust and hush\nA photograph still leaning on the frame\nI hum a tune I haven't sung in years\nAnd somehow it still sounds the same\n\n[Chorus]\nHold On Tonight\nThe quiet always passes before dawn\nHold On Tonight\nI'll keep the porch light on until you're home\n\n[Bridge]\nSome nights feel longer than the whole wide year\nBut morning always finds its way back here\n\n[Chorus]\nHold On Tonight\nThe quiet always passes before dawn\nHold On Tonight\nI'll keep the porch light on until you're home",
+      "youtube": {
+        "title": "Hold On Until Tonight",
+        "description": "A heartfelt addition to your listening pack.",
+        "tags": [
+          "playlist",
+          "evening",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "trackNo": 4,
+      "title": "Take My Hand Tonight",
+      "hookPhrase": "Take My Hand Now",
+      "stylePrompt": "bright pop ballad, vi-IV-I-V progression, a cappella moment leading into the chorus, 104 BPM, hopeful uplifting mood",
+      "lyrics": "[Verse 1]\nThe morning train pulls slowly out of view\nA paper cup still warm between my palms\nI watch the platform shrink behind the glass\nAnd trust the distance won't undo our calm\n\n[Chorus]\nThe whole horizon's waiting up ahead\nWe'll find our way no matter where it leads\nTake My Hand Now\n\n[Verse 2]\nThe city lights come rushing into frame\nA thousand windows glowing gold and blue\nI keep the ticket folded in my coat\nA quiet promise that I'm coming through\n\n[Chorus]\nTake My Hand Now\nThe whole horizon's waiting up ahead\nTake My Hand Now\nWe'll find our way no matter where it leads\n\n[Bridge]\nWherever this road happens to unwind\nI'll keep you close and never fall behind\n\n[Chorus]\nTake My Hand Now\nThe whole horizon's waiting up ahead\nTake My Hand Now\nWe'll find our way no matter where it leads",
+      "youtube": {
+        "title": "Take My Hand Tonight",
+        "description": "A heartfelt addition to your listening pack.",
+        "tags": [
+          "playlist",
+          "evening",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "trackNo": 5,
+      "title": "Never Let Go Of This Feeling",
+      "hookPhrase": "Never Let Go",
+      "stylePrompt": "warm string-led pop, I-V-vi-IV progression, half-time drop before the chorus swells, 84 BPM, wistful tender mood",
+      "lyrics": "[Verse 1]\nThe harbor lights are scattered on the tide\nA fishing boat still rocking by the pier\nI trace the wake it leaves behind on the water\nAnd wonder how we ended up right here\n\n[Chorus]\nThe evening gulls are circling overhead\nNever Let Go\nA lantern swinging gently by the door\n\n[Verse 2]\nThe evening gulls are circling overhead\nA lantern swinging gently by the door\nI count the years we've spent along this shore\nAnd find I love you even more\n\n[Chorus]\nNever Let Go\nOf every quiet moment we still share\nNever Let Go\nThe tide comes back no matter where we are\n\n[Bridge]\nThe water always finds its way back in\nAnd so do we, again and again\n\n[Chorus]\nNever Let Go\nOf every quiet moment we still share\nNever Let Go\nThe tide comes back no matter where we are",
+      "youtube": {
+        "title": "Never Let Go Of This Feeling",
+        "description": "A heartfelt addition to your listening pack.",
+        "tags": [
+          "playlist",
+          "evening",
+          "acoustic"
+        ]
+      }
+    }
+  ]
+}

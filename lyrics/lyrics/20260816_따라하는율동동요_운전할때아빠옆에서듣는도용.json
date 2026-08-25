@@ -1,0 +1,711 @@
+{
+  "meta": {
+    "setName": "20260816_따라하는율동동요_운전할때아빠옆에서듣는도용",
+    "generatedAt": "2026-08-16T05:27:26.730Z",
+    "channelId": "follow-along-action-song",
+    "channelLabel": "따라 하는 율동 동요",
+    "conceptLabel": "운전할 때 아빠 옆에서 듣는 도용",
+    "songCount": 15,
+    "lyricLanguage": "korean",
+    "bridgeVersion": "0.21.0"
+  },
+  "songs": [
+    {
+      "trackNo": 1,
+      "title": "Bunny Start",
+      "titleLocalized": "폴짝토끼",
+      "seasonMoment": "Early spring driveway start with clean hands, a buckled seat, and dad beside the wheel.",
+      "listenerSituation": "아파트 주차장에서 출발하기 전 아이가 뒷좌석 옆자리에서 아빠의 고개 끄덕임을 보고 토끼 발처럼 작게 뛰는 장면.",
+      "emotionArc": "처음에는 쑥스러워 작게 움직이다가 가족 출발 노래 속에서 씩씩하게 따라 한다.",
+      "kidsAction": "무릎 위로 작게 점프하기",
+      "distinctChoice": {
+        "ruleId": "WORD_ACCUMULATION",
+        "descriptionKo": "후렴 앞마다 폴짝 동작에 손, 무릎, 어깨가 하나씩 더해져 차 안 율동이 커진다.",
+        "params": {
+          "words": "손,무릎,어깨"
+        }
+      },
+      "hookPhrase": "토끼야 폴짝해",
+      "stylePrompt": "Korean Animal and Vehicle Song, 108 BPM, ukulele, bright synth pad, hand claps, xylophone, playful trotting pulse, I-IV-V-I progression, bright childlike boy voice, playful and youthful, clear Korean diction, medium arrangement, no intro tag, singing starts immediately at full playback level, stop-time first chorus word, final hook adds more child voices without raising volume, short wordless break before final chorus, clean children's mix, root bass marks chord changes, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, real artist names, band names, copied melody, copyrighted song reference, existing song title, soundalike vocal, nursery rhyme rewrite, adult romance, scary theme, sad farewell, senior-radio nostalgia, distorted guitar, heavy sub bass, harsh percussion, piercing high register, dense percussion layers, overlong intro, muddy low end, washed-out vocal reverb, flat chorus, monotonous melody, generic demo backing, karaoke gloss, unsafe driving commands, unbuckled movement, front-seat child imagery, chaotic honking, rough engine noise, gloomy travel mood, 그리움, 추억, 회상, 이별, 외로움, 쓸쓸함, 창가, 주전자, 사진첩, 편지, 라디오",
+      "lyrics": "[Verse 1]\n깨끗한 손 무릎 위\n아빠가 끄덕 하면\n나는 살짝 콩\n토끼 발처럼 콩\n벨트는 꼭 안녕\n출발길이 반짝\n\n[Pre-Chorus]\n손 하나 톡톡\n무릎 둘 톡톡\n어깨도 같이 준비\n\n[Chorus]\n차가 천천히 돌아요\n토끼야 폴짝해\n작게 뛰고 크게 웃어요\n\n[Verse 2]\n하얀 선 지나가고\n나무가 손 흔들면\n나는 다시 콩\n옆자리 웃음 콩\n길도 우리 박자\n봄바람도 박자\n\n[Chorus]\n손 무릎 어깨까지\n토끼야 폴짝해\n아빠 눈도 웃어요\n\n[Bridge]\n숨 한번 쉬고\n콩 쉬고 콩\n모두 같은 박자\n\n[Instrumental Break]\n\n[Final Chorus]\n토끼야 폴짝해\n차가 천천히 돌아요\n손 무릎 어깨까지\n작게 뛰고 크게 웃어요\n토끼야 폴짝해",
+      "youtube": {
+        "title": "Bunny Start | Korean Car Ride Action Song",
+        "description": "A bright Korean follow-along kids song for car rides with dad, tiny seated jumps, clean hands, and easy family movement.",
+        "tags": [
+          "율동 동요",
+          "유치원 체조",
+          "동요 플레이리스트",
+          "어린이 액션송",
+          "유아 음악",
+          "신나는 동요",
+          "운전 동요",
+          "자동차 동요",
+          "토끼 동요"
+        ]
+      },
+      "genreId": "krkids-animal-vehicle",
+      "genreText": "playful Korean animal-and-vehicle song, ukulele, bright synth pad",
+      "lyricTheme": "krkids-jump-along",
+      "lyricThemeText": "jumping in place to the beat during circle time",
+      "lyricThemeArc": "shy hesitation turning into bouncy group energy",
+      "pov": "firstPerson",
+      "verseStyle": "image",
+      "verseStyleText": "verse lines focus on sensory images, objects, light, weather, and small gestures",
+      "chorusStyle": "narrative",
+      "chorusStyleText": "chorus lines unfold as plain scene narration with concrete actions and time movement",
+      "effectiveVocalPresetId": "kid-boy",
+      "vocalPresetSource": "tone-match",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 2,
+      "title": "Clap Puppy",
+      "titleLocalized": "손뼉댕댕",
+      "seasonMoment": "Spring school-zone pause where a red light gives time for a clap-and-copy game.",
+      "listenerSituation": "유치원 앞 빨간불에서 아빠가 두 번 손뼉을 보이면 아이가 뒷좌석에서 강아지 인형과 함께 그대로 따라 하는 장면.",
+      "emotionArc": "조심스레 보고 맞추던 아이가 Hand와 clap을 자신 있게 말하며 리더를 따라 한다.",
+      "kidsAction": "손뼉 두 번 따라 치기",
+      "distinctChoice": {
+        "ruleId": "CALL_AND_RESPONSE",
+        "descriptionKo": "아빠의 짧은 Korean-English 동작 말에 아이들이 같은 문장을 바로 되돌려 부른다."
+      },
+      "hookPhrase": "손뼉 치고 Hand",
+      "stylePrompt": "Korean-English Learning Song, 105 BPM, ukulele, marimba, hand claps, xylophone taps, clean two-step groove, I-V-vi-IV bright kids progression, childlike boy and girl voices, overlapping cheerful entries, clear Korean diction, sparse arrangement, short sung intro line, full playback level from first bar, children echo the chorus line word for word, final chorus octave lift but gentle, close bright vocal mix, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, real artist names, band names, copied melody, copyrighted song reference, existing song title, soundalike vocal, nursery rhyme rewrite, adult romance, scary theme, sad farewell, senior-radio nostalgia, distorted guitar, heavy sub bass, harsh percussion, piercing high register, crowded percussion, overlong intro, muddy low end, excessive vocal reverb, flat chorus, monotonous melody, generic demo backing, karaoke gloss, confusing English pronunciation, drill-like classroom tone, unsafe clapping near controls, impatient traffic mood, 그리움, 추억, 회상, 이별, 외로움, 쓸쓸함, 창가, 주전자, 사진첩, 편지, 라디오",
+      "lyrics": "[Intro]\nClap clap, 준비해\n\n[Verse 1]\n빨간불 잠깐 멈춤\n아빠 손이 짝짝\n너는 보고 짝짝\n강아지도 끄덕\nHand 말해 보고\n깨끗한 손 반짝\n\n[Chorus]\n아빠가 먼저 말해\n손뼉 치고 Hand\n아이들이 다시 말해요\n\n[Verse 2]\n초록불 기다리며\nClap 소리 둘\n너는 이제 먼저\n작게 리더가 돼\n비누 냄새 좋아\n웃음도 깨끗해\n\n[Bridge]\n아빠 말해 clap\n너도 말해 clap\n같은 말로 대답\n\n[Chorus]\n보고 바로 따라 해\n손뼉 치고 Hand\n강아지도 같이 끄덕\n준비 끝 좋아요\n\n[Instrumental Break]\n\n[Final Chorus]\n손뼉 치고 Hand\n아빠가 먼저 말해\n아이들이 다시 말해요\n깨끗한 손 반짝\n손뼉 치고 Hand",
+      "youtube": {
+        "title": "Clap Puppy | Korean-English Clap Song for Kids",
+        "description": "A simple Korean-English learning song for clapping, copying dad's movement, and saying Hand with bright preschool energy.",
+        "tags": [
+          "율동 동요",
+          "유치원 체조",
+          "동요 플레이리스트",
+          "어린이 액션송",
+          "유아 영어",
+          "한영 동요",
+          "손뼉 동요",
+          "따라 하기 노래"
+        ]
+      },
+      "genreId": "krkids-bilingual",
+      "genreText": "clear Korean-English learning song, ukulele, xylophone, call-and-response between languages",
+      "lyricTheme": "krkids-clap-follow-along",
+      "lyricThemeText": "clapping hands and following the leader's simple moves",
+      "lyricThemeArc": "careful watching becoming confident copying",
+      "pov": "secondPerson",
+      "verseStyle": "narrative",
+      "verseStyleText": "verse lines unfold as plain scene narration with concrete actions and time movement",
+      "chorusStyle": "hookRepeat",
+      "chorusStyleText": "chorus lines use compact repeated hook callbacks and simple answer phrases",
+      "effectiveVocalPresetId": "kid-boy",
+      "vocalPresetSource": "tone-match",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 3,
+      "title": "Five Little Stars",
+      "titleLocalized": "손가락별",
+      "seasonMoment": "Spring tunnel drive where each passing ceiling light becomes a counting cue.",
+      "listenerSituation": "짧은 터널을 지날 때 아이가 천장 불빛을 보며 손가락을 하나씩 펴서 다섯까지 세는 장면.",
+      "emotionArc": "집중해서 손가락을 세던 아이가 다섯 번째 빛에서 자랑스럽게 웃는다.",
+      "kidsAction": "손가락 하나씩 펴기",
+      "distinctChoice": {
+        "ruleId": "WORD_ACCUMULATION",
+        "descriptionKo": "첫 절은 하나부터 셋까지, 둘째 절은 넷과 다섯을 더하며 손가락 세기를 완성한다.",
+        "params": {
+          "words": "하나,둘,셋,넷,다섯"
+        }
+      },
+      "hookPhrase": "하나 둘 반짝",
+      "stylePrompt": "Korean Roleplay Story Song, 110 BPM, marimba, bright synth pad, xylophone, light skip-along groove, I-IV-V-I progression, Verse: I-IV-V-I progression, Chorus: I-V-vi-IV bright kids progression, bright childlike girl voice, sweet and clear, clear Korean diction, sparse arrangement, instrumental intro with no sung line, full playback level from first bar, pre-chorus dropout then chorus downbeat, last chorus unison group vocal without harmony stack, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, real artist names, band names, copied melody, copyrighted song reference, existing song title, soundalike vocal, nursery rhyme rewrite, adult romance, scary tunnel mood, sad farewell, senior-radio nostalgia, distorted guitar, heavy sub bass, harsh percussion, piercing high register, dense percussion layers, overlong intro, muddy low end, excessive reverb, flat chorus, monotonous melody, generic demo backing, karaoke gloss, hard math drilling, fast number blur, unsafe reaching outside seat, dark fear imagery, 그리움, 추억, 회상, 이별, 외로움, 쓸쓸함, 창가, 주전자, 사진첩, 편지, 라디오",
+      "lyrics": "[Intro]\n\n[Verse 1]\n짧은 길 안으로\n동그란 빛 지나가\n아이는 손을 펴\n하나 작은 별\n둘 작은 별\n셋은 웃는 별\n\n[Pre-Chorus]\n천천히 보고\n천천히 세고\n입모양도 또박\n\n[Chorus]\n손끝마다 빛나요\n하나 둘 반짝\n다섯까지 가 볼까\n\n[Verse 2]\n아빠가 고개 끄덕\n넷이 살짝 나와\n다섯 손가락 활짝\n무릎 위 꽃처럼\n아이 눈도 반짝\n차 안이 환해요\n\n[Chorus]\n다시 처음부터\n하나 둘 반짝\n셋 넷 다섯 좋아\n다섯 손가락 모두 활짝 웃어요\n자랑도 반짝\n\n[Key-Lift Final Chorus]\n하나 둘 반짝\n손끝마다 빛나요\n셋 넷 다섯 좋아\n모두 함께 세어요\n하나 둘 반짝",
+      "youtube": {
+        "title": "Five Little Stars | Korean Counting Story Song",
+        "description": "A warm Korean roleplay counting song for finger play, tunnel lights, and learning one to five during a cheerful car ride.",
+        "tags": [
+          "율동 동요",
+          "숫자 동요",
+          "유아 음악",
+          "어린이 액션송",
+          "손가락 놀이",
+          "유치원 노래",
+          "따라 부르기",
+          "동요 플레이리스트"
+        ]
+      },
+      "genreId": "krkids-roleplay-story",
+      "genreText": "warm Korean roleplay story song, marimba, ukulele",
+      "lyricTheme": "krkids-count-to-five",
+      "lyricThemeText": "counting fingers one by one up to five during a game",
+      "lyricThemeArc": "careful concentration becoming proud counting",
+      "pov": "thirdPerson",
+      "verseStyle": "image",
+      "verseStyleText": "verse lines focus on sensory images, objects, light, weather, and small gestures",
+      "chorusStyle": "hookRepeat",
+      "chorusStyleText": "chorus lines use compact repeated hook callbacks and simple answer phrases",
+      "effectiveVocalPresetId": "kid-boy",
+      "vocalPresetSource": "tone-match",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 4,
+      "title": "Color Bus",
+      "titleLocalized": "색깔버스",
+      "seasonMoment": "Spring city road with bright buses, delivery vans, and small toy cars in the back seat.",
+      "listenerSituation": "도심 큰길에서 아이가 지나가는 버스와 장난감 차를 번갈아 가리키며 색깔을 찾는 장면.",
+      "emotionArc": "궁금해서 둘러보던 아이가 빨강과 노랑을 찾아내며 담백하게 기뻐한다.",
+      "kidsAction": "색깔을 손가락으로 가리키기",
+      "distinctChoice": {
+        "ruleId": "CALL_AND_RESPONSE",
+        "descriptionKo": "후렴 뒤 두 마디를 비워 아이가 색깔 이름만 크게 대답하게 만든다."
+      },
+      "hookPhrase": "빨강 버스 찾았어",
+      "stylePrompt": "Korean Animal and Vehicle Song, 113 BPM, ukulele, xylophone, bright synth pad, engine-chug bounce groove, I-IV-I-V progression, bright childlike boy voice, playful and youthful, clear Korean diction, medium arrangement, instrumental intro with no sung line, answer-riff after each vocal hook, two unaccompanied bars for children to answer a color word, gentle second voice only in choruses, clean bright mix, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, real artist names, band names, copied melody, copyrighted song reference, existing song title, soundalike vocal, nursery rhyme rewrite, adult romance, scary traffic scene, sad farewell, senior-radio nostalgia, distorted guitar, heavy sub bass, harsh percussion, piercing high register, dense percussion layers, overlong intro, muddy low end, washed-out vocal reverb, flat chorus, monotonous melody, generic demo backing, karaoke gloss, aggressive horn effects, reckless pointing outside, color-word overload, gloomy city mood, 그리움, 추억, 회상, 이별, 외로움, 쓸쓸함, 창가, 주전자, 사진첩, 편지, 라디오",
+      "lyrics": "[Intro]\n\n[Verse 1]\n나는 창문 말고\n앞길 색을 봐요\n파란 차 지나가\n노란 택시 안녕\n작은 장난감도\n무릎에서 굴러요\n\n[Pre-Chorus]\n어디 있을까\n아빠가 물으면\n내 손끝이 올라가\n\n[Chorus]\n길모퉁이 돌아서\n빨강 버스 찾았어\n아이 대답 빨강\n\n[Verse 2]\n신호등 아래서\n초록 잎 흔들려\n하얀 밴 천천히\n검은 바퀴 빙글\n색깔마다 이름\n내 입에서 톡톡\n\n[Chorus]\n두 손으로 동그라미\n빨강 버스 찾았어\n아이 대답 빨강\n파랑 노랑 초록까지 차례대로 말해요\n장난감 차도 끄덕\n내가 찾았어\n\n[Key-Lift Final Chorus]\n빨강 버스 찾았어\n길모퉁이 돌아서\n색깔들이 손 흔들어\n내가 먼저 말해요\n빨강 버스 찾았어",
+      "youtube": {
+        "title": "Color Bus | Korean Vehicle Color Song",
+        "description": "A playful Korean vehicle song for pointing at buses, naming colors, and joining a simple call-and-response game in the car.",
+        "tags": [
+          "율동 동요",
+          "색깔 동요",
+          "자동차 동요",
+          "버스 동요",
+          "유아 음악",
+          "신나는 동요",
+          "유치원 체조",
+          "어린이 액션송"
+        ]
+      },
+      "genreId": "krkids-animal-vehicle",
+      "genreText": "playful Korean animal-and-vehicle song, ukulele, bright synth pad, bright clean children's mix",
+      "lyricTheme": "krkids-find-the-color",
+      "lyricThemeText": "pointing at toys around the room to find each color",
+      "lyricThemeArc": "curious searching turning into cheerful discovery",
+      "pov": "firstPerson",
+      "verseStyle": "image",
+      "verseStyleText": "verse lines focus on sensory images, objects, light, weather, and small gestures",
+      "chorusStyle": "narrative",
+      "chorusStyleText": "chorus lines unfold as plain scene narration with concrete actions and time movement",
+      "effectiveVocalPresetId": "kid-boy",
+      "vocalPresetSource": "tone-match",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 5,
+      "title": "Shape Stop",
+      "titleLocalized": "모양쉼터",
+      "seasonMoment": "Spring rest-area pause with round signs, triangle roofs, and square tiles.",
+      "listenerSituation": "고속도로 휴게소에 잠깐 멈춘 뒤 아이가 안내판과 바닥 타일에서 동그라미, 세모, 네모를 찾는 장면.",
+      "emotionArc": "헷갈려 둘러보다가 모양 이름을 Korean-English로 맞히며 신나게 알아본다.",
+      "kidsAction": "두 손으로 모양 만들기",
+      "distinctChoice": {
+        "ruleId": "SCENE_PER_VERSE",
+        "descriptionKo": "첫 절은 차 안 안내판, 둘째 절은 휴게소 바닥으로 장소가 바뀌며 같은 모양 놀이를 이어 간다."
+      },
+      "hookPhrase": "Circle 찾자",
+      "stylePrompt": "Korean-English Learning Song, 108 BPM, ukulele, xylophone, marimba, hand claps, steady learning pulse, I-IV-V-I progression, bright childlike boy and girl voices in simple unison, clear Korean diction, medium arrangement, short sung intro line, final chorus semitone key lift, almost a cappella final hook tag inside final chorus, simple shape-word call backs, clean close-mic children's mix, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, real artist names, band names, copied melody, copyrighted song reference, existing song title, soundalike vocal, nursery rhyme rewrite, adult romance, scary theme, sad farewell, senior-radio nostalgia, distorted guitar, heavy sub bass, harsh percussion, piercing high register, dense percussion layers, overlong intro, muddy low end, excessive vocal reverb, flat chorus, monotonous melody, generic demo backing, karaoke gloss, worksheet-like chanting, too many English terms, confusing shape order, unsafe running in rest area, gloomy travel pause, 그리움, 추억, 회상, 이별, 외로움, 쓸쓸함, 창가, 주전자, 사진첩, 편지, 라디오",
+      "lyrics": "[Intro]\n모양 보러 가자\n\n[Verse 1]\n동그란 표지판\n차창 너머 보여\n너는 손을 둥글게\nCircle 하고 웃어\n세모 지붕 hello\n네모 타일 wait\n\n[Chorus]\n둥글게 둥글게\nCircle 찾자\n찾았다 yes yes\n\n[Verse 2]\n쉬는 곳 바닥에\nSquare 줄이 반듯\nTriangle 깃발도\n작게 손을 세워\n아빠가 물으면\n네가 먼저 말해\n\n[Bridge]\nCircle round round\nSquare 네모 네모\nTriangle 세모 세모\n\n[Chorus]\n두 손으로 만들어\nCircle 찾자\n찾았다 yes yes\n동그라미 세모 네모 손으로 차례차례 그려\n맞았다 웃어요 한 번 더\n\n[Instrumental Break]\n\n[Final Chorus]\nCircle 찾자\n둥글게 둥글게\nSquare도 반듯해\nTriangle도 세웠어\nCircle 찾자",
+      "youtube": {
+        "title": "Shape Stop | Korean-English Shape Song",
+        "description": "A Korean-English kids shape song for rest-area car breaks, finding circles, squares, and triangles with simple movements.",
+        "tags": [
+          "율동 동요",
+          "모양 동요",
+          "유아 영어",
+          "한영 동요",
+          "유치원 체조",
+          "어린이 액션송",
+          "동요 플레이리스트",
+          "신나는 동요"
+        ]
+      },
+      "genreId": "krkids-bilingual",
+      "genreText": "clear Korean-English learning song, ukulele, xylophone",
+      "lyricTheme": "krkids-shape-hunt",
+      "lyricThemeText": "finding circles, triangles, and squares hidden around the room",
+      "lyricThemeArc": "puzzled looking turning into excited recognition",
+      "pov": "secondPerson",
+      "verseStyle": "narrative",
+      "verseStyleText": "verse lines unfold as plain scene narration with concrete actions and time movement",
+      "chorusStyle": "hookRepeat",
+      "chorusStyleText": "chorus lines use compact repeated hook callbacks and simple answer phrases",
+      "effectiveVocalPresetId": "kid-boy",
+      "vocalPresetSource": "tone-match",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 6,
+      "title": "Moo-Meow Pages",
+      "titleLocalized": "음매책길",
+      "seasonMoment": "Spring farm road with a picture book open on the child's lap while fields pass by.",
+      "listenerSituation": "논길 옆을 달리며 아이가 무릎 위 그림책의 소, 강아지, 고양이를 보고 소리를 번갈아 따라 하는 장면.",
+      "emotionArc": "조용히 그림을 보던 아이가 의성어를 주고받으며 까르르 웃는 흉내 놀이로 커진다.",
+      "kidsAction": "동물 소리 흉내 내기",
+      "distinctChoice": {
+        "ruleId": "CALL_AND_RESPONSE",
+        "descriptionKo": "탐색 슬롯답게 조용한 의성어와 큰 의성어를 번갈아 놓아 아이가 소리 크기를 놀이처럼 바꾼다."
+      },
+      "hookPhrase": "음매 멍멍 따라해",
+      "stylePrompt": "Korean Roleplay Story Song, 110 BPM, marimba, ukulele, bright synth pad, xylophone, gentle storytelling pulse, I-V-vi-IV bright kids progression, sparkling young girl voice, bright airy tone, clear Korean diction, sparse arrangement, instrumental intro with no sung line, double-tracked hook with soft third-above harmony, final hook everyone joins together, onomatopoeia contrast quiet-to-bright, warm radio-friendly children's mix, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, real artist names, band names, copied melody, copyrighted song reference, existing song title, soundalike vocal, nursery rhyme rewrite, adult romance, scary animal roar, sad farewell, senior-radio nostalgia, distorted guitar, heavy sub bass, harsh percussion, piercing high register, dense percussion layers, overlong intro, muddy low end, excessive vocal reverb, flat chorus, monotonous melody, generic demo backing, karaoke gloss, aggressive farm noises, chaotic sound stacking, adult parody animal voices, unsafe leaning from car, gloomy rural mood, 그리움, 추억, 회상, 이별, 외로움, 쓸쓸함, 창가, 주전자, 사진첩, 편지, 라디오",
+      "lyrics": "[Intro]\n\n[Verse 1]\n그림책 한 장\n소가 풀을 먹어\n아이는 작게 음매\n아빠도 작게 음매\n강아지는 멍멍\n웃음이 톡 터져\n\n[Pre-Chorus]\n작게 음매\n크게 멍멍\n이번엔 누가 나올까\n\n[Chorus]\n책장마다 소리 나\n음매 멍멍 따라해\n야옹도 살짝 와요\n\n[Verse 2]\n논길은 초록색\n고양이 꼬리 살랑\n아이는 야옹 야옹\n강아지는 멍멍\n소는 다시 음매\n순서대로 빙글\n\n[Chorus]\n작게 크게 번갈아\n음매 멍멍 따라해\n야옹까지 웃어요\n소곤소곤 크게크게 차례대로 바꿔요\n그림 속 친구도 웃어요 한 번\n\n[Key-Lift Final Chorus]\n음매 멍멍 따라해\n책장마다 소리 나\n작게 크게 번갈아\n야옹까지 웃어요\n음매 멍멍 따라해",
+      "youtube": {
+        "title": "Moo-Meow Pages | Korean Animal Sound Story Song",
+        "description": "A warm Korean roleplay song for farm-road car rides, picture books, animal sounds, and playful quiet-loud imitation.",
+        "tags": [
+          "율동 동요",
+          "동물 동요",
+          "의성어 동요",
+          "유아 음악",
+          "따라 하기 노래",
+          "동요 플레이리스트",
+          "어린이 액션송",
+          "신나는 동요"
+        ]
+      },
+      "genreId": "krkids-roleplay-story",
+      "genreText": "warm Korean roleplay story song, marimba, ukulele, character-voice call-and-response",
+      "lyricTheme": "krkids-animal-sounds",
+      "lyricThemeText": "imitating farm animal sounds one after another in a picture book",
+      "lyricThemeArc": "quiet looking turning into giggly imitation",
+      "pov": "thirdPerson",
+      "verseStyle": "image",
+      "verseStyleText": "verse lines focus on sensory images, objects, light, weather, and small gestures",
+      "chorusStyle": "hookRepeat",
+      "chorusStyleText": "chorus lines use compact repeated hook callbacks and simple answer phrases",
+      "effectiveVocalPresetId": "kid-boy",
+      "vocalPresetSource": "tone-match",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 7,
+      "title": "Dino March Seat",
+      "titleLocalized": "공룡행진",
+      "seasonMoment": "Spring riverside road where toy dinosaurs bounce safely on the child's knees.",
+      "listenerSituation": "강변도로를 지나며 아이가 작은 공룡 장난감을 무릎 위에서 행진시키고 발끝으로 박자를 맞추는 장면.",
+      "emotionArc": "처음에는 작은 발끝만 움직이다가 두 번 손뼉 뒤 자신 있게 공룡 걸음을 만든다.",
+      "kidsAction": "발끝으로 행진 박자 찍기",
+      "distinctChoice": {
+        "ruleId": "VERSE_TAIL_REPEAT",
+        "descriptionKo": "각 절 끝을 같은 짧은 행진 말로 맺어 발끝 박자가 계속 살아 있게 한다.",
+        "params": {
+          "phrase": "쿵쿵 살금"
+        }
+      },
+      "hookPhrase": "공룡처럼 걸어요",
+      "stylePrompt": "Korean Preschool Action Song, 119 BPM, ukulele, xylophone, hand claps, bouncy jump-along pulse, I-IV-V-I progression, bright childlike boy voice, playful and youthful, clear Korean diction, medium arrangement, short sung intro line, bridge strips to voice and one bright instrument before full return, exactly two light claps before each chorus, seated dino-march energy, clean children's mix, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, real artist names, band names, copied melody, copyrighted song reference, existing song title, soundalike vocal, nursery rhyme rewrite, adult romance, scary dinosaur roar, sad farewell, senior-radio nostalgia, distorted guitar, heavy sub bass, harsh percussion, piercing high register, dense percussion layers, overlong intro, muddy low end, excessive vocal reverb, flat chorus, monotonous melody, generic demo backing, karaoke gloss, stomping too hard in a car, unsafe standing movement, monster imagery, aggressive chanting, gloomy adventure tone, 그리움, 추억, 회상, 이별, 외로움, 쓸쓸함, 창가, 주전자, 사진첩, 편지, 라디오",
+      "lyrics": "[Intro]\n작은 공룡 준비\n\n[Verse 1]\n강물 옆길 반짝\n초록 공룡 앉아\n발끝으로 콩콩\n꼬리는 살랑살랑\n나는 작게 시작\n쿵쿵 살금\n\n[Chorus]\n손뼉 두 번 짝짝\n공룡처럼 걸어요\n발끝 행진 좋아\n\n[Verse 2]\n파란 다리 보여\n공룡 친구 따라\n무릎 위로 전진\n앞발 뒤발 차례\n내 목소리 커져\n쿵쿵 살금\n\n[Bridge]\n한 번 쉬고\n발끝 톡\n고개 들어\n씩씩하게\n\n[Chorus]\n손뼉 두 번 짝짝\n공룡처럼 걸어요\n발끝 행진 좋아\n꼬리도 살랑 발끝도 통통 좋아\n\n[Instrumental Break]\n\n[Final Chorus]\n공룡처럼 걸어요\n손뼉 두 번 짝짝\n발끝 행진 좋아\n쿵쿵 살금 웃어요\n공룡처럼 걸어요",
+      "youtube": {
+        "title": "Dino March Seat | Korean Preschool Action Song",
+        "description": "A bright Korean action song for seated car movement, toy dinosaur marching, toe taps, and simple preschool follow-along play.",
+        "tags": [
+          "율동 동요",
+          "공룡 동요",
+          "유치원 체조",
+          "어린이 액션송",
+          "유아 음악",
+          "동요 플레이리스트",
+          "신나는 동요",
+          "따라 하기 노래"
+        ]
+      },
+      "genreId": "krkids-action",
+      "genreText": "bright Korean preschool action song, ukulele, hand claps",
+      "lyricTheme": "krkids-dinosaur-parade",
+      "lyricThemeText": "marching like different dinosaurs across the living room floor",
+      "lyricThemeArc": "shy first steps turning into roaring confidence",
+      "pov": "firstPerson",
+      "verseStyle": "image",
+      "verseStyleText": "verse lines focus on sensory images, objects, light, weather, and small gestures",
+      "chorusStyle": "hookRepeat",
+      "chorusStyleText": "chorus lines use compact repeated hook callbacks and simple answer phrases",
+      "effectiveVocalPresetId": "kid-boy",
+      "vocalPresetSource": "tone-match",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 8,
+      "title": "One Two Tollgate",
+      "titleLocalized": "숫자차차",
+      "seasonMoment": "Spring tollgate moment where lane lights and cars become a bilingual counting game.",
+      "listenerSituation": "톨게이트를 천천히 지날 때 남자아이와 여자아이가 불빛과 차선을 보며 한국어와 영어 숫자를 번갈아 세는 장면.",
+      "emotionArc": "조심스럽게 따라 하던 숫자가 한 단어 대답 놀이로 바뀌며 둘이 함께 기억한다.",
+      "kidsAction": "고개로 숫자 박자 끄덕이기",
+      "distinctChoice": {
+        "ruleId": "CALL_AND_RESPONSE",
+        "descriptionKo": "짧은 질문 뒤 아이들이 숫자 한 단어만 대답해 차 안에서도 쉽게 참여한다."
+      },
+      "hookPhrase": "One Two 신나요",
+      "stylePrompt": "Korean Animal and Vehicle Song, 117 BPM, ukulele, xylophone, bright synth pad, hand claps, engine-chug bounce groove, I-IV-I-V progression, young boy and girl voices, bouncy clapping-game rhythm, clear Korean diction, full arrangement, short sung intro line, stop-time first chorus word then groove returns, spoken question answered by children in one number word, duet alternates verses, clean bright mix, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, real artist names, band names, copied melody, copyrighted song reference, existing song title, soundalike vocal, nursery rhyme rewrite, adult romance, scary traffic mood, sad farewell, senior-radio nostalgia, distorted guitar, heavy sub bass, harsh percussion, piercing high register, dense percussion layers, overlong intro, muddy low end, excessive vocal reverb, flat chorus, monotonous melody, generic demo backing, karaoke gloss, confusing number sequence, shouted counting, unsafe movement near doors, toll alarm stress, harsh vehicle effects, 그리움, 추억, 회상, 이별, 외로움, 쓸쓸함, 창가, 주전자, 사진첩, 편지, 라디오",
+      "lyrics": "[Intro: Male and Female Duet]\n숫자 불빛 보여\n\n[Verse 1: Male Vocal]\n차선 하나 반짝\n나는 하나 말해\n초록 불 둘 반짝\n너는 two 말해\n아빠가 웃으며\n천천히 지나가\n\n[Chorus: Male and Female Duet]\n하나 two 같이\nOne Two 신나요\n고개 끄덕 차차\n\n[Verse 2: Female Vocal]\n표지판 셋 보여\n나는 three 말해\n작은 차 넷 지나\n네가 four 말해\n질문 하나 올까\n대답은 한 단어\n\n[Bridge: Male and Female Call and Response]\n몇 개일까\nFive\n다시 볼까\nFive\n\n[Chorus: Male and Female Duet]\n하나 two 같이\nOne Two 신나요\n고개 끄덕 차차\n여섯도 곧 기다려\n\n[Instrumental Break: Male and Female Duet]\n\n\nOne Two 신나요\n하나 two 같이\n고개 끄덕 차차\nFive까지 웃어요\nOne Two 신나요",
+      "youtube": {
+        "title": "One Two Tollgate | Korean Vehicle Counting Duet",
+        "description": "A Korean car-ride counting duet with boy and girl voices, lane lights, number answers, and easy bilingual movement.",
+        "tags": [
+          "율동 동요",
+          "숫자 동요",
+          "자동차 동요",
+          "한영 동요",
+          "유아 영어",
+          "어린이 액션송",
+          "동요 플레이리스트",
+          "신나는 동요"
+        ]
+      },
+      "genreId": "krkids-animal-vehicle",
+      "genreText": "playful Korean animal-and-vehicle song, ukulele, bright synth pad, sound-imitation hook",
+      "lyricTheme": "krkids-number-in-english",
+      "lyricThemeText": "counting a number in Korean and then again in English",
+      "lyricThemeArc": "careful repeating turning into proud recall",
+      "pov": "secondPerson",
+      "verseStyle": "narrative",
+      "verseStyleText": "verse lines unfold as plain scene narration with concrete actions and time movement",
+      "chorusStyle": "hookRepeat",
+      "chorusStyleText": "chorus lines use compact repeated hook callbacks and simple answer phrases",
+      "effectiveVocalPresetId": "kid-boy",
+      "vocalPresetSource": "tone-match",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 9,
+      "title": "Ten Block Tower",
+      "titleLocalized": "블록열개",
+      "seasonMoment": "Spring car-wash waiting line where foam outside turns the back-seat tray into a counting table.",
+      "listenerSituation": "세차장 대기 줄에서 아이가 뒷좌석 작은 받침대 위 블록을 하나씩 올리며 여섯부터 열까지 세는 장면.",
+      "emotionArc": "조심스러운 블록 쌓기가 여섯, 일곱, 열을 지나 자랑스러운 완성으로 이어진다.",
+      "kidsAction": "블록 하나씩 쌓기",
+      "distinctChoice": {
+        "ruleId": "WORD_ACCUMULATION",
+        "descriptionKo": "숫자가 여섯에서 열까지 한 절씩 늘어나며 마지막 후렴에서 완성된 탑을 보여 준다.",
+        "params": {
+          "words": "여섯,일곱,여덟,아홉,열"
+        }
+      },
+      "hookPhrase": "여섯부터 Ten",
+      "stylePrompt": "Korean-English Learning Song, 108 BPM, ukulele, hand claps, xylophone, steady learning pulse, I-IV-vi-V rounded kids progression, Verse: I-IV-vi-V rounded kids progression, Chorus: I-IV-I-V progression, gentle childlike girl voice, soft and warm, clear Korean diction, medium arrangement, instrumental intro with no sung line, half-time chorus feel for weight, spoken playful vehicle sound answered softly, clean close-mic mix, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, real artist names, band names, copied melody, copyrighted song reference, existing song title, soundalike vocal, nursery rhyme rewrite, adult romance, scary machine mood, sad farewell, senior-radio nostalgia, distorted guitar, heavy sub bass, harsh percussion, piercing high register, dense percussion layers, overlong intro, muddy low end, excessive vocal reverb, flat chorus, monotonous melody, generic demo backing, karaoke gloss, car-wash alarm sounds, slippery movement, hard classroom correction, number overload, messy foam distraction, 그리움, 추억, 회상, 이별, 외로움, 쓸쓸함, 창가, 주전자, 사진첩, 편지, 라디오",
+      "lyrics": "[Intro]\n\n[Verse 1]\n하얀 거품 밖에\n블록 하나 올라가\n아이는 숨을 쉬고\n여섯 하고 놓아\n일곱도 반듯해\n작은 탑이 서요\n\n[Pre-Chorus]\n손끝은 천천히\n눈빛은 반짝\n다음 숫자 기다려\n\n[Chorus]\nSix seven 웃으며\n여섯부터 Ten\n블록 탑이 커져요\n\n[Verse 2]\n여덟 파란 블록\n아홉 노란 블록\n열은 제일 위에\n살짝 앉아 있어\n아빠가 묻죠\n무슨 소리 날까\n\n[Chorus]\n부릉 하고 작게\n여섯부터 Ten\n블록 탑이 완성\n높아진 탑 옆에서 아이 박수 짝짝\nTen까지 다 왔어요 좋아\n\n[Key-Lift Final Chorus]\n여섯부터 Ten\nSix seven 웃으며\n여덟 아홉 열까지\n손끝 탑이 반짝\n여섯부터 Ten",
+      "youtube": {
+        "title": "Ten Block Tower | Korean-English Counting Song",
+        "description": "A gentle Korean-English counting song for car-wash waiting time, stacking blocks, and practicing six through ten.",
+        "tags": [
+          "율동 동요",
+          "숫자 동요",
+          "유아 영어",
+          "한영 동요",
+          "블록 놀이",
+          "유아 음악",
+          "동요 플레이리스트",
+          "따라 하기 노래"
+        ]
+      },
+      "genreId": "krkids-bilingual",
+      "genreText": "clear Korean-English learning song, ukulele, xylophone",
+      "lyricTheme": "krkids-count-six-to-ten",
+      "lyricThemeText": "stacking one more block on a tower and counting all the way up past five to ten",
+      "lyricThemeArc": "careful counting building into a proud finished tower",
+      "pov": "thirdPerson",
+      "verseStyle": "image",
+      "verseStyleText": "verse lines focus on sensory images, objects, light, weather, and small gestures",
+      "chorusStyle": "hookRepeat",
+      "chorusStyleText": "chorus lines use compact repeated hook callbacks and simple answer phrases",
+      "effectiveVocalPresetId": "kid-boy",
+      "vocalPresetSource": "tone-match",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 10,
+      "title": "Family Point",
+      "titleLocalized": "가족사진",
+      "seasonMoment": "Spring parking lot outside grandparents' home with a family photo ready in dad's hand.",
+      "listenerSituation": "할머니 집 주차장에 도착해 아이가 아빠가 든 가족 사진 속 사람들을 하나씩 가리키며 이름을 부르는 장면.",
+      "emotionArc": "조용히 손끝으로 짚던 아이가 가족 이름과 숫자를 함께 말하며 가장 크게 즐거워한다.",
+      "kidsAction": "사진 속 사람 차례로 짚기",
+      "distinctChoice": {
+        "ruleId": "CALL_AND_RESPONSE",
+        "descriptionKo": "가족 이름 사이에 짧은 숫자 구호를 함께 외쳐 큰 정점처럼 들리게 한다."
+      },
+      "hookPhrase": "가족 이름 불러요",
+      "stylePrompt": "Korean Roleplay Story Song, 122 BPM, marimba, xylophone, bright synth pad, light skip-along groove, I-V-I-IV call-and-response progression, Verse: I-V-I-IV call-and-response progression, Chorus: I-V-vi-IV bright kids progression, bright childlike boy voice, playful and youthful, clear Korean diction, sparse verse to bigger chorus, instrumental intro with no sung line, final chorus octave lift, short counting chant together, warm resolving chorus lift, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, real artist names, band names, copied melody, copyrighted song reference, existing song title, soundalike vocal, nursery rhyme rewrite, adult romance, scary theme, sad farewell, senior-radio nostalgia, distorted guitar, heavy sub bass, harsh percussion, piercing high register, dense percussion layers, overlong intro, muddy low end, excessive vocal reverb, flat chorus, monotonous melody, generic demo backing, karaoke gloss, sentimental adult ballad tone, complex family drama, crying reunion mood, shouting chant, unsafe unbuckling before parked, 그리움, 추억, 회상, 이별, 외로움, 쓸쓸함, 창가, 주전자, 사진첩, 편지, 라디오",
+      "lyrics": "[Intro]\n\n[Verse 1]\n차가 멈춘 자리\n아빠 손에 사진\n나는 엄마 짚고\n아빠도 짚어요\n할머니 웃는 얼굴\n동그랗게 안녕\n\n[Pre-Chorus]\n누구일까 하나\n누구일까 둘\n내 손끝이 찾아요\n\n[Chorus]\n엄마 아빠 할머니\n가족 이름 불러요\n하나 둘 셋 같이\n\n[Verse 2]\n동생 얼굴 작아\n나는 살짝 웃어\n할아버지 모자\n네 번째로 짚어\n다섯 손가락 모두\n사진 위에 꽃펴요\n\n[Chorus]\n엄마 아빠 할머니\n가족 이름 불러요\n하나 둘 셋 넷\n\n[Bridge]\n하나 둘 셋\n넷 다섯 좋아\n모두 같이 말해\n\n[Final Chorus]\n가족 이름 불러요\n엄마 아빠 할머니\n하나 둘 셋 넷\n다섯 얼굴 반짝\n가족 이름 불러요",
+      "youtube": {
+        "title": "Family Point | Korean Roleplay Naming Song",
+        "description": "A bright Korean roleplay story song for naming family members, pointing at a photo, and chanting a short counting sequence together.",
+        "tags": [
+          "율동 동요",
+          "가족 동요",
+          "역할놀이 동요",
+          "숫자 동요",
+          "유아 음악",
+          "어린이 액션송",
+          "동요 플레이리스트",
+          "신나는 동요"
+        ]
+      },
+      "genreId": "krkids-roleplay-story",
+      "genreText": "warm Korean roleplay story song, marimba, ukulele, short scene-setting verse into a repeated role-name chorus",
+      "lyricTheme": "krkids-family-members-song",
+      "lyricThemeText": "pointing to each person in a family photo and naming who they are one by one",
+      "lyricThemeArc": "quiet pointing warming into proud recitation",
+      "pov": "firstPerson",
+      "verseStyle": "image",
+      "verseStyleText": "verse lines focus on sensory images, objects, light, weather, and small gestures",
+      "chorusStyle": "narrative",
+      "chorusStyleText": "chorus lines unfold as plain scene narration with concrete actions and time movement",
+      "effectiveVocalPresetId": "kid-boy",
+      "vocalPresetSource": "tone-match",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 11,
+      "title": "Tie My Bow",
+      "titleLocalized": "묶자쏙싹",
+      "seasonMoment": "Spring rest-stop bench after parking, tying shoes before walking back to the car.",
+      "listenerSituation": "휴게소 벤치에서 아이가 신발끈 두 끝을 잡고 쏙싹, 동동 소리를 내며 다시 리본을 묶어 보는 장면.",
+      "emotionArc": "손이 조금 헷갈려도 이름을 넣어 응원받으며 스스로 묶었다는 환한 자랑으로 바뀐다.",
+      "kidsAction": "손가락으로 리본 모양 만들기",
+      "distinctChoice": {
+        "ruleId": "VERSE_TAIL_REPEAT",
+        "descriptionKo": "탐색 슬롯답게 쏙싹과 동동을 느리게 시작해 마지막엔 같은 말이 더 빠른 리듬처럼 들린다.",
+        "params": {
+          "phrase": "쏙싹 동동"
+        }
+      },
+      "hookPhrase": "쏙싹 동동 묶어요",
+      "stylePrompt": "Korean Preschool Action Song, 123 BPM, ukulele, xylophone, hand claps, bouncy jump-along pulse, I-IV-V-I progression, Verse: I-IV-V-I progression, Chorus: I-V-vi-IV bright kids progression, childlike boy and girl voices singing together, cheerful playful duet, clear Korean diction, full arrangement, no intro tag, singing starts immediately, pre-chorus dropout feel before chorus, bridge name-insert lyric spot, onomatopoeia speeds gently from slow to quick, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, real artist names, band names, copied melody, copyrighted song reference, existing song title, soundalike vocal, nursery rhyme rewrite, adult romance, scary theme, sad farewell, senior-radio nostalgia, distorted guitar, heavy sub bass, harsh percussion, piercing high register, dense percussion layers, overlong intro, muddy low end, excessive vocal reverb, flat chorus, monotonous melody, generic demo backing, karaoke gloss, shaming mistakes, frustration-heavy lyrics, tangled unsafe running, harsh command tone, too-fast tongue twister, dark bench setting, 그리움, 추억, 회상, 이별, 외로움, 쓸쓸함, 창가, 주전자, 사진첩, 편지, 라디오",
+      "lyrics": "[Verse 1: Male Vocal]\n끈 하나 손에 쏙\n끈 둘도 손에 쏙\n천천히 건너가\n작은 산을 만들자\n조금 풀려도 좋아\n쏙싹 동동\n\n[Chorus: Male and Female Duet]\n두 손이 같이 웃어\n쏙싹 동동 묶어요\n리본 모양 짠짠\n\n[Verse 2: Female Vocal]\n이번엔 다시 쏙\n고리 하나 동동\n엄지 검지 만나\n살짝 잡아 당겨\n신발 위에 꽃이\n쏙싹 동동\n\n[Bridge: Male and Female Call and Response]\nOO아 해냈어\nOO아 한 번 더\n쏙싹쏙싹 동동동\n내가 했어\n\n[Instrumental Break: Male and Female Duet]\n\n[Chorus: Male and Female Duet]\n두 손이 같이 웃어\n쏙싹 동동 묶어요\n리본 모양 짠짠\n\n[Final Chorus: Male and Female Duet Harmony]\n쏙싹 동동 묶어요\n두 손이 같이 웃어\n쏙싹쏙싹 동동동\n리본 모양 짠짠\n쏙싹 동동 묶어요",
+      "youtube": {
+        "title": "Tie My Bow | Korean Shoelace Action Duet",
+        "description": "A cheerful Korean preschool duet for shoelace tying, finger motions, name-insert encouragement, and playful sound words.",
+        "tags": [
+          "율동 동요",
+          "생활습관 동요",
+          "신발끈 묶기",
+          "유치원 체조",
+          "어린이 액션송",
+          "의태어 동요",
+          "동요 플레이리스트",
+          "신나는 동요"
+        ]
+      },
+      "genreId": "krkids-action",
+      "genreText": "bright Korean preschool action song, ukulele, hand claps",
+      "lyricTheme": "krkids-tying-shoelaces",
+      "lyricThemeText": "looping two shoelace ends slowly into a bow, trying again after it comes undone",
+      "lyricThemeArc": "frustrated fumbling turning into proud mastery",
+      "pov": "secondPerson",
+      "verseStyle": "narrative",
+      "verseStyleText": "verse lines unfold as plain scene narration with concrete actions and time movement",
+      "chorusStyle": "hookRepeat",
+      "chorusStyleText": "chorus lines use compact repeated hook callbacks and simple answer phrases",
+      "effectiveVocalPresetId": "kid-boy",
+      "vocalPresetSource": "tone-match",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 12,
+      "title": "Left Right Go",
+      "titleLocalized": "횡단보도",
+      "seasonMoment": "Spring kindergarten curb after parking, practicing safe steps with dad's hand nearby.",
+      "listenerSituation": "유치원 근처 횡단보도 앞에서 차에서 내린 아이가 어른과 함께 왼쪽, 오른쪽을 보고 건너는 장면.",
+      "emotionArc": "조심스럽게 멈춰 살피던 아이가 규칙을 말하며 안정된 걸음으로 건넌다.",
+      "kidsAction": "고개를 왼쪽 오른쪽 돌리기",
+      "distinctChoice": {
+        "ruleId": "CALL_AND_RESPONSE",
+        "descriptionKo": "멈춤, 보기, 걷기를 짧은 응답으로 나누어 안전 동작을 차례로 따라 하게 한다."
+      },
+      "hookPhrase": "왼쪽 오른쪽 가요",
+      "stylePrompt": "Korean Animal and Vehicle Song, 124 BPM, ukulele, hand claps, xylophone, bright synth pad, playful trotting pulse, I-V-vi-IV bright kids progression, Verse: I-V-vi-IV bright kids progression, Chorus: I-V-I-IV call-and-response progression, cheerful young girl voice, light bouncy phrasing, clear Korean diction, medium arrangement, instrumental intro with no sung line, gentle brief tempo lift into final chorus, almost a cappella hook close, safe-step call response, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, real artist names, band names, copied melody, copyrighted song reference, existing song title, soundalike vocal, nursery rhyme rewrite, adult romance, scary street danger, sad farewell, senior-radio nostalgia, distorted guitar, heavy sub bass, harsh percussion, piercing high register, dense percussion layers, overlong intro, muddy low end, excessive vocal reverb, flat chorus, monotonous melody, generic demo backing, karaoke gloss, risky crossing advice, running into road, siren stress, alarm-like vehicle sounds, anxious safety lecture, 그리움, 추억, 회상, 이별, 외로움, 쓸쓸함, 창가, 주전자, 사진첩, 편지, 라디오",
+      "lyrics": "[Intro]\n\n[Verse 1]\n잠깐 멈춰 서요\n하얀 줄 앞에서\n어른 손 가까이\n아이 발도 멈춤\n왼쪽 한번 보고\n오른쪽도 봐요\n\n[Pre-Chorus]\n멈춤 했나요\n봤나요 네\n그럼 한 걸음\n\n[Chorus]\n천천히 같이 걸어\n왼쪽 오른쪽 가요\n안전 걸음 좋아\n\n[Verse 2]\n차들이 쉬고 있어\n초록 사람이 와요\n아이는 고개 돌려\n다시 확인해요\n발끝 하나 둘\n길 위에 반듯\n\n[Chorus]\n손 가까이 두고\n왼쪽 오른쪽 가요\n안전 걸음 좋아\n\n[Bridge]\n멈춤 보기 걷기\n작게 말해요\n차례차례 해요\n\n[Final Chorus]\n왼쪽 오른쪽 가요\n천천히 같이 걸어\n멈춤 보기 걷기\n안전 걸음 좋아\n왼쪽 오른쪽 가요",
+      "youtube": {
+        "title": "Left Right Go | Korean Crosswalk Safety Song",
+        "description": "A bright Korean kids vehicle song about stopping at the curb, looking left and right, and walking safely with a grown-up.",
+        "tags": [
+          "율동 동요",
+          "안전 동요",
+          "횡단보도 노래",
+          "어린이 액션송",
+          "유치원 체조",
+          "유아 음악",
+          "동요 플레이리스트",
+          "신나는 동요"
+        ]
+      },
+      "genreId": "krkids-animal-vehicle",
+      "genreText": "playful Korean animal-and-vehicle song, ukulele, bright synth pad, punchy but gentle low end",
+      "lyricTheme": "krkids-crossing-street-safely",
+      "lyricThemeText": "stopping at a curb to look left and right before crossing at the crosswalk with a grown-up",
+      "lyricThemeArc": "careful caution becoming confident safe steps",
+      "pov": "thirdPerson",
+      "verseStyle": "dialogue",
+      "verseStyleText": "verse lines use direct address or short conversational fragments without becoming spoken-word",
+      "chorusStyle": "hookRepeat",
+      "chorusStyleText": "chorus lines use compact repeated hook callbacks and simple answer phrases",
+      "effectiveVocalPresetId": "kid-boy",
+      "vocalPresetSource": "tone-match",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 13,
+      "title": "Sort It Happy",
+      "titleLocalized": "척척분리",
+      "seasonMoment": "Spring home garage after the ride, sorting car snack containers into colored bins.",
+      "listenerSituation": "집 주차장에 돌아온 뒤 아이가 차에서 나온 종이컵, 병, 캔을 색깔 통에 나누어 넣는 장면.",
+      "emotionArc": "처음엔 어디에 넣을지 망설이다가 Bottle, Paper, Can 순서를 말하며 깔끔한 기쁨을 느낀다.",
+      "kidsAction": "세 방향으로 물건 나누는 척하기",
+      "distinctChoice": {
+        "ruleId": "WORD_ACCUMULATION",
+        "descriptionKo": "Bottle, Paper, Can 세 단어가 한 줄씩 쌓여 분리 동작의 순서를 만든다.",
+        "params": {
+          "words": "Bottle,Paper,Can"
+        }
+      },
+      "hookPhrase": "Bottle Paper Can",
+      "stylePrompt": "Korean-English Learning Song, 115 BPM, ukulele, hand claps, xylophone, clean two-step groove, I-IV-I-V progression, Verse: I-IV-I-V progression, Chorus: I-IV-vi-V rounded kids progression, bright childlike boy voice, playful and youthful, clear Korean diction, sparse arrangement, short sung intro line, answer-riff after vocal hook, final hook gains more child voices without more volume, tidy learning-song cadence, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, real artist names, band names, copied melody, copyrighted song reference, existing song title, soundalike vocal, nursery rhyme rewrite, adult romance, scary theme, sad farewell, senior-radio nostalgia, distorted guitar, heavy sub bass, harsh percussion, piercing high register, dense percussion layers, overlong intro, muddy low end, excessive vocal reverb, flat chorus, monotonous melody, generic demo backing, karaoke gloss, lecture-like recycling lesson, cluttered trash imagery, dirty smell focus, shame for mistakes, unsafe garage running, confusing bin colors, 그리움, 추억, 회상, 이별, 외로움, 쓸쓸함, 창가, 주전자, 사진첩, 편지, 라디오",
+      "lyrics": "[Intro]\n깨끗하게 나눠요\n\n[Verse 1]\n집 앞에 도착\n문은 천천히 열려\n나는 종이컵 들고\n파란 통을 봐요\nBottle은 어디일까\n손끝이 생각해\n\n[Pre-Chorus]\n하나씩 보면\n길이 보여요\n차례가 생겨요\n\n[Chorus]\n파란 통 초록 통\nBottle Paper Can\n척척 나누면 깨끗해\n\n[Verse 2]\nPaper 가볍게 톡\nCan은 둥글게 톡\nBottle도 제자리\n통마다 색이 웃어\n아빠가 고개 끄덕\n내 마음도 반듯\n\n[Chorus]\n세 단어 따라 해\nBottle Paper Can\n척척 나누면 깨끗해\n\n[Bridge]\nBottle 먼저\nPaper 다음\nCan 마지막\n\n[Instrumental Break]\n\n[Final Chorus]\nBottle Paper Can\n파란 통 초록 통\n세 단어 따라 해\n척척 나누면 깨끗해\nBottle Paper Can",
+      "youtube": {
+        "title": "Sort It Happy | Korean-English Recycling Song",
+        "description": "A cheerful Korean-English learning song for sorting bottles, paper, and cans after a family car ride.",
+        "tags": [
+          "율동 동요",
+          "분리수거 동요",
+          "생활습관 동요",
+          "유아 영어",
+          "한영 동요",
+          "어린이 액션송",
+          "유치원 체조",
+          "동요 플레이리스트"
+        ]
+      },
+      "genreId": "krkids-bilingual",
+      "genreText": "clear Korean-English learning song, ukulele, xylophone",
+      "lyricTheme": "krkids-recycling-sorting",
+      "lyricThemeText": "sorting bottles, paper, and cans into three different colored bins at home",
+      "lyricThemeArc": "confusing choices turning into satisfying order",
+      "pov": "firstPerson",
+      "verseStyle": "image",
+      "verseStyleText": "verse lines focus on sensory images, objects, light, weather, and small gestures",
+      "chorusStyle": "narrative",
+      "chorusStyleText": "chorus lines unfold as plain scene narration with concrete actions and time movement",
+      "effectiveVocalPresetId": "kid-boy",
+      "vocalPresetSource": "tone-match",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 14,
+      "title": "Seed Cup",
+      "titleLocalized": "씨앗컵",
+      "seasonMoment": "Spring garden-center stop where a paper cup of soil rides carefully home.",
+      "listenerSituation": "꽃집 주차장에 잠깐 선 뒤 아이들이 작은 종이컵 흙에 씨앗을 누르고 물방울을 세며 기다리는 장면.",
+      "emotionArc": "기다림이 길게 느껴지지만 매일 물을 주는 놀이가 작은 새싹 발견으로 밝아진다.",
+      "kidsAction": "손바닥으로 씨앗 누르는 척하기",
+      "distinctChoice": {
+        "ruleId": "SCENE_PER_VERSE",
+        "descriptionKo": "첫 절은 씨앗을 누르는 순간, 둘째 절은 며칠 뒤 새싹을 보는 순간으로 시간을 건너뛴다."
+      },
+      "hookPhrase": "씨앗아 쑥쑥",
+      "stylePrompt": "Korean Roleplay Story Song, 106 BPM, marimba, bright synth pad, ukulele, xylophone, gentle storytelling pulse, I-IV-vi-V rounded kids progression, young boy and girl voices trading lines, playful call-and-response, clear Korean diction, full layered but soft arrangement, instrumental intro with no sung line, one-bar build fill into chorus, calm final reflection, no extra peak beyond chorus lift, clean warm children's mix, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, real artist names, band names, copied melody, copyrighted song reference, existing song title, soundalike vocal, nursery rhyme rewrite, adult romance, scary theme, sad farewell, senior-radio nostalgia, distorted guitar, heavy sub bass, harsh percussion, piercing high register, dense percussion layers, overlong intro, muddy low end, excessive vocal reverb, flat chorus, monotonous melody, generic demo backing, karaoke gloss, heavy waiting sadness, wilting plant imagery, adult metaphor language, messy soil focus, impatient tantrum mood, unsafe water spilling in car, 그리움, 추억, 회상, 이별, 외로움, 쓸쓸함, 창가, 주전자, 사진첩, 편지, 라디오",
+      "lyrics": "[Intro]\n\n[Verse 1]\n종이컵 흙 위에\n작은 씨앗 하나\n너는 손바닥으로\n살짝 눌러 줘\n물방울 하나 둘\n반짝 내려앉아\n\n[Pre-Chorus]\n오늘은 작아도\n내일 또 보고\n모레 또 웃자\n\n[Chorus]\n따뜻한 컵 안에서\n씨앗아 쑥쑥\n초록 꿈이 자라요\n\n[Verse 2]\n며칠 뒤 차 타고\n꽃집 앞을 지나\n컵 속 작은 잎이\n빼꼼 인사해\n너는 두 손 모아\n활짝 웃어 줘\n\n[Chorus]\n물방울 톡톡톡\n씨앗아 쑥쑥\n초록 잎이 보여요\n새 잎 하나 더 보여 너와 같이 웃어 오늘\n\n[Key-Lift Final Chorus]\n씨앗아 쑥쑥\n따뜻한 컵 안에서\n물방울 톡톡톡\n초록 잎이 보여요\n씨앗아 쑥쑥",
+      "youtube": {
+        "title": "Seed Cup | Korean Growing Story Song",
+        "description": "A gentle Korean roleplay story song about planting a seed in a cup, watering it, and finding a tiny green sprout.",
+        "tags": [
+          "율동 동요",
+          "역할놀이 동요",
+          "씨앗 동요",
+          "봄 동요",
+          "유아 음악",
+          "어린이 액션송",
+          "동요 플레이리스트",
+          "따라 하기 노래"
+        ]
+      },
+      "genreId": "krkids-roleplay-story",
+      "genreText": "warm Korean roleplay story song, marimba, ukulele, expressive storytelling childlike vocal",
+      "lyricTheme": "krkids-planting-seed-growing",
+      "lyricThemeText": "pressing a small seed into a paper cup of soil and watering it every day to watch it grow",
+      "lyricThemeArc": "impatient waiting rewarded with delighted discovery",
+      "pov": "secondPerson",
+      "verseStyle": "image",
+      "verseStyleText": "verse lines focus on sensory images, objects, light, weather, and small gestures",
+      "chorusStyle": "image",
+      "chorusStyleText": "chorus lines focus on sensory images, objects, light, weather, and small gestures",
+      "effectiveVocalPresetId": "kid-boy",
+      "vocalPresetSource": "tone-match",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 15,
+      "title": "Button Shine",
+      "titleLocalized": "단추반짝",
+      "seasonMoment": "Late spring return-home moment, still bright outside, buttoning a light jacket before getting out.",
+      "listenerSituation": "집 앞에 돌아와 차가 완전히 멈춘 뒤 아이가 얇은 겉옷 단추를 하나씩 끼우며 혼자 해냈다고 느끼는 장면.",
+      "emotionArc": "처음엔 손이 어설프지만 단추마다 반짝 확인하며 조용한 자신감과 다음 출발의 여운을 남긴다.",
+      "kidsAction": "단추 끼우는 동작하기",
+      "distinctChoice": {
+        "ruleId": "VERSE_TAIL_REPEAT",
+        "descriptionKo": "첫 곡의 작은 콩 박자를 마지막 단추 확인 동작으로 살짝 되돌려 반복 재생의 여운을 만든다.",
+        "params": {
+          "phrase": "콩 반짝"
+        }
+      },
+      "hookPhrase": "단추 하나 반짝",
+      "stylePrompt": "Korean Preschool Action Song, 115 BPM, ukulele, bright synth pad, hand claps, xylophone, bouncy jump-along pulse, I-V-I-IV call-and-response progression, Verse: I-V-I-IV call-and-response progression, Chorus: I-V-vi-IV bright kids progression, clear childlike girl voice, confident singalong delivery, clear Korean diction, medium arrangement, no intro tag, singing starts immediately, final chorus semitone key lift with gentle unresolved loop-back hint, recurring tiny jump motif from track one, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, real artist names, band names, copied melody, copyrighted song reference, existing song title, soundalike vocal, nursery rhyme rewrite, adult romance, scary theme, sad farewell, senior-radio nostalgia, distorted guitar, heavy sub bass, harsh percussion, piercing high register, dense percussion layers, overlong intro, muddy low end, excessive vocal reverb, flat chorus, monotonous melody, generic demo backing, karaoke gloss, sleepy ending tag, final fade instruction, shame about dressing slowly, unsafe unbuckling early, cluttered clothing commands, gloomy goodbye mood, 그리움, 추억, 회상, 이별, 외로움, 쓸쓸함, 창가, 주전자, 사진첩, 편지, 라디오",
+      "lyrics": "[Verse 1]\n차가 멈춘 다음\n아이 손이 올라\n동그란 단추 하나\n구멍 속에 쏙\n어설퍼도 괜찮아\n콩 반짝\n\n[Chorus]\n작은 손이 해냈어\n단추 하나 반짝\n혼자서도 좋아요\n\n[Verse 2]\n둘째 단추 쏙\n셋째 단추 쏙\n겉옷 앞이 가지런\n웃음도 가지런\n아빠가 기다려\n콩 반짝\n\n[Bridge]\n천천히 한 번\n다시 또 한 번\n내가 할 수 있어\n\n[Chorus]\n가슴 앞이 반듯해\n단추 하나 반짝\n혼자서도 좋아요\n마지막 콩은 다음 노래로 살짝 이어져요\n\n[Instrumental Break]\n\n[Final Chorus]\n단추 하나 반짝\n작은 손이 해냈어\n콩 하고 다음 길\n토끼 발도 기억해\n단추 하나 반짝",
+      "youtube": {
+        "title": "Button Shine | Korean Dressing Action Song",
+        "description": "A peaceful Korean preschool action song for buttoning a jacket after a car ride, building confidence, and looping gently back to the opener.",
+        "tags": [
+          "율동 동요",
+          "생활습관 동요",
+          "옷입기 동요",
+          "유치원 체조",
+          "어린이 액션송",
+          "유아 음악",
+          "동요 플레이리스트",
+          "신나는 동요"
+        ]
+      },
+      "genreId": "krkids-action",
+      "genreText": "bright Korean preschool action song, ukulele, hand claps",
+      "lyricTheme": "krkids-getting-dressed-independently",
+      "lyricThemeText": "buttoning a shirt slowly without help and feeling proud of every button done alone",
+      "lyricThemeArc": "clumsy struggle turning into independent pride",
+      "pov": "thirdPerson",
+      "verseStyle": "dialogue",
+      "verseStyleText": "verse lines use direct address or short conversational fragments without becoming spoken-word",
+      "chorusStyle": "hookRepeat",
+      "chorusStyleText": "chorus lines use compact repeated hook callbacks and simple answer phrases",
+      "effectiveVocalPresetId": "kid-boy",
+      "vocalPresetSource": "tone-match",
+      "qualityScore": 0,
+      "warnings": []
+    }
+  ]
+}

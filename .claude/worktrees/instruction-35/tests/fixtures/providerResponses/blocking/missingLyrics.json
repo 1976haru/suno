@@ -1,0 +1,83 @@
+{
+  "songs": [
+    {
+      "trackNo": 1,
+      "title": "Stay",
+      "hookPhrase": "Stay Here With Me",
+      "stylePrompt": "warm acoustic pop, I-V-vi-IV progression, gentle stop-time break before the final chorus, 92 BPM, tender intimate mood",
+      "lyrics": "[Verse 1]\nSunlight falls across the old back porch\nThe kettle hums a slow familiar song\nI trace the grain of wood beneath my hand\nAnother quiet afternoon rolls on\n\n[Chorus]\nStay Here With Me\nThe evening always finds its own slow pace\nThe garden light still warm against the wall\nStay Here With Me\n\n[Verse 2]\nThe garden gate creaks open in the breeze\nA paper note still folded on the shelf\nI keep the porch light burning after dark\nWaiting for the sound of your own step\n\n[Chorus]\nStay Here With Me\nDon't let the evening pull you far away\nStay Here With Me\nThe porch light waits until you're home to stay\n\n[Bridge]\nMaybe the years will soften every mile\nMaybe the road will finally bring you back\n\n[Chorus]\nStay Here With Me\nDon't let the evening pull you far away\nStay Here With Me\nThe porch light waits until you're home to stay",
+      "youtube": {
+        "title": "Stay",
+        "description": "A heartfelt addition to your listening pack.",
+        "tags": [
+          "playlist",
+          "evening",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "trackNo": 2,
+      "title": "Carry Home",
+      "hookPhrase": "Carry Me Home",
+      "stylePrompt": "soft mid-tempo pop, ii-V-I progression, subtle key change lifting the last chorus, 100 BPM, warm nostalgic mood",
+      "lyrics": "[Verse 1]\nThe last bus rolls down an empty avenue\nStreetlights blink awake one by one\nI count the stops until the road turns familiar\nEvery mile a little closer to done\n\n[Chorus]\nThe fields blur past in gentle shapes tonight\nCarry Me Home\nThe radio hums a tune I half recall\nCarry Me Home\n\n[Verse 2]\nThe radio hums an old forgotten tune\nWindow cracked to let the night air in\nI watch the fields blur into gentle shapes\nAnd feel the weight of the day begin to thin\n\n[Chorus]\nCarry Me Home\nThrough every turn I know so well\nCarry Me Home\nWhere the porch steps still remember my name\n\n[Bridge]\nEvery road I've taken led me back again\nEvery light still burning just the same\n\n[Chorus]\nCarry Me Home\nThrough every turn I know so well\nCarry Me Home\nWhere the porch steps still remember my name",
+      "youtube": {
+        "title": "Carry Home",
+        "description": "A heartfelt addition to your listening pack.",
+        "tags": [
+          "playlist",
+          "evening",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "trackNo": 3,
+      "title": "Hold On Until Tonight",
+      "hookPhrase": "Hold On Tonight",
+      "stylePrompt": "gentle piano pop, I-vi-IV-V progression, quiet breakdown before the chorus returns, 88 BPM, reflective evening mood",
+      "youtube": {
+        "title": "Hold On Until Tonight",
+        "description": "A heartfelt addition to your listening pack.",
+        "tags": [
+          "playlist",
+          "evening",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "trackNo": 4,
+      "title": "Take My Hand Tonight",
+      "hookPhrase": "Take My Hand Now",
+      "stylePrompt": "bright pop ballad, vi-IV-I-V progression, a cappella moment leading into the chorus, 104 BPM, hopeful uplifting mood",
+      "lyrics": "[Verse 1]\nThe morning train pulls slowly out of view\nA paper cup still warm between my palms\nI watch the platform shrink behind the glass\nAnd trust the distance won't undo our calm\n\n[Chorus]\nThe whole horizon's waiting up ahead\nWe'll find our way no matter where it leads\nTake My Hand Now\n\n[Verse 2]\nThe city lights come rushing into frame\nA thousand windows glowing gold and blue\nI keep the ticket folded in my coat\nA quiet promise that I'm coming through\n\n[Chorus]\nTake My Hand Now\nThe whole horizon's waiting up ahead\nTake My Hand Now\nWe'll find our way no matter where it leads\n\n[Bridge]\nWherever this road happens to unwind\nI'll keep you close and never fall behind\n\n[Chorus]\nTake My Hand Now\nThe whole horizon's waiting up ahead\nTake My Hand Now\nWe'll find our way no matter where it leads",
+      "youtube": {
+        "title": "Take My Hand Tonight",
+        "description": "A heartfelt addition to your listening pack.",
+        "tags": [
+          "playlist",
+          "evening",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "trackNo": 5,
+      "title": "Never Let Go Of This Feeling",
+      "hookPhrase": "Never Let Go",
+      "stylePrompt": "warm string-led pop, I-V-vi-IV progression, half-time drop before the chorus swells, 84 BPM, wistful tender mood",
+      "lyrics": "[Verse 1]\nThe harbor lights are scattered on the tide\nA fishing boat still rocking by the pier\nI trace the wake it leaves behind on the water\nAnd wonder how we ended up right here\n\n[Chorus]\nThe evening gulls are circling overhead\nNever Let Go\nA lantern swinging gently by the door\n\n[Verse 2]\nThe evening gulls are circling overhead\nA lantern swinging gently by the door\nI count the years we've spent along this shore\nAnd find I love you even more\n\n[Chorus]\nNever Let Go\nOf every quiet moment we still share\nNever Let Go\nThe tide comes back no matter where we are\n\n[Bridge]\nThe water always finds its way back in\nAnd so do we, again and again\n\n[Chorus]\nNever Let Go\nOf every quiet moment we still share\nNever Let Go\nThe tide comes back no matter where we are",
+      "youtube": {
+        "title": "Never Let Go Of This Feeling",
+        "description": "A heartfelt addition to your listening pack.",
+        "tags": [
+          "playlist",
+          "evening",
+          "acoustic"
+        ]
+      }
+    }
+  ]
+}

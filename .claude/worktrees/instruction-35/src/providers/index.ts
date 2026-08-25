@@ -1,0 +1,739 @@
+import type {
+  BatchContext,
+  GenerationOptions,
+  GenerationProgress,
+  GenrePack,
+  MoodPack,
+  PlaylistBlueprint,
+  PlaylistIdentity,
+  PreassignedSongSlot,
+  ProviderSettings,
+  SeasonPack,
+  SongIdea
+} from '../types';
+import { generateLocalBlueprint, resolveBilingualPair } from '../core/localGenerator';
+import { isKidsArchetype } from '../utils/channelArchetype';
+import { generateLocalBlueprintResponsive } from '../core/localGenerationClient';
+import { claimSlotsByTrackNo, preallocateSongSlots, reconcileWithPreassignedSlot, slotsForRange } from '../core/batchPreallocation';
+import { describeTrackSetValidation, validateProviderTrackSet } from '../core/importValidation';
+import { scoreSongs } from '../core/quality';
+import { recomposeBlockingTracks } from '../core/compositionRecompose';
+import { assertLyricDiversity, dedupeTitlesAcrossPack } from '../core/lyricEngine';
+import { recordUsage } from '../core/usageLedger';
+import { getRecentVocalCombos } from '../core/vocalComboLedger';
+import { recentSceneSignatures } from '../core/situationLedger';
+import { readRecentFlagshipOrder } from '../core/recentFlagshipOrderStore';
+import { ensureVocalMetaTag, resolveVocalMetaTag, type VocalGender, type VocalType } from '../core/vocalPlan';
+import { effectiveVerifiedCombos, getApprovedCombos } from '../core/verifiedCombos';
+import { currentWorkspaceId } from '../core/workspaceScope';
+import { getTakes } from '../core/audioTakes';
+import { buildDirectiveExecutionReport, mergeExecutionInsightsIntoRatingInsights } from '../core/audioDirectiveAnalysis';
+import { stripSetTitlePrefix } from '../utils/generation';
+import { generateWithOpenAI, type ProviderCallResult } from './openai';
+import { generateWithAnthropic } from './anthropic';
+import { ProxyError } from './proxyFetch';
+
+async function recordProviderUsage(settings: ProviderSettings, purpose: 'generate' | 'refine', usage: ProviderCallResult['usage']) {
+  if (!usage) return;
+  try {
+    await recordUsage({
+      provider: settings.provider,
+      model: settings.model || settings.provider,
+      purpose,
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+      cacheHit: false,
+      cacheReadTokens: usage.cacheReadInputTokens || 0
+    });
+  } catch {
+    // Usage tracking is a convenience dashboard, not critical path; never block generation on it.
+  }
+}
+
+export const DEFAULT_BATCH_SIZE = 6;
+
+export function chunkRange(total: number, size: number): number[][] {
+  const batches: number[][] = [];
+  for (let start = 1; start <= total; start += size) {
+    const end = Math.min(start + size - 1, total);
+    batches.push(Array.from({ length: end - start + 1 }, (_, i) => start + i));
+  }
+  return batches;
+}
+
+export function extractIdentity(blueprint: PlaylistBlueprint): PlaylistIdentity {
+  return {
+    oneLineConcept: blueprint.oneLineConcept,
+    sonicSignature: blueprint.sonicSignature,
+    vocalSignature: blueprint.vocalSignature,
+    lyricRules: blueprint.lyricRules,
+    harmonyRules: blueprint.harmonyRules,
+    visualRules: blueprint.visualRules
+  };
+}
+
+export async function callProviderBatch(
+  settings: ProviderSettings,
+  opts: GenerationOptions,
+  genres: GenrePack[],
+  moods: MoodPack[],
+  season: SeasonPack,
+  batch: BatchContext
+): Promise<ProviderCallResult> {
+  if (settings.provider === 'openai') return generateWithOpenAI(opts, genres, moods, season, settings, batch);
+  return generateWithAnthropic(opts, genres, moods, season, settings, batch);
+}
+
+export interface GenerateChunkIdentity {
+  base: Omit<PlaylistBlueprint, 'songs'> | null;
+  locked: PlaylistIdentity | null;
+}
+
+const MIN_SPLIT_RETRY_SIZE = 1;
+
+/**
+ * TASK v3.21 — when even a single song truncates at the normal per-song
+ * max_tokens budget, retry it exactly once pretending the request was for
+ * this many songs (purely for the max_tokens formula — trackNumbers/opts
+ * still only ask for the real 1 song). See BatchContext.maxTokensBudgetSongs
+ * and api/generate.js's resolveTokenBudgetSize.
+ */
+const SINGLE_SONG_BUDGET_BOOST_SONGS = 4;
+
+/**
+ * TASK v3.20 — real Claude output per song runs well past the local
+ * generator's template, so a batch that would have fit comfortably can
+ * still hit stop_reason: 'max_tokens' on the actual API. api/generate.js
+ * signals this distinctly via error.code === 'TRUNCATED' (ProxyError)
+ * instead of a generic failure, so instead of failing the whole request,
+ * split the chunk in half and retry each half — recursively, if a half
+ * still truncates — merging results back in trackNo order. Only gives up
+ * (surfacing a "reduce the song count" error) once a single song alone
+ * still truncates at a boosted budget too, since there's nothing smaller
+ * left to try (TASK v3.21: the boosted-budget retry below).
+ *
+ * preassignedSongs (TASK v3.21), if given, is filtered to this call's own
+ * trackNumbers and threaded into the request — see generateBlueprint's
+ * Anthropic branch for why: parallel sibling chunks can't see each other's
+ * real output, so titles/hooks are decided locally up front instead of
+ * left for the model to invent (same mechanism the Batch API already used
+ * for parallel sub-batches).
+ */
+export async function generateChunkWithSplitRetry(
+  trackNumbers: number[],
+  opts: GenerationOptions,
+  genres: GenrePack[],
+  moods: MoodPack[],
+  season: SeasonPack,
+  settings: ProviderSettings,
+  avoid: { usedTitles: string[]; usedHooks: string[] },
+  identity: GenerateChunkIdentity,
+  preassignedSongs?: PreassignedSongSlot[],
+  /** internal only — set true for the one-shot budget-boost retry so it can't recurse into itself. */
+  boosted = false
+): Promise<PlaylistBlueprint['songs']> {
+  const batchOpts: GenerationOptions = { ...opts, songCount: trackNumbers.length };
+  const batchContext: BatchContext = {
+    trackNoOffset: trackNumbers[0] - 1,
+    totalSongCount: opts.songCount,
+    usedTitles: avoid.usedTitles,
+    usedHooks: avoid.usedHooks,
+    lockedIdentity: identity.locked,
+    preassignedSongs: preassignedSongs ? slotsForRange(preassignedSongs, trackNumbers) : undefined,
+    maxTokensBudgetSongs: boosted ? SINGLE_SONG_BUDGET_BOOST_SONGS : undefined
+  };
+
+  try {
+    const { blueprint: result, usage } = await callProviderBatch(settings, batchOpts, genres, moods, season, batchContext);
+    void recordProviderUsage(settings, 'generate', usage);
+
+    if (!identity.base) {
+      identity.base = {
+        projectTitle: result.projectTitle || opts.projectTitle,
+        channelName: result.channelName || opts.channel.name,
+        oneLineConcept: result.oneLineConcept,
+        sonicSignature: result.sonicSignature,
+        vocalSignature: result.vocalSignature,
+        lyricRules: result.lyricRules,
+        harmonyRules: result.harmonyRules,
+        visualRules: result.visualRules,
+        // TASK v3.69 (TASK B) — realtime generation genuinely happens now.
+        generatedAt: new Date().toISOString()
+      };
+      identity.locked = extractIdentity(result);
+    }
+    // TASK v3.27 (Part A3) — the same reconciliation stitchBatchResults
+    // already applies to Batch API sub-results: hookPhrase/emotionArc/
+    // songRole always win from the locally pre-decided slot (hook-collision-
+    // zero is unconditional), while "title" only does in 'local' titleMode —
+    // by default ('ai-creative') the model's own title for this chunk is
+    // trusted. Cross-chunk title collisions (parallel siblings can't see
+    // each other's pick any more than they could before) are handled once
+    // the whole pack is merged — see generateBlueprint's dedupeTitlesAcrossPack call.
+    const titleMode = opts.titleMode ?? 'ai-creative';
+    const hookMode = opts.hookMode ?? 'ai-creative';
+    // TASK (duplicate-trackNo fix) — was `new Map(slots.map(s => [s.trackNo, s]))`
+    // + a per-song `.get()`: a response where two songs both claimed the same
+    // trackNo let BOTH reconcile against the identical slot. claimSlotsByTrackNo
+    // (core/batchPreallocation.ts) consumes each slot on its first claim; see
+    // its own doc comment for the full mechanism/reasoning.
+    const chunkSongs = result.songs || [];
+    // TASK (structural trackNo rejection) — a harder gate than
+    // claimSlotsByTrackNo's own no-slot fallback above: a response with a
+    // duplicate trackNo (two songs in this SAME chunk both claiming it) or a
+    // trackNo outside the pack's real 1..opts.songCount range can't be
+    // trusted at all, so the whole chunk response is refused outright here,
+    // before any per-song reconciliation runs — see core/importValidation.ts's
+    // own doc comment for why this doesn't replace claimSlotsByTrackNo's
+    // softer per-track remedy (which still runs for every other malformed
+    // shape, e.g. a trackNo valid pack-wide but outside THIS chunk's own
+    // range). Thrown, matching this function's own throw-to-signal-failure
+    // convention (see the catch block below) — no ProxyError/TRUNCATED code,
+    // so it is never mistaken for a truncation and split-retried.
+    const trackSetValidation = validateProviderTrackSet(chunkSongs, opts.songCount);
+    if (!trackSetValidation.valid) {
+      throw new Error(`AI 응답의 trackNo 구조가 잘못되었습니다 (${describeTrackSetValidation(trackSetValidation)}) — 이 응답은 사용할 수 없습니다.`);
+    }
+    const slotClaims = claimSlotsByTrackNo(chunkSongs, batchContext.preassignedSongs ?? []);
+    return chunkSongs.map(song => reconcileWithPreassignedSlot(song, slotClaims.get(song), titleMode, { archetype: opts.channel.archetype, lyricLanguage: opts.lyricLanguage, bilingualPair: resolveBilingualPair(opts) }, hookMode));
+  } catch (error) {
+    const isTruncated = error instanceof ProxyError && error.code === 'TRUNCATED';
+    if (isTruncated && trackNumbers.length > MIN_SPLIT_RETRY_SIZE) {
+      const mid = Math.ceil(trackNumbers.length / 2);
+      const firstHalf = trackNumbers.slice(0, mid);
+      const secondHalf = trackNumbers.slice(mid);
+      const firstSongs = await generateChunkWithSplitRetry(firstHalf, opts, genres, moods, season, settings, avoid, identity, preassignedSongs);
+      const combinedAvoid = {
+        usedTitles: [...avoid.usedTitles, ...firstSongs.map(song => stripSetTitlePrefix(song.title))],
+        usedHooks: [...avoid.usedHooks, ...firstSongs.map(song => song.hookPhrase)]
+      };
+      const secondSongs = await generateChunkWithSplitRetry(secondHalf, opts, genres, moods, season, settings, combinedAvoid, identity, preassignedSongs);
+      return [...firstSongs, ...secondSongs];
+    }
+    if (isTruncated && !boosted) {
+      return generateChunkWithSplitRetry(trackNumbers, opts, genres, moods, season, settings, avoid, identity, preassignedSongs, true);
+    }
+    if (isTruncated) {
+      throw new Error('응답이 계속 잘립니다. 곡 수를 줄여보세요.');
+    }
+    throw error;
+  }
+}
+
+/**
+ * TASK v3.21 — runs `worker` over `items` with at most `limit` concurrent
+ * calls in flight. Unlike Promise.all(items.map(worker)), a rejection
+ * doesn't abort in-flight siblings or lose their results — every item gets
+ * a chance to finish (worker is expected to record its own success as a
+ * side effect, e.g. into a shared map, before this function ever looks at
+ * outcomes), and only after all settle does this throw one aggregated error
+ * naming every item that failed. This is what keeps a single failing chunk
+ * from discarding chunks that already succeeded.
+ */
+export async function runWithConcurrencyLimit<T>(items: T[], limit: number, worker: (item: T) => Promise<void>): Promise<void> {
+  const failures: { item: T; error: unknown }[] = [];
+  let nextIndex = 0;
+
+  async function runNext(): Promise<void> {
+    const current = nextIndex++;
+    if (current >= items.length) return;
+    try {
+      await worker(items[current]);
+    } catch (error) {
+      failures.push({ item: items[current], error });
+    }
+    await runNext();
+  }
+
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, () => runNext()));
+
+  if (failures.length) {
+    const firstMessage = failures[0].error instanceof Error ? failures[0].error.message : String(failures[0].error);
+    throw new Error(`${failures.length}개 청크 생성에 실패했습니다: ${firstMessage}`);
+  }
+}
+
+/** TASK v3.21 — real-time Anthropic chunk size: small on purpose (see generateBlueprint's Anthropic branch), configurable via settings.batchSize but clamped much tighter than the old 1-12 range. */
+const REALTIME_CHUNK_SIZE_DEFAULT = 2;
+const REALTIME_CHUNK_SIZE_MAX = 3;
+/** Anthropic's per-account rate limits vary; 3 concurrent requests is fast without courting 429s on a typical tier. */
+const REALTIME_CONCURRENCY = 3;
+
+export async function generateBlueprint(
+  opts: GenerationOptions,
+  genres: GenrePack[],
+  moods: MoodPack[],
+  season: SeasonPack,
+  settings: ProviderSettings,
+  onProgress?: (progress: GenerationProgress) => void,
+  /** TASK X1 (v3.4) — this channel's cross-pack hook/title history, so a new pack never silently reuses a title from an older one. Capped by the caller (see core/hookLedger.ts's recentUsedTitlesAndHooks) before being sent to a remote LLM, to bound prompt token cost. 지시문 14 (Phase 2 TASK A-2) — recentLyricThemeIds/recentSituations are usually left for THIS function's own choke point below to fill in (workspace-scoped situationLedger read); a caller may still pass its own to override that. */
+  avoid?: { usedTitles?: string[]; usedHooks?: string[]; recentVocalComboSignatures?: string[]; previousFlagshipOrder?: VocalType[]; verifiedCombos?: import('../data/verifiedCombos').VerifiedCombo[]; recentLyricThemeIds?: string[]; recentSituations?: string[] },
+  /**
+   * TASK v3.62 (TASK 3) — C안's automatic recomposition gate. Defaults to
+   * false so every existing direct unit test of this function (which builds
+   * short synthetic stub songs that would otherwise trip
+   * compositionScorer.ts's descriptor-count check on every track) keeps its
+   * exact call-count assumptions. The app's own real generation entry
+   * points (hooks/useGenerationFlow.ts, core/multiSetGeneration.ts) always
+   * pass true — end users never see a toggle for this. A no-op for
+   * settings.provider === 'local' regardless, since that branch returns
+   * before this flag is ever read.
+   */
+  enableRecompose = false,
+  /**
+   * TASK v3.74 (TASK H) — opt-in (default false, unlike TASK A's vocal-combo
+   * lean above, which is unconditional): feeding real killing-point
+   * execution rates (core/audioDirectiveAnalysis.ts) back into
+   * killingPointBoostFromInsights is new and, unlike the vocal-combo signal,
+   * has no UI toggle wired to it yet (see docs/v374-report.md's own
+   * disclosure) — defaulting to false means every existing caller, and any
+   * pack generated before real take data exists, produces byte-identical
+   * output to before this task (this task's own explicit "학습 데이터가
+   * 0건일 때 생성한 18곡이 작업 전과 동일해야 합니다"). Best-effort: a
+   * lookup failure must never block generation.
+   */
+  audioLearningEnabled = false
+): Promise<PlaylistBlueprint> {
+  // TASK v3.72 (TASK E) — softly leans this pack's register choices away
+  // from whatever this channel's last few sets already leaned on (see
+  // core/vocalComboLedger.ts). One choke point covers both the local and
+  // realtime/Batch branches below, since both read `avoid` from here.
+  // Best-effort: a ledger read failure must never block generation.
+  if (!isKidsArchetype(opts.channel.archetype)) {
+    try {
+      const recentVocalComboSignatures = await getRecentVocalCombos(opts.channel.id);
+      if (recentVocalComboSignatures.length) avoid = { ...avoid, recentVocalComboSignatures };
+    } catch {
+      // best-effort only
+    }
+  }
+  // v3.80 (TASK A-3) — same choke point, same "core stays pure, this is the
+  // one place that reads storage" reasoning as the vocal-combo ledger read
+  // just above. Sync (localStorage, not IndexedDB — see
+  // recentFlagshipOrderStore.ts's own doc comment), but still guarded: a
+  // blocked/unavailable localStorage must never break generation.
+  try {
+    const previousFlagshipOrder = readRecentFlagshipOrder(opts.channel.id);
+    if (previousFlagshipOrder) avoid = { ...avoid, previousFlagshipOrder };
+  } catch {
+    // best-effort only
+  }
+  // v3.82 (TASK A) — same choke point, same "core stays pure, this is the
+  // one place that reads storage" split as the two reads just above.
+  // effectiveVerifiedCombos already merges the seed registry
+  // (data/verifiedCombos.ts) with whatever the user has approved
+  // (core/verifiedCombos.ts's own IndexedDB store), scoped to the current
+  // workspace, so batchPreallocation.ts/localGenerator.ts's flagship
+  // override never needs to know about storage or workspaces at all.
+  try {
+    const workspaceId = currentWorkspaceId();
+    const approvedCombos = await getApprovedCombos(workspaceId);
+    const verifiedCombos = effectiveVerifiedCombos(workspaceId, approvedCombos);
+    if (verifiedCombos.length) avoid = { ...avoid, verifiedCombos };
+  } catch {
+    // best-effort only — a verified-combo lookup failure must never block generation.
+  }
+  // 지시문 14 (Phase 2 TASK A-2) — same choke point, same "core stays pure,
+  // this is the one place that reads storage" split as the 3 reads above.
+  // situationLedger.ts's own recentSceneSignatures is now workspace-scoped
+  // (지시문 14 TASK C's own LedgerScope), so this sees every channel's scene
+  // history within the workspace, not just this one channel's own — the
+  // real fix for §2-1's measured gap ("회피 목록이 배정에 쓰이지 않는다").
+  // Only overrides recentLyricThemeIds/recentSituations when the caller
+  // didn't already supply its own (a caller with a more targeted pre-fetch —
+  // e.g. an already-computed multi-set duplicationHistory — should win).
+  if (!avoid?.recentLyricThemeIds && !avoid?.recentSituations) {
+    try {
+      const scope = { workspaceId: currentWorkspaceId() };
+      const signatures = await recentSceneSignatures(scope, opts.lyricLanguage);
+      const recentLyricThemeIds = signatures.map(s => s.lyricTheme).filter((id): id is string => Boolean(id));
+      const recentSituations = signatures.map(s => s.situation).filter(Boolean);
+      if (recentLyricThemeIds.length || recentSituations.length) avoid = { ...avoid, recentLyricThemeIds, recentSituations };
+    } catch {
+      // best-effort only — an avoid-list lookup failure must never block generation.
+    }
+  }
+
+  // TASK v3.74 (TASK H) — strong-confidence killing-point execution rates
+  // (real measured "did the late lift actually happen", not text
+  // prediction) softly re-weight killing-point selection through the exact
+  // same, already-capped v3.68 mechanism real ratings already use — see
+  // core/audioDirectiveAnalysis.ts's own doc comment for why the existing
+  // MAX_SONGS_PER_KILLING_POINT cap already keeps this well under the 50%
+  // ceiling this task requires, with no new cap logic needed.
+  if (audioLearningEnabled) {
+    try {
+      const takes = await getTakes({ channelId: opts.channel.id });
+      if (takes.length) {
+        const executionEntries = buildDirectiveExecutionReport(takes);
+        const merged = mergeExecutionInsightsIntoRatingInsights(opts.ratingInsights, executionEntries);
+        if (merged.length) opts = { ...opts, ratingInsights: merged };
+      }
+    } catch {
+      // best-effort only
+    }
+  }
+
+  if (settings.provider === 'local') {
+    // v4.0 (TASK A) — an 18-80 song local pack runs the full title/lyric/
+    // stylePrompt pipeline plus scoring synchronously; on the main thread
+    // this is exactly the freeze main's own emergency-browser-freeze fix
+    // (PR #4) addressed, which this branch never inherited (see
+    // docs/v400-report.md). generateLocalBlueprintResponsive runs the same
+    // generateLocalBlueprint+scoreSongs pair inside a Worker — everything
+    // ABOVE this branch (vocal-combo lean, flagship-order lean, audio
+    // learning insights) still runs here on the main thread first and feeds
+    // into `opts`/`avoid` exactly as before; only the actual heavy
+    // generation call moves off-thread.
+    const blueprint = await generateLocalBlueprintResponsive(opts, genres, moods, season, avoid, settings.promptCharLimit);
+    onProgress?.({ done: blueprint.songs.length, total: opts.songCount, songs: blueprint.songs });
+    // v3.66 (TASK B) — marks this blueprint as the local-preview path so the
+    // UI can disclose that real output may differ (see Step4Result.tsx).
+    return { ...blueprint, isLocalPreview: true };
+  }
+
+  const identity: GenerateChunkIdentity = { base: null, locked: null };
+  const songsByTrackNo = new Map<number, PlaylistBlueprint['songs'][number]>();
+  const reportProgress = () => {
+    const songs = [...songsByTrackNo.values()].sort((a, b) => a.trackNo - b.trackNo);
+    onProgress?.({ done: songs.length, total: opts.songCount, songs });
+  };
+
+  if (settings.provider === 'anthropic') {
+    // TASK v3.21 — real Claude output is rich enough that even the raised
+    // v3.20 max_tokens budget kept truncating at the old up-to-12-song
+    // chunk size. Small fixed chunks (default 2, 1-3 range) never come
+    // close to any max_tokens budget, and running them with bounded
+    // concurrency instead of one at a time keeps this from being 6x slower.
+    // The first chunk still runs alone — it's what locks sonicSignature/
+    // vocalSignature/etc — then the rest run in parallel against that
+    // locked identity. Titles/hooks are pre-decided locally (preallocateSongSlots,
+    // the same mechanism the Batch API already used for parallel sub-batches)
+    // instead of left for the model to invent, since concurrent siblings
+    // can't see each other's real output to avoid colliding on their own.
+    const chunkSize = Math.min(REALTIME_CHUNK_SIZE_MAX, Math.max(1, Math.round(settings.batchSize || REALTIME_CHUNK_SIZE_DEFAULT)));
+    const batches = chunkRange(opts.songCount, chunkSize);
+    const preassignedSongs = preallocateSongSlots(opts, genres, avoid);
+    const baseAvoid = { usedTitles: avoid?.usedTitles ?? [], usedHooks: avoid?.usedHooks ?? [] };
+
+    const [firstChunk, ...restChunks] = batches;
+    if (firstChunk) {
+      const songs = await generateChunkWithSplitRetry(firstChunk, opts, genres, moods, season, settings, baseAvoid, identity, preassignedSongs);
+      for (const song of songs) songsByTrackNo.set(song.trackNo, song);
+      reportProgress();
+    }
+
+    if (restChunks.length) {
+      await runWithConcurrencyLimit(restChunks, REALTIME_CONCURRENCY, async trackNumbers => {
+        const songs = await generateChunkWithSplitRetry(trackNumbers, opts, genres, moods, season, settings, baseAvoid, identity, preassignedSongs);
+        for (const song of songs) songsByTrackNo.set(song.trackNo, song);
+        reportProgress();
+      });
+    }
+  } else {
+    // OpenAI: unchanged from v3.20 — sequential, larger chunks. Kept
+    // separate from the Anthropic branch above because OpenAI's own prompt
+    // builder (buildUserInstruction) doesn't forward preassignedSongs, so
+    // parallelizing it today would reopen the title/hook collision risk
+    // preallocation exists to prevent. Nothing has reported OpenAI hitting
+    // the truncation problem this task fixes, so its proven sequential path
+    // is left as-is rather than risking a new bug to fix one that doesn't
+    // exist yet.
+    const batchSize = Math.min(12, Math.max(1, Math.round(settings.batchSize || DEFAULT_BATCH_SIZE)));
+    const batches = chunkRange(opts.songCount, batchSize);
+    for (const trackNumbers of batches) {
+      const priorSongs = [...songsByTrackNo.values()];
+      const chunkAvoid = {
+        usedTitles: [...(avoid?.usedTitles ?? []), ...priorSongs.map(song => stripSetTitlePrefix(song.title))],
+        usedHooks: [...(avoid?.usedHooks ?? []), ...priorSongs.map(song => song.hookPhrase)]
+      };
+      const songs = await generateChunkWithSplitRetry(trackNumbers, opts, genres, moods, season, settings, chunkAvoid, identity);
+      for (const song of songs) songsByTrackNo.set(song.trackNo, song);
+      reportProgress();
+    }
+  }
+
+  const mergedSongs = [...songsByTrackNo.values()].sort((a, b) => a.trackNo - b.trackNo);
+  // TASK v3.27 (Part A3) — parallel chunks (Anthropic branch) or independent
+  // sequential batches (OpenAI branch) can each land on the same AI-creative
+  // title with no visibility into each other's pick; catch and auto-uniquify
+  // it here against both the rest of this pack and the channel's cross-pack
+  // history, same as the Batch API / Claude Code bridge paths.
+  const { songs: allSongs } = dedupeTitlesAcrossPack(mergedSongs, avoid?.usedTitles ?? []);
+  const blueprint: PlaylistBlueprint = {
+    ...(identity.base as Omit<PlaylistBlueprint, 'songs'>),
+    songs: allSongs
+  };
+
+  const scoredSongs = scoreSongs(blueprint.songs, opts.channel, opts.lyricLanguage);
+  if (!enableRecompose) {
+    return { ...blueprint, songs: scoredSongs };
+  }
+
+  // TASK v3.62 (TASK 3) — reuses regenerateTrack (the same primitive the
+  // manual AI-evaluation "재시도" button already drives, see
+  // hooks/useEvaluationFlow.ts's retrySong) per blocking track it finds,
+  // feeding compositionScorer.ts's own blocking reasons back in as
+  // feedback. See compositionRecompose.ts for the retry-cap/abort logic.
+  const recomposeAvoid = { usedTitles: avoid?.usedTitles ?? [], usedHooks: avoid?.usedHooks ?? [] };
+  const { songs: recomposedSongs } = await recomposeBlockingTracks(scoredSongs, async (currentSongs, trackNo, feedback) => {
+    const { blueprint: next } = await regenerateTrack({ ...blueprint, songs: currentSongs }, trackNo, opts, genres, moods, season, settings, feedback, recomposeAvoid);
+    return next.songs;
+  }, recomposeAvoid.usedHooks, opts.lyricLanguage, opts.channel.vocalQuotaOverride, opts.channel.archetype, resolveBilingualPair(opts));
+
+  return { ...blueprint, songs: scoreSongs(recomposedSongs, opts.channel, opts.lyricLanguage) };
+}
+
+const REGENERATE_MAX_ATTEMPTS = 3; // initial try + 2 retries
+const REGENERATE_QUALITY_BAR = 70;
+
+function collidesWithOthers(candidate: SongIdea, usedTitles: string[], usedHooks: string[]): boolean {
+  const title = stripSetTitlePrefix(candidate.title).toLowerCase();
+  const hook = candidate.hookPhrase.toLowerCase();
+  return usedTitles.some(t => stripSetTitlePrefix(t).toLowerCase() === title) || usedHooks.some(h => h.toLowerCase() === hook);
+}
+
+function tooSimilarToOthers(candidate: SongIdea, others: SongIdea[], trackNo: number): boolean {
+  return assertLyricDiversity([...others, candidate], 0.4).some(pair => pair.trackA === trackNo || pair.trackB === trackNo);
+}
+
+export interface RegenerateTrackResult {
+  blueprint: PlaylistBlueprint;
+  warning?: string;
+}
+
+/**
+ * Regenerates exactly one track instead of the whole pack — evaluator
+ * rejections are usually 1-3 songs out of up to 30, so re-running the full
+ * batch to fix them would waste most of the API cost on songs that were
+ * already fine. Retries up to REGENERATE_MAX_ATTEMPTS times (varying the
+ * seed/sampling each attempt) until the candidate clears the quality bar
+ * and doesn't collide or overlap with the rest of the pack; if every
+ * attempt falls short, the last candidate is still returned (with a
+ * warning) rather than leaving the track blank or looping forever.
+ */
+export async function regenerateTrack(
+  blueprint: PlaylistBlueprint,
+  trackNo: number,
+  opts: GenerationOptions,
+  genres: GenrePack[],
+  moods: MoodPack[],
+  season: SeasonPack,
+  settings: ProviderSettings,
+  feedback: string[] = [],
+  /** TASK X1 (v3.4) — cross-pack hook/title history, merged in alongside the rest of this pack so a regenerated track can't collide with a hook used in a *different* pack either. */
+  avoid?: { usedTitles?: string[]; usedHooks?: string[] }
+): Promise<RegenerateTrackResult> {
+  const others = blueprint.songs.filter(song => song.trackNo !== trackNo);
+  const original = blueprint.songs.find(song => song.trackNo === trackNo);
+  const usedTitles = [...(avoid?.usedTitles ?? []), ...others.map(song => stripSetTitlePrefix(song.title)), ...(original ? [stripSetTitlePrefix(original.title)] : [])];
+  const usedHooks = [...(avoid?.usedHooks ?? []), ...others.map(song => song.hookPhrase), ...(original ? [original.hookPhrase] : [])];
+  const avoidWords = [opts.avoidWords, ...feedback].filter(Boolean).join('; ');
+  const feedbackNote = feedback.length
+    ? `previous attempt was rejected for: ${feedback.join('; ')}. Rewrite to avoid these specific issues.`
+    : '';
+  const candidateOpts: GenerationOptions = { ...opts, songCount: 1, avoidWords, customConcept: [opts.customConcept, feedbackNote].filter(Boolean).join(' ') };
+
+  let candidate: SongIdea | null = null;
+  let warning: string | undefined;
+
+  for (let attempt = 0; attempt < REGENERATE_MAX_ATTEMPTS; attempt++) {
+    let raw: SongIdea;
+    if (settings.provider === 'local') {
+      const single = generateLocalBlueprint(
+        { ...candidateOpts, projectTitle: `${opts.projectTitle}::retry-${trackNo}-${attempt}-${Date.now()}` },
+        genres,
+        moods,
+        season,
+        { usedTitles, usedHooks },
+        settings.promptCharLimit
+      );
+      raw = { ...single.songs[0], trackNo };
+    } else {
+      const batchContext: BatchContext = {
+        trackNoOffset: trackNo - 1,
+        totalSongCount: blueprint.songs.length,
+        usedTitles,
+        usedHooks,
+        lockedIdentity: extractIdentity(blueprint)
+      };
+      const { blueprint: result, usage } = await callProviderBatch(settings, candidateOpts, genres, moods, season, batchContext);
+      void recordProviderUsage(settings, 'refine', usage);
+      raw = { ...result.songs[0], trackNo };
+      // TASK (regenerateTrack remote vocal-tag reconciliation gap) — unlike
+      // the 'local' branch above (generateLocalBlueprint composes the vocal
+      // meta tag correctly by construction) and every other real generation
+      // path (which funnels through batchPreallocation.ts's
+      // reconcileWithPreassignedSlot), this remote single-song response
+      // never had its lyrics' top-of-lyrics vocal meta tag (e.g.
+      // "[male vocal]") checked against this slot's actually-assigned vocal
+      // type at all — a wrong/stale tag from the provider survived
+      // untouched. No PreassignedSongSlot is available anywhere in this
+      // function's real call chain (hooks/useEvaluationFlow.ts's retrySong,
+      // compositionRecompose.ts's regenerateOne callback below, App.tsx,
+      // core/hookDedup.ts all pass only a PlaylistBlueprint + trackNo), so
+      // `original` (the song this trackNo is replacing, resolved above) is
+      // the most accurate source of truth actually reachable here — it
+      // already carries the real vocalType this slot resolved to, set by
+      // reconcileWithPreassignedSlot when the pack was first generated (or
+      // by this same fix on a prior regen attempt). The gender derivation
+      // below mirrors batchPreallocation.ts's own
+      // `vocalGender = isKidsArchetype(archetype) ? vocalType : (vocalType === 'mixed' ? 'duet' : vocalType)`
+      // so a non-kids 'mixed' slot (an adult duet) resolves to
+      // '[duet vocal]', not '[mixed vocal]'. Only resolveVocalMetaTag/
+      // ensureVocalMetaTag are called here — not the rest of
+      // reconcileWithPreassignedSlot's genre/money-chord/structure logic,
+      // which doesn't apply to a single free-standing regen candidate.
+      if (original?.vocalType) {
+        const originalVocalGender: VocalGender = isKidsArchetype(opts.channel.archetype)
+          ? original.vocalType
+          : original.vocalType === 'mixed' ? 'duet' : original.vocalType;
+        const expectedVocalTag = resolveVocalMetaTag(original.vocalType, originalVocalGender, undefined);
+        raw = { ...raw, lyrics: ensureVocalMetaTag(raw.lyrics, expectedVocalTag) };
+      }
+    }
+
+    candidate = scoreSongs([raw], opts.channel, opts.lyricLanguage)[0];
+    const collides = collidesWithOthers(candidate, usedTitles, usedHooks);
+    const tooSimilar = tooSimilarToOthers(candidate, others, trackNo);
+    const meetsQualityBar = candidate.qualityScore >= REGENERATE_QUALITY_BAR;
+
+    if (meetsQualityBar && !collides && !tooSimilar) {
+      warning = undefined;
+      break;
+    }
+    warning = collides
+      ? '재생성된 곡이 팩 안의 다른 곡과 제목/후렴이 겹칩니다.'
+      : tooSimilar
+        ? '재생성된 곡이 팩 안의 다른 곡과 가사가 너무 비슷합니다.'
+        : `재생성된 곡의 품질 점수(${candidate.qualityScore}/100)가 기준(${REGENERATE_QUALITY_BAR})에 못 미칩니다.`;
+  }
+
+  // TASK B3 (v3.6) — a batch job's stitched result can be missing a trackNo
+  // entirely (not just low-quality), e.g. when recovering from a canceled
+  // job's partial results; insert rather than only ever replacing in place.
+  const exists = blueprint.songs.some(song => song.trackNo === trackNo);
+  const songs = exists
+    ? blueprint.songs.map(song => (song.trackNo === trackNo ? (candidate as SongIdea) : song))
+    : [...blueprint.songs, candidate as SongIdea].sort((a, b) => a.trackNo - b.trackNo);
+  return { blueprint: { ...blueprint, songs }, warning: warning ? `${warning} (최대 ${REGENERATE_MAX_ATTEMPTS}회 시도 후 최선의 결과를 사용합니다.)` : undefined };
+}
+
+const REFINE_BATCH_THRESHOLD = 4; // below this, per-track calls are cheap enough that failure isolation matters more than token savings
+const REFINE_BATCH_SIZE = 6;
+
+function chunkArray<T>(items: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  return out;
+}
+
+export interface RefineTracksResult {
+  blueprint: PlaylistBlueprint;
+  warnings: string[];
+}
+
+/**
+ * TASK C1 (v3.3): regenerateTrack's per-song call re-sends the full system
+ * prompt + channel profile + accumulated usedTitles/usedHooks on every
+ * single call, so refining N selected tracks one-by-one costs roughly N
+ * times that overhead. Below REFINE_BATCH_THRESHOLD the per-track path
+ * stays (failure isolation and the collision/quality retry loop matter more
+ * than the token savings for 1-3 songs); at or above it, selected tracks
+ * are grouped into REFINE_BATCH_SIZE-sized batches and each batch is
+ * requested as a single multi-song API call, with the returned songs
+ * positionally remapped onto the actual (possibly non-contiguous) selected
+ * trackNos. A failed batch only drops that batch's tracks (with a warning)
+ * — it never discards results already applied from other batches.
+ */
+export async function refineTracks(
+  blueprint: PlaylistBlueprint,
+  trackNos: number[],
+  opts: GenerationOptions,
+  genres: GenrePack[],
+  moods: MoodPack[],
+  season: SeasonPack,
+  settings: ProviderSettings,
+  feedback: string[] = [],
+  onProgress?: (done: number, total: number) => void,
+  /** TASK X1 (v3.4) — cross-pack hook/title history. */
+  avoid?: { usedTitles?: string[]; usedHooks?: string[] }
+): Promise<RefineTracksResult> {
+  const total = trackNos.length;
+  if (settings.provider === 'local' || trackNos.length < REFINE_BATCH_THRESHOLD) {
+    let current = blueprint;
+    const warnings: string[] = [];
+    let done = 0;
+    for (const trackNo of trackNos) {
+      const { blueprint: next, warning } = await regenerateTrack(current, trackNo, opts, genres, moods, season, settings, feedback, avoid);
+      current = next;
+      if (warning) warnings.push(`${trackNo}번: ${warning}`);
+      done += 1;
+      onProgress?.(done, total);
+    }
+    return { blueprint: current, warnings };
+  }
+
+  let current = blueprint;
+  const warnings: string[] = [];
+  let done = 0;
+  const avoidWords = [opts.avoidWords, ...feedback].filter(Boolean).join('; ');
+  const feedbackNote = feedback.length
+    ? `previous attempt was rejected for: ${feedback.join('; ')}. Rewrite to avoid these specific issues.`
+    : '';
+
+  for (const chunk of chunkArray(trackNos, REFINE_BATCH_SIZE)) {
+    try {
+      const others = current.songs.filter(song => !chunk.includes(song.trackNo));
+      const usedTitles = [...(avoid?.usedTitles ?? []), ...others.map(song => stripSetTitlePrefix(song.title))];
+      const usedHooks = [...(avoid?.usedHooks ?? []), ...others.map(song => song.hookPhrase)];
+      const batchOpts: GenerationOptions = {
+        ...opts,
+        songCount: chunk.length,
+        avoidWords,
+        customConcept: [opts.customConcept, feedbackNote].filter(Boolean).join(' ')
+      };
+      const batchContext: BatchContext = {
+        trackNoOffset: 0,
+        totalSongCount: current.songs.length,
+        usedTitles,
+        usedHooks,
+        lockedIdentity: extractIdentity(current)
+      };
+
+      const { blueprint: result, usage } = await callProviderBatch(settings, batchOpts, genres, moods, season, batchContext);
+      void recordProviderUsage(settings, 'refine', usage);
+
+      // codex 지시문 01 (TASK A) — real gap this closes: this remap assumed
+      // result.songs.length === chunk.length and that array order matched
+      // chunk order, with no check either way. A provider response short a
+      // song, carrying an extra one, or (worst case) reordered would
+      // silently misassign lyrics to the WRONG trackNo via chunk[i] — the
+      // exact class of "structure validated only by position, never by
+      // count/identity" bug this task's own §목표 2 names. Never renumbers
+      // to paper over a mismatch (same "reject, don't silently repair"
+      // principle core/importValidation.ts's validateProviderTrackSet
+      // already follows) — a mismatched chunk is dropped from this pass
+      // entirely (those trackNos simply keep their pre-refine content) and
+      // reported as a warning, same as the existing catch block just below
+      // already does for a hard failure.
+      const resultSongs = result.songs || [];
+      if (resultSongs.length !== chunk.length) {
+        warnings.push(`${chunk.join(', ')}번 곡 배치 보정 실패: 응답 곡 수(${resultSongs.length})가 요청한 곡 수(${chunk.length})와 다릅니다 — 이 배치는 반영하지 않았습니다.`);
+      } else {
+        const remapped = resultSongs.map((song, i) => ({ ...song, trackNo: chunk[i] }));
+        const scored = scoreSongs(remapped, opts.channel, opts.lyricLanguage);
+        const byTrackNo = new Map(scored.map(song => [song.trackNo, song]));
+        const songs = current.songs.map(song => byTrackNo.get(song.trackNo) ?? song);
+        current = { ...current, songs };
+      }
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      warnings.push(`${chunk.join(', ')}번 곡 배치 보정에 실패했습니다: ${message} (다른 배치의 결과는 정상 반영되었습니다.)`);
+    }
+    done += chunk.length;
+    onProgress?.(done, total);
+  }
+
+  return { blueprint: current, warnings };
+}

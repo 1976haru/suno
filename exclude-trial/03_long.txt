@@ -1,0 +1,55 @@
+제목: Open Every Window
+트랙 번호: T18 (원본 팩 기준)
+장르: oldpop-piano-ballad-70s
+버전: long (원본 팩 값 그대로, 변경 없음)
+
+[가사] (버전 간 동일 — 변경 없음)
+[Verse 1]
+He lifts the latch in the front room
+Where winter kept its chair
+The curtain jumps like it remembers
+How to move in kinder air
+Dust turns gold above the table
+And the house begins to breathe
+
+[Chorus]
+Long cold weeks loosen their fingers
+Open Every Window
+Warmth walks in across the floor
+With nothing left to prove
+
+[Verse 2]
+He opens one above the kitchen
+One beside the narrow stair
+A letter stirs near an old cup
+As if a voice were there
+The heavy rooms give back their silence
+To the branches newly green
+
+[Chorus]
+From sill to sill the whole house answers
+Open Every Window
+What felt closed is only waiting
+For the air to move
+
+[Bridge]
+He does not say the winter ended
+He only lets it pass
+Sun rests softly on the table
+Like a hand on glass
+
+[Instrumental Break]
+
+[Final Chorus]
+Open Every Window
+Long cold weeks loosen their fingers
+Warmth walks in across the floor
+With nothing left to prove
+The first light waits beside the table
+Open Every Window
+
+[stylePrompt] (버전 간 동일 — 변경 없음)
+1970s piano-led pop ballad, grand piano, restrained brushed drums, warm bass, gentle tremolo electric guitar color, 66 BPM, male male head-voice lead, storytelling spoken-edge delivery, warm woody midrange, dry and forward, double-tracked lead vocal, vi-IV-I-V to I-V-vi-IV, final chorus key-up, sparse closing arrangement, symmetric four-bar phrases, predictable cadence, half-time chorus weight, warm spring-afternoon release, dry intimate vocal, analog room tone, no intro tag, short instrumental breath before final chorus, reflects opening window motif, unresolved final cadence, short intro, 3:10-3:35, full arrangement, not a short cut
+
+[excludePrompt] (이 버전만 다름 — 실측 892자)
+famous artist imitation, copied melodies, copyrighted song references, soundalike vocals, real artist or band names, existing song titles, imitating a specific singer voice or style, shouted or belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation that obscures the melody, abrupt dynamic jumps, cavernous hall reverb, gated reverb, sidechain compression, modern wide stereo production, digital synth pads, autotuned vocal, trap hi-hats, lo-fi vinyl crackle effect, flat chorus with no lift, monotonous melody contour, generic AI demo-band sound, overly glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement with no song development, too old-fashioned trot mood, childish lyrics, dramatic power ballad shouting, overlong intro

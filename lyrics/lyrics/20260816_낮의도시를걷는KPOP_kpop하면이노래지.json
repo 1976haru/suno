@@ -1,0 +1,696 @@
+{
+    "meta":  {
+                 "setName":  "20260816_낮의도시를걷는KPOP_kpop하면이노래지",
+                 "generatedAt":  "2026-08-16T04:13:59.291Z",
+                 "channelId":  "daylight-city-kpop",
+                 "channelLabel":  "낮의 도시를 걷는 K-POP",
+                 "conceptLabel":  "kpop하면 이노래지",
+                 "songCount":  15,
+                 "lyricLanguage":  "korean",
+                 "bridgeVersion":  "0.21.0"
+             },
+    "songs":  [
+                  {
+                      "trackNo":  1,
+                      "title":  "Daylight Crew",
+                      "titleLocalized":  "대낮의편",
+                      "seasonMoment":  "December city lunch hour with crisp air and bright streets.",
+                      "listenerSituation":  "After a lunchtime music-show win, a tight circle crosses the station plaza laughing about the cue they almost missed.",
+                      "emotionArc":  "built-up tension breaking into shared relief",
+                      "distinctChoice":  {
+                                             "ruleId":  "HOOK_REPEAT_4X",
+                                             "descriptionKo":  "[Verse 1: A+B] [Pre: D+C] [Chorus: All] [Rap Verse 2: C+A] [Chorus: All] [Instrumental Break] [Bridge: B solo] [Final: All]로 열고, 다른 곡과 달리 친구들의 보폭을 훅 응답 구조로 남긴다."
+                                         },
+                      "hookPhrase":  "Daylight Crew",
+                      "stylePrompt":  "Korean idol synth dance pop, 104 BPM, four-on-the-floor kick, bright pluck synth, filtered synth bass, clap layer, I-V-vi-IV verses, vi-IV-I-V chorus lift, husky female alto, tender confiding delivery, faint vibrato shimmer, answer-riff hook response, medium arrangement, rising two-step chorus melody, unison group vocal stack, Verse: intimate reggaeton-lite percussion, sparse voice-forward mix / Pre-Chorus: sparse funk guitar stab build, syncopated pre-drop tension / Chorus: full pop chorus lift, layered vocal harmony / Bridge: rap-delivery bridge, minimal percussion-only backing, no intro tag, full level first bar, short intro, 3:10-3:35, full arrangement, not a short cut",
+                      "excludePrompt":  "famous artist imitation, real artist names, copied melody, copyrighted song reference, soundalike vocal, specific idol group imitation, named member vocal timbre, signature hook of an existing song, sultry seductive framing, schoolgirl coding, teen-coded romance, senior-radio nostalgia imagery, vintage tape saturation, nostalgic announcer voice, understated subdued vocal delivery, slow ballad pacing, flat chorus, monotonous melody contour, generic demo-band sound, karaoke backing track, muddy low-end mix, excessive reverb, thin placeholder hook, stock loop arrangement, overlong intro, weak dance pulse, limp four-on-floor, cluttered clap stack, harsh pluck synth, faceless chant crowd, unfocused rap lead-in",
+                      "lyrics":  "[Verse 1: Member A  stable soft-grain tenor, smooth even delivery, Member B  clear thin tone, bright forward projection]\n점심 지난 광장에 햇살이 꽂혀\n니 어깨에 손을 얹고 크게 웃어\n아까 놓칠 뻔한 큐를 다시 말해\n우리끼리만 아는 표정이 번져\n걷는 속도 맞추니 도시가 쉬워\n\n[Pre-Chorus: Member D  warm low register, mellow husky undertone, Member C  heavy bass-register attack, blunt percussive delivery]\n숨을 고르고 유리문에 비친 우리\n늦은 심장도 제자리 찾아\n한 번 더 가자 말 없이 고개 들어\n작은 승리가 손바닥에 남아\n\n[Chorus: All]\nDaylight Crew\n발끝이 같은 쪽을 골라\n넘어질 뻔한 순간도 노래가 돼\n대낮의 길 위로 같이 올라\n\n[Rap Verse 2: Member C  heavy bass-register attack, blunt percussive delivery, Member A  stable soft-grain tenor, smooth even delivery]\n쏟아진 시선 check 나는 뒤 안 봐\n어제의 doubt tap 주머니 밖\n니 웃음 옆에 내 이름 딱 붙여\n가까스로 온 승리 더 크게 걸어\n\n[Chorus: All]\n손끝을 모아 원을 만들어\nDaylight Crew\n짧은 숨 뒤에 웃음이 터져\n이 도시가 우리 편처럼 보여\n\n[Instrumental Break]\n\n[Bridge: Member B  clear thin tone, bright forward projection]\n너 혼자라고 느꼈던 계단\n내가 먼저 잡은 팔 기억해\n이제는 우리가 서로의 표식\n햇살 아래 선명해져\n\n[Final Chorus: All]\nDaylight Crew\n발끝이 같은 쪽을 골라\n넘어질 뻔한 순간도 노래가 돼\n대낮의 길 위로 같이 올라\nDaylight Crew",
+                      "youtube":  {
+                                      "title":  "Daylight Crew - 낮의 도시 K-POP 플레이리스트",
+                                      "description":  "대낮의 도시를 같이 걷는 여자 아이돌 무드의 신스 댄스 팝. 승리 직후의 안도와 친구들의 보폭을 담은 밝은 오프닝 트랙.",
+                                      "tags":  [
+                                                   "여자 아이돌 노래",
+                                                   "낮의 도시 K-POP",
+                                                   "여돌 댄스곡",
+                                                   "K-POP 걸그룹 플레이리스트",
+                                                   "자신감 노래",
+                                                   "신스댄스",
+                                                   "아이돌 플레이리스트"
+                                               ]
+                                  },
+                      "genreId":  "kridol-synth-dance",
+                      "genreText":  "sleek Korean idol synth dance pop, four-on-the-floor kick, bright pluck synth",
+                      "lyricTheme":  "krkidolf-crew-victory-lap",
+                      "lyricThemeText":  "throwing an arm around a friend\u0027s shoulder after a win, laughing about how close it almost didn\u0027t happen",
+                      "lyricThemeArc":  "built-up tension breaking into shared relief",
+                      "pov":  "firstPerson",
+                      "verseStyle":  "dialogue",
+                      "verseStyleText":  "verse lines use direct address or short conversational fragments without becoming spoken-word",
+                      "chorusStyle":  "hookRepeat",
+                      "chorusStyleText":  "chorus lines use compact repeated hook callbacks and simple answer phrases",
+                      "effectiveVocalPresetId":  "husky-jazz-female",
+                      "vocalPresetSource":  "plan",
+                      "qualityScore":  0,
+                      "warnings":  [
+
+                                   ]
+                  },
+                  {
+                      "trackNo":  2,
+                      "title":  "Proof",
+                      "titleLocalized":  "증명",
+                      "seasonMoment":  "Clear December sky over a glass elevator lobby.",
+                      "listenerSituation":  "Alone in an office tower lobby, she reads the message that confirms her work was right and walks out smiling.",
+                      "emotionArc":  "quiet vindication opening into bright triumph",
+                      "distinctChoice":  {
+                                             "ruleId":  "CALL_AND_RESPONSE",
+                                             "descriptionKo":  "[Intro: instrumental] [Verse 1: E+C] [Pre: D+A] [Chorus: All] [Rap Verse 2: C+B] [Chorus: All] [Final: All]로 두고, 다른 곡과 달리 의심을 밀어내는 짧은 응답 구간을 후렴 안에 배치한다."
+                                         },
+                      "hookPhrase":  "Door Wide Open",
+                      "stylePrompt":  "Korean idol midtempo R\u0026B, 115 BPM, 808-influenced sub pulse, plucked nylon guitar figure, chopped vocal-sample stab, muted finger-snap layer, Verse: I-V-vi-IV progression, Chorus: I-V-vi-iii-IV-I-IV-V progression, Bridge: I-vi-IV-V doo-wop progression, bright clear female soprano, clean bell tone, light rhythmic phrasing, two-note pickup phrases, sparse arrangement, call-and-response backing, Verse: intimate reggaeton-lite percussion, sparse voice-forward mix / Pre-Chorus: sparse funk guitar stab build, syncopated pre-drop tension / Chorus: full pop chorus lift, layered vocal harmony, clean instrumental intro, bridge ad-lib chant tag punctuates the peak, full level first bar, short intro, 3:10-3:35, full arrangement, not a short cut",
+                      "excludePrompt":  "famous artist imitation, real artist names, copied melody, copyrighted song reference, soundalike vocal, specific idol group imitation, named member vocal timbre, signature hook of an existing song, sultry seductive framing, schoolgirl coding, teen-coded romance, senior-radio nostalgia imagery, vintage tape saturation, nostalgic announcer voice, understated subdued vocal delivery, flat chorus, monotonous melody contour, generic demo-band sound, karaoke backing track, muddy low-end mix, excessive reverb, thin placeholder hook, stock loop arrangement, overlong intro, lo-fi study beat, dusty piano loop, bedroom tape hiss, sleepy neo-soul drift, lounge ballad drag, crowded vocal chop, syrupy melisma, weak R\u0026B pocket",
+                      "lyrics":  "[intro]\n\n[Verse 1: Member E  breathy textured tone, close intimate mic presence, Member C  heavy bass-register attack, blunt percussive delivery]\n유리벽 아래 메시지가 떠올라\n짧은 한 줄에 어깨가 풀려\n괜찮다던 말들이 이제야 맞아\n엘리베이터 문틈으로 하늘이 보여\n가방 끈을 고쳐 매고 턱을 들어\n오늘은 내 대답이 먼저 웃어\n웃음을 숨기지 않고 밖으로 나가\n\n[Pre-Chorus: Member D  syncopated rhythmic delivery, playful pocket timing, Member A  restrained high register, controlled head-tone shimmer]\n그들이 접어 둔 이름표를 지나\n내 발음으로 답을 세워\n놓아도 되는 말은 내려놓고\n가벼운 손으로 손잡이를 밀어\n\n[Chorus: All]\n문이 열려 난 바로 걸어\nDoor Wide Open\n아무 설명 없이도 충분해\n맑은 공기가 내 편에 서\n\n[Rap Verse 2: Member C  heavy bass-register attack, blunt percussive delivery, Member B  light falsetto lean, delicate breath-edge]\n딱 한 줄 proof 침착하게 save\n흔들린 doubt 전부 뒤로 wave\n말 많던 이름들 낮게 접어\n내 선택 위에 선을 다시 그어\n\n[Chorus: All]\n숨을 크게 쉬고 밖을 봐\nDoor Wide Open\n내 안의 대답이 먼저 웃어\n걸음마다 선명해져\n\n[Final Chorus: All]\nDoor Wide Open\n문이 열려 난 바로 걸어\n아무 설명 없이도 충분해\n맑은 공기가 내 편에 서\nDoor Wide Open",
+                      "youtube":  {
+                                      "title":  "Proof - 자신감 있는 여자 아이돌 R\u0026B",
+                                      "description":  "혼자 들은 좋은 소식이 의심을 지우는 순간을 그린 미드템포 K-POP R\u0026B 트랙. 선명한 훅과 밝은 도시 감정.",
+                                      "tags":  [
+                                                   "여자 아이돌 노래",
+                                                   "낮의 도시 K-POP",
+                                                   "K-POP R\u0026B",
+                                                   "자신감 노래",
+                                                   "여돌 플레이리스트",
+                                                   "도시 감성",
+                                                   "출근길 KPOP"
+                                               ]
+                                  },
+                      "genreId":  "kridol-midtempo-rnb",
+                      "genreText":  "Korean idol trap-soul crossover, 808-influenced sub pulse, plucked nylon guitar figure, triplet hi-hat murmur under the verse",
+                      "lyricTheme":  "krkidolf-the-last-laugh",
+                      "lyricThemeText":  "hearing news that proves every doubter wrong, and letting herself enjoy it openly",
+                      "lyricThemeArc":  "quiet vindication opening into bright triumph",
+                      "pov":  "firstPerson",
+                      "verseStyle":  "image",
+                      "verseStyleText":  "verse lines focus on sensory images, objects, light, weather, and small gestures",
+                      "chorusStyle":  "narrative",
+                      "chorusStyleText":  "chorus lines unfold as plain scene narration with concrete actions and time movement",
+                      "effectiveVocalPresetId":  "bright-clear-female",
+                      "vocalPresetSource":  "plan",
+                      "qualityScore":  0,
+                      "warnings":  [
+
+                                   ]
+                  },
+                  {
+                      "trackNo":  3,
+                      "title":  "Ankle Mark",
+                      "titleLocalized":  "발목의답",
+                      "seasonMoment":  "Dry winter sunlight on a rehearsal-room bench.",
+                      "listenerSituation":  "Before her first full rehearsal back, she tightens an ankle wrap and tests the floor one careful step at a time.",
+                      "emotionArc":  "cautious fear firming into determined readiness",
+                      "distinctChoice":  {
+                                             "ruleId":  "HOOK_REPEAT_4X",
+                                             "descriptionKo":  "[Intro: instrumental] [Verse 1: A+D] [Chorus: All] [Rap Verse 2: C+E] [Bridge: B solo] [Chorus: All] [Final: All]로 짜고, 다른 곡과 달리 마지막 후렴 직전 숨을 멈추는 빌드업을 둔다."
+                                         },
+                      "hookPhrase":  "Ready On My Feet",
+                      "stylePrompt":  "Korean idol performance trap pop, 112 BPM, 808 sub bass, trap hi-hat rolls, punchy synth stab, clean electric guitar, I-V-vi-IV verses, vi-IV-I-V chorus lift, soft female voice just above a whisper, gentle swung phrasing, soft breathy grain, top-three scale hook shape, sparse arrangement, unison chorus stack, Verse: sparse funk guitar groove, voice-forward / Pre-Chorus: rising synth riser build, filtered high-pass tension / Chorus: four-on-the-floor disco pulse, full horn stack / Bridge: half-time rap delivery, stripped-back beat, instrumental intro at full level, sharp breath-and-stop before the final chorus, short intro, 3:10-3:35, full arrangement, not a short cut",
+                      "excludePrompt":  "famous artist imitation, real artist names, copied melody, copyrighted song reference, soundalike vocal, specific idol group imitation, named member vocal timbre, signature hook of an existing song, sultry seductive framing, schoolgirl coding, teen-coded romance, senior-radio nostalgia imagery, vintage tape saturation, nostalgic announcer voice, understated subdued vocal delivery, slow ballad pacing, flat chorus, monotonous melody contour, generic demo-band sound, karaoke backing track, muddy low-end mix, excessive reverb, thin placeholder hook, stock loop arrangement, overlong intro, aggressive drill vocal, chaotic hi-hat clutter, muddy 808 impact, shouted harsh top line, dark imitation riff, overcompressed trap drop",
+                      "lyrics":  "[intro]\n\n[Verse 1: Member A  broad expressive vibrato, sustained high-note control, Member D  syncopated rhythmic delivery, playful pocket timing]\n발목에 감은 흰 밴드가 조여\n차가운 바닥 위로 발끝을 눌러\n너는 숨을 세며 한 칸 앞으로\n겁난다는 말은 혀끝에 접어\n창밖 낮은 구름도 멈춰 선 듯해\n무릎 위 손바닥에 열을 모아\n\n[Chorus: All]\n천천히 선을 넘어 봐\nReady On My Feet\n떨림은 남아도 무너지진 않아\n다시 네 자리를 찾아\n\n[Rap Verse 2: Member C  low gritty rap flow, rough rasped edge, Member E  breathy textured tone, close intimate mic presence]\nbrace tight, one step, pain은 low\n겁을 접고 floor 위로 go\n넘어진 날짜는 손목 뒤로\n오늘의 발자국 더 깊게 찍어\n\n[Bridge: Member B  light falsetto lean, delicate breath-edge]\n괜찮아 아직 완벽하지 않아\n기다린 몸이 먼저 알아\n작은 원을 그리고 멈춘 뒤\n눈을 들어 시작을 봐\n\n[Chorus: All]\n숨을 삼킨 뒤에 다시 서\nReady On My Feet\n무서운 만큼 더 또렷해져\n네 길이 발밑에 생겨\n\n[Final Chorus: All]\nReady On My Feet\n천천히 선을 넘어 봐\n떨림은 남아도 무너지진 않아\n다시 네 자리를 찾아\nReady On My Feet",
+                      "youtube":  {
+                                      "title":  "Ankle Mark - K-POP 퍼포먼스 트랩",
+                                      "description":  "회복 뒤 첫 연습을 앞둔 긴장과 결심을 담은 퍼포먼스 트랩 팝. 낮의 연습실과 단단한 훅이 중심이 되는 트랙.",
+                                      "tags":  [
+                                                   "여자 아이돌 노래",
+                                                   "퍼포먼스 트랩",
+                                                   "K-POP 걸그룹 플레이리스트",
+                                                   "자신감 노래",
+                                                   "연습실 감성",
+                                                   "여돌 댄스곡",
+                                                   "컴백 무드"
+                                               ]
+                                  },
+                      "genreId":  "kridol-performance-trap",
+                      "genreText":  "high-energy Korean idol performance trap pop, 808 sub bass, trap hi-hat rolls",
+                      "lyricTheme":  "krkidolf-injury-recovery-comeback",
+                      "lyricThemeText":  "stretching a healing ankle carefully before the first full rehearsal back",
+                      "lyricThemeArc":  "cautious fear firming into determined readiness",
+                      "pov":  "secondPerson",
+                      "verseStyle":  "narrative",
+                      "verseStyleText":  "verse lines unfold as plain scene narration with concrete actions and time movement",
+                      "chorusStyle":  "hookRepeat",
+                      "chorusStyleText":  "chorus lines use compact repeated hook callbacks and simple answer phrases",
+                      "effectiveVocalPresetId":  "airy-whisper-female",
+                      "vocalPresetSource":  "plan",
+                      "qualityScore":  0,
+                      "warnings":  [
+
+                                   ]
+                  },
+                  {
+                      "trackNo":  4,
+                      "title":  "Name In Credits",
+                      "titleLocalized":  "내이름",
+                      "seasonMoment":  "A bright cafe table in December with a phone screen catching sun.",
+                      "listenerSituation":  "At a cafe window, she sees her name in the songwriting credits of a released track for the first time.",
+                      "emotionArc":  "quiet disbelief blooming into fierce ownership",
+                      "distinctChoice":  {
+                                             "ruleId":  "KEY_LIFT",
+                                             "descriptionKo":  "[Intro: instrumental] [Verse 1: E+D] [Chorus: All] [Rap Verse 2: C+B] [Chorus: All] [Final: All]로 간결하게 만들고, 다른 곡과 달리 최종 후렴의 반음 상승과 첫 박 강세를 연결한다."
+                                         },
+                      "hookPhrase":  "Name In Credits",
+                      "stylePrompt":  "Korean idol melodic sing-rap pop, 125 BPM, muted trap hi-hat pattern, plucked synth melody, warm sub bass, airy ad-lib layer, Verse: vi-IV-V-I komuro-cycle progression, Chorus: vi-IV-I-V movement, maj7 color, Bridge: IV-V-iii-vi royal road progression, bright young female voice, bright forward delivery, warm rounded midrange, descending final-hook resolution, medium arrangement, Verse: sparse funk guitar groove, voice-forward / Pre-Chorus: rising synth riser build, filtered high-pass tension / Chorus: four-on-the-floor disco pulse, full horn stack, instrumental intro, final chorus semitone key lift, synth stab hits on the downbeat of the final chorus, short intro, 3:10-3:35, full arrangement, not a short cut",
+                      "excludePrompt":  "famous artist imitation, real artist names, copied melody, copyrighted song reference, soundalike vocal, specific idol group imitation, named member vocal timbre, signature hook of an existing song, sultry seductive framing, schoolgirl coding, teen-coded romance, senior-radio nostalgia imagery, vintage tape saturation, nostalgic announcer voice, understated subdued vocal delivery, slow ballad pacing, flat chorus, monotonous melody contour, generic demo-band sound, karaoke backing track, muddy low-end mix, excessive reverb, thin placeholder hook, stock loop arrangement, overlong intro, lo-fi study beat, bedroom tape hiss, mumble rap haze, cluttered sing-rap cadence, weak key lift, brittle synth stab, overbusy ad-lib layer",
+                      "lyrics":  "[intro]\n\n[Verse 1: Member E  breathy textured tone, close intimate mic presence, Member D  fast triplet flow, tight rhythmic bounce]\n컵 옆에 눕힌 화면을 다시 켜\n작은 글자 사이 내 이름이 있어\n누가 볼까 봐 입술을 깨물다가\n창가 유리에 미소가 먼저 번져\n내가 쓴 문장이 세상에 걸렸어\n작은 화면 속에서도 숨이 커져\n두 번 세 번 읽어도 꿈이 아냐\n\n[Chorus: All]\nName In Credits\n믿기지 않아도 내 손끝이야\n남의 꿈 뒤에 숨지 않을래\n오늘부터 나는 나를 불러\n\n[Rap Verse 2: Member C  strong hard-attack cadence, clipped consonant emphasis, Member B  light falsetto lean, delicate breath-edge]\n클릭 한 번, 증거는 clear\n작은 칸 속 이름이 real\n숨던 버릇 끊어 내 right here\n내 몫을 말해 더 또렷이 here\n떨리는 손도 이제 숨지 않아\n이 칸을 넘어 내 길이 보여\n\n[Chorus: All]\n손바닥으로 심장을 눌러\nName In Credits\n조용히 쌓은 날들이 대답해\n이제 내 자리로 걸어가\n\n[Final Chorus: All]\nName In Credits\n믿기지 않아도 내 손끝이야\n남의 꿈 뒤에 숨지 않을래\n오늘부터 나는 나를 불러\nName In Credits",
+                      "youtube":  {
+                                      "title":  "Name In Credits - 아이돌 싱랩 팝",
+                                      "description":  "처음으로 자신의 이름을 크레딧에서 확인하는 순간의 놀람과 자부심. 멜로딕 싱랩 팝으로 풀어낸 낮의 도시 K-POP.",
+                                      "tags":  [
+                                                   "여자 아이돌 노래",
+                                                   "멜로딕 랩",
+                                                   "낮의 도시 K-POP",
+                                                   "자신감 노래",
+                                                   "K-POP 걸그룹 플레이리스트",
+                                                   "크레딧 감성",
+                                                   "여돌 플레이리스트"
+                                               ]
+                                  },
+                      "genreId":  "kridol-melodic-rap",
+                      "genreText":  "Korean idol melodic sing-rap pop, muted trap hi-hat pattern, warm sub bass, airy ad-lib layered hook",
+                      "lyricTheme":  "krkidolf-songwriting-credit-first-time",
+                      "lyricThemeText":  "seeing her own name in the songwriting credits for the very first time on a released track",
+                      "lyricThemeArc":  "quiet disbelief blooming into fierce ownership",
+                      "pov":  "firstPerson",
+                      "verseStyle":  "dialogue",
+                      "verseStyleText":  "verse lines use direct address or short conversational fragments without becoming spoken-word",
+                      "chorusStyle":  "hookRepeat",
+                      "chorusStyleText":  "chorus lines use compact repeated hook callbacks and simple answer phrases",
+                      "effectiveVocalPresetId":  "bright-young-female",
+                      "vocalPresetSource":  "plan",
+                      "qualityScore":  0,
+                      "warnings":  [
+
+                                   ]
+                  },
+                  {
+                      "trackNo":  5,
+                      "title":  "Envelope",
+                      "titleLocalized":  "숨참은손",
+                      "seasonMoment":  "Year-end award hall with red cards and winter coats.",
+                      "listenerSituation":  "During a December awards recording, she grips a friend’s hand while a nomination card is opened at the table.",
+                      "emotionArc":  "held-breath tension breaking into overwhelmed joy",
+                      "distinctChoice":  {
+                                             "ruleId":  "CHANT_HOOK",
+                                             "descriptionKo":  "[Intro: instrumental] [Verse 1: E+D] [Chorus: All] [Rap Verse 2: C+A] [Bridge: B solo] [Chorus: All] [Final: All]로 두고, 다른 곡과 달리 중간의 무언 구간을 단체 동작의 정지감으로 설계한다."
+                                         },
+                      "hookPhrase":  "Hold And Shine",
+                      "stylePrompt":  "Korean idol synth dance pop, 108 BPM, four-on-the-floor kick, filtered synth bass, bright pluck synth, clap layer, Verse: vi-IV-I-V movement, maj7 color, Chorus: ii-V-I turnaround, maj7 add9 color, bright young female voice, conversational unhurried phrasing, clear glassy brightness, paired question-answer melody, sparse arrangement, unison power-move break, Verse: laid-back R\u0026B groove, sparse arrangement / Pre-Chorus: building latin-tinged percussion lift, rising vocal stack into the drop / Chorus: EDM-influenced drop, dense synth stack / Bridge: rap section, minimal beat, instrumental intro, whole group locks into a unison power move break, short intro, 3:10-3:35, full arrangement, not a short cut",
+                      "excludePrompt":  "famous artist imitation, real artist names, copied melody, copyrighted song reference, soundalike vocal, specific idol group imitation, named member vocal timbre, signature hook of an existing song, sultry seductive framing, schoolgirl coding, teen-coded romance, senior-radio nostalgia imagery, vintage tape saturation, nostalgic announcer voice, understated subdued vocal delivery, slow ballad pacing, flat chorus, monotonous melody contour, generic demo-band sound, karaoke backing track, muddy low-end mix, excessive reverb, thin placeholder hook, stock loop arrangement, overlong intro, stiff award-ballad drama, weak half-time chorus, cluttered EDM drop, icy vocal glare, lifeless power move break, flat group stack",
+                      "lyrics":  "[intro]\n\n[Verse 1: Member E  warm low register, mellow husky undertone, Member D  syncopated rhythmic delivery, playful pocket timing]\n빨간 봉투 끝이 천천히 들려\n내 손안의 손이 작게 떨려\n웃자고 했지만 숨이 먼저 멈춰\n테이블 위 카드가 멀어진 듯해\n귓가엔 이름 없는 초가 길어져\n옆자리 숨소리까지 또렷해져\n손톱 끝의 떨림도 반짝여\n\n[Chorus: All]\n손을 놓지 마 여기까지 왔어\nHold And Shine\n두 눈 가득 터지는 웃음\n겨울의 색이 우리를 감싸\n\n[Rap Verse 2: Member C  low gritty rap flow, rough rasped edge, Member A  broad expressive vibrato, sustained high-note control]\nhold tight, heartbeat, count it slow\n불린 이름 위로 환호가 flow\n가까스로 참던 눈물은 glow\n우리 몫의 순간 이제 we know\n\n[Bridge: Member B  bright head-voice lift, airy upper register]\n니 손등의 온기를 기억해\n말보다 먼저 전해진 답\n넘어온 계절이 둥글게 웃어\n나도 믿을게 이 장면을\n\n[Chorus: All]\n카드가 열리고 시간이 달려\nHold And Shine\n서로를 보며 크게 숨 쉬어\n눈부신 하루가 손에 남아\n\n[Final Chorus: All]\nHold And Shine\n손을 놓지 마 여기까지 왔어\n두 눈 가득 터지는 웃음\n겨울의 색이 우리를 감싸\nHold And Shine",
+                      "youtube":  {
+                                      "title":  "Envelope - 연말 시상식 K-POP 댄스",
+                                      "description":  "시상식 카드가 열리는 순간의 긴장과 기쁨을 신스 댄스 팝으로 담은 트랙. 손을 잡고 버티는 여자 아이돌 플레이리스트 감성.",
+                                      "tags":  [
+                                                   "여자 아이돌 노래",
+                                                   "연말 KPOP",
+                                                   "여돌 댄스곡",
+                                                   "시상식 노래",
+                                                   "낮의 도시 K-POP",
+                                                   "자신감 노래",
+                                                   "신스댄스"
+                                               ]
+                                  },
+                      "genreId":  "kridol-synth-dance",
+                      "genreText":  "sleek Korean idol synth dance pop, four-on-the-floor kick, bright pluck synth",
+                      "lyricTheme":  "krkidolf-award-show-nomination-nerves",
+                      "lyricThemeText":  "gripping a friend\u0027s hand as a nominee category is read aloud at an award show",
+                      "lyricThemeArc":  "held-breath tension breaking into overwhelmed joy",
+                      "pov":  "firstPerson",
+                      "verseStyle":  "image",
+                      "verseStyleText":  "verse lines focus on sensory images, objects, light, weather, and small gestures",
+                      "chorusStyle":  "hookRepeat",
+                      "chorusStyleText":  "chorus lines use compact repeated hook callbacks and simple answer phrases",
+                      "effectiveVocalPresetId":  "bright-young-female",
+                      "vocalPresetSource":  "plan",
+                      "qualityScore":  0,
+                      "warnings":  [
+
+                                   ]
+                  },
+                  {
+                      "trackNo":  6,
+                      "title":  "Wingside",
+                      "titleLocalized":  "혼자서도",
+                      "seasonMoment":  "Bright stage wing before a winter broadcast.",
+                      "listenerSituation":  "At the side of the stage, she waits for her first solo entrance with only an in-ear case in her palm.",
+                      "emotionArc":  "isolating fear steadying into fierce self-reliance",
+                      "distinctChoice":  {
+                                             "ruleId":  "CALL_AND_RESPONSE",
+                                             "descriptionKo":  "[Intro: instrumental] [Verse 1: Male] [Pre: Female] [Chorus: Duet] [Verse 2: Female] [Chorus: Duet] [Bridge: Female] [Final: Duet Harmony]로 나누고, 다른 곡과 달리 듀엣을 내면의 응답처럼 사용한다."
+                                         },
+                      "hookPhrase":  "I Walk Alone",
+                      "stylePrompt":  "Korean idol midtempo R\u0026B, 130 BPM, 808-influenced sub pulse, muted finger-snap layer, chopped vocal-sample stab, plucked nylon guitar figure, Verse: I-V-vi-iii-IV-I-IV-V progression, Chorus: I-vi-ii-V progression, Bridge: I-V-vi-IV progression, male and female duet, trading lines mid-phrase, dry and forward, sustained first-word hook, medium arrangement, call-response texture, Verse: laid-back R\u0026B groove, sparse arrangement / Pre-Chorus: building latin-tinged percussion lift, rising vocal stack into the drop / Chorus: EDM-influenced drop, dense synth stack, instrumental intro, shouted callback tag right after the hook, short intro, 3:10-3:35, full arrangement, not a short cut",
+                      "excludePrompt":  "famous artist imitation, real artist names, copied melody, copyrighted song reference, soundalike vocal, specific idol group imitation, named member vocal timbre, signature hook of an existing song, sultry seductive framing, schoolgirl coding, teen-coded romance, senior-radio nostalgia imagery, vintage tape saturation, nostalgic announcer voice, understated subdued vocal delivery, flat chorus, monotonous melody contour, generic demo-band sound, karaoke backing track, muddy low-end mix, excessive reverb, thin placeholder hook, stock loop arrangement, overlong intro, lo-fi study beat, dusty piano loop, bedroom tape hiss, mismatched duet balance, overpowering male lead, sleepy R\u0026B drift, thin snap groove, smeared vocal chop, weak shouted callback",
+                      "lyrics":  "[intro]\n\n[Verse 1: Male Vocal]\n손안의 작은 케이스를 쥐고\n너는 막 뒤에서 이름을 들어\n익숙한 웃음들이 곁에 없어서\n발끝이 한순간 낯설게 식어\n그래도 문틈의 낮은 널 기다려\n\n[Pre-Chorus: Female Vocal]\n숨 하나를 세고 어깨를 펴\n떨리는 손도 네 편이야\n혼자인 줄 알던 자리에서\n너의 발소리가 답을 해\n\n[Chorus: Male and Female Duet]\nI Walk Alone\n괜찮아 하고 크게 받아\n혼자 선 길도 빈칸은 아냐\n한 걸음 뒤에 내가 더 보여\n\n[Verse 2: Female Vocal]\n너는 고개를 들고 선을 넘어\n짧은 표정을 깊게 숨기지 마\n기다린 이름이 공기 위로 와\n두려움은 작게 접어 둬\n\n[Chorus: Male and Female Duet]\n가슴을 펴고 앞으로 가\nI Walk Alone\n혼자 선 길도 빈칸은 아냐\n괜찮아, hey, 내가 해\n\n[Bridge: Female Vocal]\n누가 대신 서 줄 수 없어도\n너는 이미 여기까지 왔어\n손바닥의 떨림을 닫고\n문이 열릴 때 웃어\n\n[Final Chorus: Male and Female Duet Harmony]\nI Walk Alone\n괜찮아 하고 크게 받아\n혼자 선 길도 빈칸은 아냐\n한 걸음 뒤에 내가 더 보여\nI Walk Alone",
+                      "youtube":  {
+                                      "title":  "Wingside - 듀엣 K-POP R\u0026B",
+                                      "description":  "첫 솔로 무대 직전의 긴장과 자기 확신을 남녀 듀엣으로 풀어낸 미드템포 K-POP R\u0026B. 밝은 도시 플레이리스트의 중반 리프트.",
+                                      "tags":  [
+                                                   "K-POP R\u0026B",
+                                                   "남녀 듀엣",
+                                                   "여자 아이돌 노래",
+                                                   "낮의 도시 K-POP",
+                                                   "자신감 노래",
+                                                   "무대 전 노래",
+                                                   "아이돌 플레이리스트"
+                                               ]
+                                  },
+                      "genreId":  "kridol-midtempo-rnb",
+                      "genreText":  "Korean idol trap-soul crossover, 808-influenced sub pulse, plucked nylon guitar figure, a hushed lower-register voice handling the rap-adjacent verse",
+                      "lyricTheme":  "krkidolf-solo-stage-debut-nerves",
+                      "lyricThemeText":  "standing alone in the wings for a first solo stage without the rest of the group beside her",
+                      "lyricThemeArc":  "isolating fear steadying into fierce self-reliance",
+                      "pov":  "secondPerson",
+                      "verseStyle":  "narrative",
+                      "verseStyleText":  "verse lines unfold as plain scene narration with concrete actions and time movement",
+                      "chorusStyle":  "image",
+                      "chorusStyleText":  "chorus lines focus on sensory images, objects, light, weather, and small gestures",
+                      "effectiveVocalPresetId":  "male-female-duet",
+                      "vocalPresetSource":  "plan",
+                      "qualityScore":  0,
+                      "warnings":  [
+
+                                   ]
+                  },
+                  {
+                      "trackNo":  7,
+                      "title":  "Mirror Says Go",
+                      "titleLocalized":  "거울신호",
+                      "seasonMoment":  "Late morning dressing room before a city performance.",
+                      "listenerSituation":  "In a dressing-room mirror, an ordinary sleepy face slowly turns stage-ready as she fixes one final pin.",
+                      "emotionArc":  "sleepy blankness sharpening into confident anticipation",
+                      "distinctChoice":  {
+                                             "ruleId":  "HOOK_REPEAT_4X",
+                                             "descriptionKo":  "[Intro: instrumental] [Verse 1: D+C] [Chorus: All] [Rap Verse 2: C+A] [Bridge: B solo] [Chorus: All] [Final: All]로 구성하고, 다른 곡과 달리 프리코러스 대신 보컬 스택이 머릿속에서 올라오는 느낌을 쓴다."
+                                         },
+                      "hookPhrase":  "Mirror Says Go",
+                      "stylePrompt":  "Korean idol performance trap pop, 128 BPM, 808 sub bass, trap hi-hat rolls, punchy synth stab, clean electric guitar, Verse: IV-V-iii-vi royal road progression, Chorus: vi-IV-V-I komuro-cycle progression, soft female voice just above a whisper, legato sustained lines, slight smoky depth, simple stepwise hook, full layered arrangement, rising vocal stacks before the chorus, Verse: intimate reggaeton-lite percussion, sparse voice-forward mix / Pre-Chorus: sparse funk guitar stab build, syncopated pre-drop tension / Chorus: full pop chorus lift, layered vocal harmony / Bridge: rap-delivery bridge, minimal percussion-only backing, instrumental intro, pre-chorus lifts with rising vocal stacks, short intro, 3:10-3:35, full arrangement, not a short cut",
+                      "excludePrompt":  "famous artist imitation, real artist names, copied melody, copyrighted song reference, soundalike vocal, specific idol group imitation, named member vocal timbre, signature hook of an existing song, sultry seductive framing, schoolgirl coding, teen-coded romance, senior-radio nostalgia imagery, vintage tape saturation, nostalgic announcer voice, understated subdued vocal delivery, slow ballad pacing, flat chorus, monotonous melody contour, generic demo-band sound, karaoke backing track, muddy low-end mix, excessive reverb, thin placeholder hook, stock loop arrangement, overlong intro, aggressive drill vocal, chaotic hi-hat clutter, muddy 808 impact, horror mirror imagery, harsh beauty framing, shouty chorus stack, lifeless octave lift",
+                      "lyrics":  "[intro]\n\n[Verse 1: Member D  warm low register, mellow husky undertone, Member C  heavy bass-register attack, blunt percussive delivery]\n세면대 옆 물방울이 말라 가\n잠 덜 깬 얼굴에 핀이 꽂혀\n입꼬리를 올리다 내가 웃어\n평범한 표정이 선을 되찾아\n문밖의 대낮이 먼저 손짓해\n손목의 향이 낯설지 않아\n오늘의 나는 천천히 맞춰져\n\n[Chorus: All]\nMirror Says Go\n이제 눈을 맞춰 봐\n흐린 얼굴도 무대가 돼\n걸음마다 선명해져\n\n[Rap Verse 2: Member C  heavy bass-register attack, blunt percussive delivery, Member A  powerful belting, thick chest voice, wide open vibrato]\npin up, chin up, focus on me\n흔들린 line 다시 clean\n졸린 표정 cut, confidence fit\n문 열리면 바로 front seat\n\n[Bridge: Member B  light falsetto lean, delicate breath-edge]\n너무 애쓰지 않아도 돼\n내 안의 속도가 맞아\n마지막 숨을 고르고\n나는 나를 알아봐\n작은 떨림까지 내 표정이 돼\n문고리 앞에서 숨을 한번 세어\n나갈 준비가 끝났다고 믿어\n\n[Chorus: All]\n눈썹 끝에 낮이 닿아\nMirror Says Go\n흐린 얼굴도 무대가 돼\n걸음마다 선명해져\n\n[Final Chorus: All]\nMirror Says Go\n이제 눈을 맞춰 봐\n흐린 얼굴도 무대가 돼\n걸음마다 선명해져\nMirror Says Go",
+                      "youtube":  {
+                                      "title":  "Mirror Says Go - 아이돌 퍼포먼스 팝",
+                                      "description":  "거울 앞에서 무대의 얼굴을 찾아가는 순간. 속삭임에 가까운 보컬과 선명한 트랩 팝 에너지를 담은 여자 아이돌 플레이리스트 트랙.",
+                                      "tags":  [
+                                                   "여자 아이돌 노래",
+                                                   "퍼포먼스 트랩",
+                                                   "여돌 댄스곡",
+                                                   "K-POP 걸그룹 플레이리스트",
+                                                   "낮의 도시 K-POP",
+                                                   "자신감 노래",
+                                                   "무대 준비"
+                                               ]
+                                  },
+                      "genreId":  "kridol-performance-trap",
+                      "genreText":  "high-energy Korean idol performance trap pop, 808 sub bass, trap hi-hat rolls",
+                      "lyricTheme":  "krkidolf-hair-makeup-chair-transformation",
+                      "lyricThemeText":  "watching a mirror slowly transform an ordinary morning face into a stage-ready one",
+                      "lyricThemeArc":  "sleepy blankness sharpening into confident anticipation",
+                      "pov":  "firstPerson",
+                      "verseStyle":  "dialogue",
+                      "verseStyleText":  "verse lines use direct address or short conversational fragments without becoming spoken-word",
+                      "chorusStyle":  "hookRepeat",
+                      "chorusStyleText":  "chorus lines use compact repeated hook callbacks and simple answer phrases",
+                      "effectiveVocalPresetId":  "airy-whisper-female",
+                      "vocalPresetSource":  "plan",
+                      "qualityScore":  0,
+                      "warnings":  [
+
+                                   ]
+                  },
+                  {
+                      "trackNo":  8,
+                      "title":  "Old Recital",
+                      "titleLocalized":  "작은불씨",
+                      "seasonMoment":  "Sunny apartment floor with an old dance video playing.",
+                      "listenerSituation":  "She replays a childhood dance recital video on a tablet and recognizes the same stubborn look in herself.",
+                      "emotionArc":  "nostalgic distance collapsing into grounded continuity",
+                      "distinctChoice":  {
+                                             "ruleId":  "CHANT_HOOK",
+                                             "descriptionKo":  "[Verse 1: D+A cold hook] [Chorus: All] [Verse 2: B+C] [Chorus: All] [Instrumental Break] [Final: All]로 시작하고, 다른 곡과 달리 빌드업 없이 한 박자 정지 뒤 바로 후렴이 터진다."
+                                         },
+                      "hookPhrase":  "Same Little Fire",
+                      "stylePrompt":  "Korean idol melodic sing-rap pop, 150 BPM, muted trap hi-hat pattern, plucked synth melody, warm sub bass, vocal-chop texture, Verse: IVM7-III7-vi-I7 marusa progression, Chorus: vi-IV-V-I komuro-cycle progression, Bridge: vi-IV-I-V movement, maj7 color, bright clear female soprano, velvety low resonance, restrained reading, narrow repeated rhythmic figure, medium arrangement, double-tracked hook a third above, Verse: intimate reggaeton-lite percussion, sparse voice-forward mix / Pre-Chorus: sparse funk guitar stab build, syncopated pre-drop tension / Chorus: full pop chorus lift, layered vocal harmony, no intro tag, one-beat pause then sudden chorus, short group chant tag right after the chorus, short intro, 3:10-3:35, full arrangement, not a short cut",
+                      "excludePrompt":  "famous artist imitation, real artist names, copied melody, copyrighted song reference, soundalike vocal, specific idol group imitation, named member vocal timbre, signature hook of an existing song, sultry seductive framing, schoolgirl coding, teen-coded romance, senior-radio nostalgia imagery, vintage tape saturation, nostalgic announcer voice, understated subdued vocal delivery, flat chorus, monotonous melody contour, generic demo-band sound, karaoke backing track, muddy low-end mix, excessive reverb, thin placeholder hook, stock loop arrangement, overlong intro, lo-fi study beat, bedroom tape hiss, rushed 150 BPM syllables, chaotic sing-rap flow, sentimental child framing, weak chant tag, brittle vocal chop, overbright soprano edge",
+                      "lyrics":  "[Verse 1: Member D  warm low register, mellow husky undertone, Member A  powerful belting, thick chest voice, wide open vibrato]\nSame Little Fire\n태블릿 속 작은 내가 손을 들어\n삐뚤어진 리본도 진지했지\n소파 끝에 앉아 숨을 잊고\n그 눈빛이 아직 내 안에 있어\n시간은 멀어도 고집은 같아\n낡은 화면 모서리에 먼지가 앉아\n웃긴 자세까지 사랑스럽게 남아\n\n[Chorus: All]\n어제의 나를 마주 보며\nSame Little Fire\n작은 발끝이 길을 만들었어\n지금의 내가 이어 받아\n\n[Verse 2: Member B  light falsetto lean, delicate breath-edge, Member C  heavy bass-register attack, blunt percussive delivery]\n화면을 멈춰 얼굴을 가까이 봐\n겁먹은 척해도 눈은 안 져\n웃음 뒤에 숨긴 다짐 하나\n오늘 내 손목까지 이어져\n작은 내가 먼저 고개를 끄덕여\n괜찮다고 등을 밀어 줘\n낮은 웃음이 방 안을 채워\n나는 화면 너머 나와 악수해\n\n[Chorus: All]\n손바닥 위로 시간이 접혀\nSame Little Fire\n작은 발끝이 길을 만들었어\n지금의 내가 이어 받아\n\n[Instrumental Break]\n\n[Final Chorus: All]\nSame Little Fire\n어제의 나를 마주 보며\n작은 발끝이 길을 만들었어\n지금의 내가 이어 받아\nSame Little Fire",
+                      "youtube":  {
+                                      "title":  "Old Recital - 빌드업 실험 K-POP",
+                                      "description":  "어릴 적 무대 영상 속 표정에서 현재의 결심을 발견하는 멜로딕 싱랩 팝. 빌드업 없이 들어오는 후렴이 포인트인 트랙.",
+                                      "tags":  [
+                                                   "여자 아이돌 노래",
+                                                   "멜로딕 랩",
+                                                   "낮의 도시 K-POP",
+                                                   "K-POP 걸그룹 플레이리스트",
+                                                   "자신감 노래",
+                                                   "여돌 플레이리스트",
+                                                   "퍼포먼스 무드"
+                                               ]
+                                  },
+                      "genreId":  "kridol-melodic-rap",
+                      "genreText":  "Korean idol melodic sing-rap pop, muted trap hi-hat pattern, warm sub bass, soft-focus vocal-chop texture",
+                      "lyricTheme":  "krkidolf-childhood-dance-video-rewatch",
+                      "lyricThemeText":  "rewatching an old childhood dance recital video and recognizing the same stubborn determination",
+                      "lyricThemeArc":  "nostalgic distance collapsing into grounded continuity",
+                      "pov":  "firstPerson",
+                      "verseStyle":  "image",
+                      "verseStyleText":  "verse lines focus on sensory images, objects, light, weather, and small gestures",
+                      "chorusStyle":  "narrative",
+                      "chorusStyleText":  "chorus lines unfold as plain scene narration with concrete actions and time movement",
+                      "effectiveVocalPresetId":  "bright-clear-female",
+                      "vocalPresetSource":  "plan",
+                      "qualityScore":  0,
+                      "warnings":  [
+
+                                   ]
+                  },
+                  {
+                      "trackNo":  9,
+                      "title":  "Ask For It",
+                      "titleLocalized":  "서명전",
+                      "seasonMoment":  "High noon in an agency meeting room with winter sun on the table.",
+                      "listenerSituation":  "She reads a contract line by line in a glass meeting room and calmly asks for the terms she deserves.",
+                      "emotionArc":  "quiet intimidation replaced by calm assertiveness",
+                      "distinctChoice":  {
+                                             "ruleId":  "CALL_AND_RESPONSE",
+                                             "descriptionKo":  "[Intro: instrumental] [Verse 1: E+F] [Pre: C+D] [Chorus: All] [Rap Verse 2: C+A] [Chorus: All] [Final: All]로 만들고, 다른 곡과 달리 계약 문장과 자기 답변이 짧게 주고받는다."
+                                         },
+                      "hookPhrase":  "Ask For It",
+                      "stylePrompt":  "Korean idol synth dance pop, 150 BPM, four-on-the-floor kick, filtered synth bass, bright pluck synth, clap layer, I-V-vi-IV verses, vi-IV-I-V chorus lift, husky female alto, warm rounded midrange, conversational phrasing, symmetric four-bar hook phrases, full layered arrangement, bridge breakdown into rap delivery, Verse: sparse funk guitar groove, voice-forward / Pre-Chorus: rising synth riser build, filtered high-pass tension / Chorus: four-on-the-floor disco pulse, full horn stack / Bridge: half-time rap delivery, stripped-back beat, instrumental intro, bridge shifts into a rap-delivery section before the final chorus, short intro, 3:10-3:35, full arrangement, not a short cut",
+                      "excludePrompt":  "famous artist imitation, real artist names, copied melody, copyrighted song reference, soundalike vocal, specific idol group imitation, named member vocal timbre, signature hook of an existing song, sultry seductive framing, schoolgirl coding, teen-coded romance, senior-radio nostalgia imagery, vintage tape saturation, nostalgic announcer voice, understated subdued vocal delivery, flat chorus, monotonous melody contour, generic demo-band sound, karaoke backing track, muddy low-end mix, excessive reverb, thin placeholder hook, stock loop arrangement, overlong intro, weak synth dance engine, blurry contract-story diction, chaotic bridge rap, harsh alto edge, limp filtered bass, static four-bar loop, empty disco lift",
+                      "lyrics":  "[intro]\n\n[Verse 1: Member E  soft midrange warmth, gentle rounded tone, Member F  breathy textured tone, close intimate mic presence]\n종이 끝에 낮이 반듯하게 앉아\n작은 글씨를 한 줄씩 따라가\n웃으며 넘기던 조건을 멈춰\n내 이름 옆 숫자를 다시 읽어\n펜을 내려놓고 눈을 맞춰\n의자 끝에 걸친 무릎을 펴\n목소리는 작아도 기준은 커\n\n[Pre-Chorus: Member C  heavy bass-register attack, blunt percussive delivery, Member D  fast triplet flow, tight rhythmic bounce]\n괜찮냐는 말에 고개를 저어\n내가 아는 값을 말해\n빈칸이 아니라 기준을 적어\n손끝이 떨려도 또박또박\n\n[Chorus: All]\nAsk For It\n내 몫을 낮게 숨기지 마\n조용한 방도 대답을 들어\n나는 나를 작게 안 써\n\n[Rap Verse 2: Member C  heavy bass-register attack, blunt percussive delivery, Member A  broad expressive vibrato, sustained high-note control]\nline by line, check my worth\n싫은 건 no, 다시 word\n웃음은 calm, 대답은 firm\n사인 전까지 내가 먼저 learn\n\n[Chorus: All]\n펜을 들고 다시 말해\nAsk For It\n조용한 방도 대답을 들어\n나는 나를 작게 안 써\n\n[Final Chorus: All]\nAsk For It\n내 몫을 낮게 숨기지 마\n조용한 방도 대답을 들어\n나는 나를 작게 안 써\nAsk For It",
+                      "youtube":  {
+                                      "title":  "Ask For It - 당당한 신스댄스 K-POP",
+                                      "description":  "계약서 앞에서 자기 몫을 말하는 장면을 선명한 신스 댄스 팝으로 풀어낸 트랙. 낮의 도시를 걷는 자신감 있는 K-POP.",
+                                      "tags":  [
+                                                   "여자 아이돌 노래",
+                                                   "여자 아이돌 신스댄스",
+                                                   "낮의 도시 K-POP",
+                                                   "자신감 노래",
+                                                   "여돌 댄스곡",
+                                                   "K-POP 걸그룹 플레이리스트",
+                                                   "도시 플레이리스트"
+                                               ]
+                                  },
+                      "genreId":  "kridol-synth-dance",
+                      "genreText":  "sleek Korean idol synth dance pop, four-on-the-floor kick, bright pluck synth",
+                      "lyricTheme":  "krkidolf-negotiating-her-own-contract",
+                      "lyricThemeText":  "reading contract terms line by line and asking for exactly what she knows she deserves",
+                      "lyricThemeArc":  "quiet intimidation replaced by calm assertiveness",
+                      "pov":  "secondPerson",
+                      "verseStyle":  "image",
+                      "verseStyleText":  "verse lines focus on sensory images, objects, light, weather, and small gestures",
+                      "chorusStyle":  "image",
+                      "chorusStyleText":  "chorus lines focus on sensory images, objects, light, weather, and small gestures",
+                      "effectiveVocalPresetId":  "husky-jazz-female",
+                      "vocalPresetSource":  "plan",
+                      "qualityScore":  0,
+                      "warnings":  [
+
+                                   ]
+                  },
+                  {
+                      "trackNo":  10,
+                      "title":  "Signal Sea",
+                      "titleLocalized":  "불빛파도",
+                      "seasonMoment":  "Afternoon arena rehearsal opening into a fan-event glow.",
+                      "listenerSituation":  "At an afternoon fan event, she sees timed lightsticks move to a song she wrote alone and finally understands it reached them.",
+                      "emotionArc":  "private effort suddenly visible as collective love",
+                      "distinctChoice":  {
+                                             "ruleId":  "HOOK_REPEAT_4X",
+                                             "descriptionKo":  "[Intro: instrumental] [Verse 1: A+B] [Chorus: All] [Verse 2: C+D] [Chorus: All] [Breakdown: wordless] [Final: All]로 가며, 다른 곡과 달리 중간 무언 구간 뒤 리듬 체감이 바뀐다."
+                                         },
+                      "hookPhrase":  "Our Lights Rise",
+                      "stylePrompt":  "Korean idol midtempo R\u0026B, 130 BPM, 808-influenced sub pulse, plucked nylon guitar figure, muted finger-snap layer, chopped vocal-sample stab, Verse: I-V-vi-IV progression, Chorus: I-vi-ii-V progression, Bridge: I-V-vi-iii-IV-I-IV-V progression, husky female alto, gentle swung phrasing, soft breathy grain, call-and-response hook contour, full arrangement, stop-time first-word accent, Verse: sparse funk guitar groove, voice-forward / Pre-Chorus: rising synth riser build, filtered high-pass tension / Chorus: four-on-the-floor disco pulse, full horn stack, instrumental intro, beat pattern switches for the second half, short intro, 3:10-3:35, full arrangement, not a short cut",
+                      "excludePrompt":  "famous artist imitation, real artist names, copied melody, copyrighted song reference, soundalike vocal, specific idol group imitation, named member vocal timbre, signature hook of an existing song, sultry seductive framing, schoolgirl coding, teen-coded romance, senior-radio nostalgia imagery, vintage tape saturation, nostalgic announcer voice, understated subdued vocal delivery, flat chorus, monotonous melody contour, generic demo-band sound, karaoke backing track, muddy low-end mix, excessive reverb, thin placeholder hook, stock loop arrangement, overlong intro, lo-fi study beat, dusty piano loop, bedroom tape hiss, weak stop-time accent, cluttered finger-snap pocket, sentimental arena cliche, overblown crowd chant, muddy sub pulse, limp second-half switch",
+                      "lyrics":  "[intro]\n\n[Verse 1: Member A  broad expressive vibrato, sustained high-note control, Member B  clear thin tone, bright forward projection]\n객석 위 작은 점들이 맞춰져\n내가 혼자 쓴 말에 숨을 켜\n종이에 접어 둔 긴 오후들이\n한꺼번에 손끝으로 돌아와\n말없이 바라보다 웃음이 나\n내 방의 오후가 객석에 닿아\n혼자 접던 종이가 날개 같아\n\n[Chorus: All]\n가슴 안쪽부터 번져 와\nOur Lights Rise\n혼자였던 방이 여기까지 와\n너희 손에서 다시 살아\n\n[Verse 2: Member C  heavy bass-register attack, blunt percussive delivery, Member D  breathy textured tone, close intimate mic presence]\n한 줄 한 줄 숨겨 둔 note\n이제는 너의 손 위로 float\n나만 알던 떨림이 crowd 안에\n같은 타이밍으로 피어나네\n눈물은 삼키고 턱을 들어\n보내던 마음이 돌아와\n가슴 깊이 이름이 울려\n처음 적은 문장이 돌아와\n낯익은 손짓이 물결을 만들고\n끝까지 닿아\n\n[Chorus: All]\n눈앞의 물결이 대답해\nOur Lights Rise\n혼자였던 방이 여기까지 와\n너희 손에서 다시 살아\n\n[Breakdown]\n\n[Final Chorus: All]\nOur Lights Rise\n가슴 안쪽부터 번져 와\n혼자였던 방이 여기까지 와\n너희 손에서 다시 살아\nOur Lights Rise",
+                      "youtube":  {
+                                      "title":  "Signal Sea - 팬라이트 K-POP R\u0026B",
+                                      "description":  "혼자 쓴 노래가 팬들의 손에서 빛나는 순간을 담은 미드템포 R\u0026B. 감정의 전환점이 되는 K-POP 플레이리스트 트랙.",
+                                      "tags":  [
+                                                   "여자 아이돌 노래",
+                                                   "K-POP R\u0026B",
+                                                   "낮의 도시 K-POP",
+                                                   "응원봉 노래",
+                                                   "여돌 플레이리스트",
+                                                   "자신감 노래",
+                                                   "팬송 무드"
+                                               ]
+                                  },
+                      "genreId":  "kridol-midtempo-rnb",
+                      "genreText":  "Korean idol trap-soul crossover, 808-influenced sub pulse, plucked nylon guitar figure, wide negative-space stereo field",
+                      "lyricTheme":  "krkidolf-fan-project-lightstick-sea",
+                      "lyricThemeText":  "looking out at a sea of lightsticks perfectly timed to a song she wrote alone",
+                      "lyricThemeArc":  "private effort suddenly visible as collective love",
+                      "pov":  "firstPerson",
+                      "verseStyle":  "dialogue",
+                      "verseStyleText":  "verse lines use direct address or short conversational fragments without becoming spoken-word",
+                      "chorusStyle":  "hookRepeat",
+                      "chorusStyleText":  "chorus lines use compact repeated hook callbacks and simple answer phrases",
+                      "effectiveVocalPresetId":  "husky-jazz-female",
+                      "vocalPresetSource":  "plan",
+                      "qualityScore":  0,
+                      "warnings":  [
+
+                                   ]
+                  },
+                  {
+                      "trackNo":  11,
+                      "title":  "Keycard",
+                      "titleLocalized":  "낯선방",
+                      "seasonMoment":  "A bright hotel room in a foreign city after a long flight.",
+                      "listenerSituation":  "She wakes in an unfamiliar hotel room after sunrise, checks the keycard and city map, then resets for the next show.",
+                      "emotionArc":  "disoriented exhaustion steadying into professional focus",
+                      "distinctChoice":  {
+                                             "ruleId":  "CALL_AND_RESPONSE",
+                                             "descriptionKo":  "[Intro: instrumental] [Verse 1: Female] [Pre: Male] [Chorus: Duet] [Rap Verse 2: Female] [Chorus: Duet] [Final: Duet Harmony]로 두고, 다른 곡과 달리 피곤한 독백에 낮은 응답이 따라붙는다."
+                                         },
+                      "hookPhrase":  "Map In My Hand",
+                      "stylePrompt":  "Korean idol performance trap pop, 144 BPM, 808 sub bass, clean electric guitar, trap hi-hat rolls, punchy synth stab, Verse: vi-IV-V-I komuro-cycle progression, Chorus: IVM7-III7-vi-I7 marusa progression, male and female duet, narration answered wordlessly, close third harmony, rising sequence into chorus, medium arrangement, answer-riff hook response, Verse: laid-back R\u0026B groove, sparse arrangement / Pre-Chorus: building latin-tinged percussion lift, rising vocal stack into the drop / Chorus: EDM-influenced drop, dense synth stack / Bridge: rap section, minimal beat, instrumental intro, wordless instrumental break built for a choreography moment, short intro, 3:10-3:35, full arrangement, not a short cut",
+                      "excludePrompt":  "famous artist imitation, real artist names, copied melody, copyrighted song reference, soundalike vocal, specific idol group imitation, named member vocal timbre, signature hook of an existing song, sultry seductive framing, schoolgirl coding, teen-coded romance, senior-radio nostalgia imagery, vintage tape saturation, nostalgic announcer voice, understated subdued vocal delivery, flat chorus, monotonous melody contour, generic demo-band sound, karaoke backing track, muddy low-end mix, excessive reverb, thin placeholder hook, stock loop arrangement, overlong intro, aggressive drill vocal, chaotic hi-hat clutter, overpowering male narration, travel-ad jingle gloss, muddy 808 pulse, weak choreography break, faceless duet blend",
+                      "lyrics":  "[intro]\n\n[Verse 1: Female Vocal]\n낯선 천장 아래 눈을 떠\n카드키 옆 도시 이름을 읽어\n어느 나라였는지 잠시 멈춰\n커튼 틈 낮이 방 안에 내려\n입술을 축이고 일정을 펼쳐\n머리맡의 물컵이 차갑게 남아\n눈을 비비고 도시를 외워\n\n[Pre-Chorus: Male Vocal]\n괜찮아 천천히 기억해\n손안의 지도가 길을 말해\n흐릿한 몸도 곧 서게 돼\n문밖의 하루가 기다려\n작은 한숨도 길이 돼\n\n[Chorus: Male and Female Duet]\nMap In My Hand\n낯선 창문도 방향이 돼\n잠이 덜 깬 얼굴을 씻고\n다음 이름을 향해 가\n\n[Rap Verse 2: Female Vocal]\nkeycard tap, city name check\n시차는 blur, 발걸음은 exact\n흔들린 머리를 낮게 묶어\n오늘의 나로 다시 돌아서\n\n[Chorus: Male and Female Duet]\n숨을 고르고 문을 열어\nMap In My Hand\n잠이 덜 깬 얼굴을 씻고\n다음 이름을 향해 가\n\n[Final Chorus: Male and Female Duet Harmony]\nMap In My Hand\n낯선 창문도 방향이 돼\n잠이 덜 깬 얼굴을 씻고\n다음 이름을 향해 가\nMap In My Hand",
+                      "youtube":  {
+                                      "title":  "Keycard - 투어 무드 K-POP 트랩",
+                                      "description":  "낯선 도시의 호텔방에서 다시 집중을 찾는 장면. 남녀 듀엣과 퍼포먼스 트랩 팝으로 만든 밝은 도시형 K-POP.",
+                                      "tags":  [
+                                                   "퍼포먼스 트랩",
+                                                   "남녀 듀엣",
+                                                   "여자 아이돌 노래",
+                                                   "투어 감성",
+                                                   "낮의 도시 K-POP",
+                                                   "K-POP 걸그룹 플레이리스트",
+                                                   "자신감 노래"
+                                               ]
+                                  },
+                      "genreId":  "kridol-performance-trap",
+                      "genreText":  "high-energy Korean idol performance trap pop, 808 sub bass, trap hi-hat rolls",
+                      "lyricTheme":  "krkidolf-overseas-tour-jet-lag",
+                      "lyricThemeText":  "blinking awake in an unfamiliar hotel room, momentarily forgetting which country holds the next show",
+                      "lyricThemeArc":  "disoriented exhaustion steadying into professional focus",
+                      "pov":  "firstPerson",
+                      "verseStyle":  "image",
+                      "verseStyleText":  "verse lines focus on sensory images, objects, light, weather, and small gestures",
+                      "chorusStyle":  "narrative",
+                      "chorusStyleText":  "chorus lines unfold as plain scene narration with concrete actions and time movement",
+                      "effectiveVocalPresetId":  "male-female-duet",
+                      "vocalPresetSource":  "plan",
+                      "qualityScore":  0,
+                      "warnings":  [
+
+                                   ]
+                  },
+                  {
+                      "trackNo":  12,
+                      "title":  "Count Me In",
+                      "titleLocalized":  "첫카운트",
+                      "seasonMoment":  "Clear practice studio afternoon before the closing run.",
+                      "listenerSituation":  "She teaches her own choreography to the team for the first time, checking every count on a folded note.",
+                      "emotionArc":  "anxious authorship settling into proud ownership",
+                      "distinctChoice":  {
+                                             "ruleId":  "CHANT_HOOK",
+                                             "descriptionKo":  "[Verse 1: A+C cold hook] [Chorus: All] [Rap Verse 2: D+B] [Chorus: All] [Instrumental Break] [Final: All]로 시작하고, 다른 곡과 달리 파트가 빠르게 넘겨지는 빌드업을 마지막 후렴 앞에 둔다."
+                                         },
+                      "hookPhrase":  "Count Me In",
+                      "stylePrompt":  "Korean idol melodic sing-rap pop, 125 BPM, muted trap hi-hat pattern, plucked synth melody, warm sub bass, airy ad-lib layer, Verse: vi-IV-I-V movement, maj7 color, Chorus: IVM7-III7-vi-I7 marusa progression, Bridge: ii-V-I turnaround, maj7 add9 color, bright clear female soprano, clean bell tone, restrained reading, two-note pickup into each phrase, medium arrangement, vocal handoff lift, Verse: laid-back R\u0026B groove, sparse arrangement / Pre-Chorus: building latin-tinged percussion lift, rising vocal stack into the drop / Chorus: EDM-influenced drop, dense synth stack, no intro tag, quick handoff between vocal parts into the last chorus, short intro, 3:10-3:35, full arrangement, not a short cut",
+                      "excludePrompt":  "famous artist imitation, real artist names, copied melody, copyrighted song reference, soundalike vocal, specific idol group imitation, named member vocal timbre, signature hook of an existing song, sultry seductive framing, schoolgirl coding, teen-coded romance, senior-radio nostalgia imagery, vintage tape saturation, nostalgic announcer voice, understated subdued vocal delivery, flat chorus, monotonous melody contour, generic demo-band sound, karaoke backing track, muddy low-end mix, excessive reverb, thin placeholder hook, stock loop arrangement, overlong intro, lo-fi study beat, bedroom tape hiss, cluttered choreography counting, harsh sing-rap delivery, weak vocal handoff, stiff dance-instruction lyric, brittle ad-lib stack, rushed final chorus",
+                      "lyrics":  "[Verse 1: Member A  powerful belting, thick chest voice, wide open vibrato, Member C  strong hard-attack cadence, clipped consonant emphasis]\nCount Me In\n접은 종이에 숫자를 크게 적어\n내가 만든 길을 처음 보여 줘\n틀리면 어쩌나 손끝이 마르지만\n눈앞의 얼굴들이 나를 기다려\n하나 둘 셋 숨을 나눠 가져\n발끝의 동그라미가 천천히 맞고\n너의 목소리도 선 안에 들어\n\n[Chorus: All]\n네가 먼저 선을 그어 봐\nCount Me In\n불안한 손도 방향을 알아\n같이 돌면 길이 돼\n\n[Rap Verse 2: Member D  syncopated rhythmic delivery, playful pocket timing, Member B  clear thin tone, bright forward projection]\ncount one, count two, move it clean\n내 말투 속에 떨림이 seen\n틀려도 다시, 웃으며 reset\n내가 만든 step 이제 we get\n틀린 웃음까지 내 편이 돼\n모두의 발끝이 답처럼 모여\n지금 여기\n\n[Chorus: All]\n종이 끝을 접고 고개 들어\nCount Me In\n불안한 손도 방향을 알아\n같이 돌면 길이 돼\n\n[Instrumental Break]\n\n[Final Chorus: All]\nCount Me In\n네가 먼저 선을 그어 봐\n불안한 손도 방향을 알아\n같이 돌면 길이 돼\nCount Me In",
+                      "youtube":  {
+                                      "title":  "Count Me In - 안무 창작 K-POP",
+                                      "description":  "직접 만든 안무를 처음 가르치는 떨림과 자부심. 멜로딕 싱랩 팝으로 그린 낮의 연습실 장면.",
+                                      "tags":  [
+                                                   "여자 아이돌 노래",
+                                                   "멜로딕 랩",
+                                                   "안무 노래",
+                                                   "낮의 도시 K-POP",
+                                                   "자신감 노래",
+                                                   "K-POP 걸그룹 플레이리스트",
+                                                   "여돌 플레이리스트"
+                                               ]
+                                  },
+                      "genreId":  "kridol-melodic-rap",
+                      "genreText":  "Korean idol melodic sing-rap pop, muted trap hi-hat pattern, warm sub bass, airy ad-lib layered hook",
+                      "lyricTheme":  "krkidolf-choreography-she-created",
+                      "lyricThemeText":  "teaching her own choreography to the rest of the group for the first time, nervous about every count",
+                      "lyricThemeArc":  "anxious authorship settling into proud ownership",
+                      "pov":  "secondPerson",
+                      "verseStyle":  "narrative",
+                      "verseStyleText":  "verse lines unfold as plain scene narration with concrete actions and time movement",
+                      "chorusStyle":  "image",
+                      "chorusStyleText":  "chorus lines focus on sensory images, objects, light, weather, and small gestures",
+                      "effectiveVocalPresetId":  "bright-clear-female",
+                      "vocalPresetSource":  "plan",
+                      "qualityScore":  0,
+                      "warnings":  [
+
+                                   ]
+                  },
+                  {
+                      "trackNo":  13,
+                      "title":  "Backstage Pear",
+                      "titleLocalized":  "그때친구",
+                      "seasonMoment":  "A winter matinee backstage hallway with a fruit carton on the bench.",
+                      "listenerSituation":  "Backstage after a daytime recording, she meets a childhood friend who still offers a pear slice without treating her differently.",
+                      "emotionArc":  "quiet gratitude anchoring into steady loyalty",
+                      "distinctChoice":  {
+                                             "ruleId":  "HOOK_REPEAT_4X",
+                                             "descriptionKo":  "[Intro: instrumental] [Verse 1: B+E] [Chorus: All] [Rap Verse 2: D+A] [Chorus: All] [Final: All]로 두고, 다른 곡과 달리 오래된 친구의 평범한 말투가 훅의 중심이 된다."
+                                         },
+                      "hookPhrase":  "Still You",
+                      "stylePrompt":  "Korean idol synth dance pop, 150 BPM, four-on-the-floor kick, clap layer, bright pluck synth, filtered synth bass, I-V-vi-iii-IV-I-IV-V progression, bright young female voice, legato sustained lines, clear glassy brightness, top-three scale hook, sparse arrangement, synchronized unison vocal stab, Verse: intimate reggaeton-lite percussion, sparse voice-forward mix / Pre-Chorus: sparse funk guitar stab build, syncopated pre-drop tension / Chorus: full pop chorus lift, layered vocal harmony / Bridge: rap-delivery bridge, minimal percussion-only backing, instrumental intro, synchronized unison vocal stab lands on the beat in the final chorus, short intro, 3:10-3:35, full arrangement, not a short cut",
+                      "excludePrompt":  "famous artist imitation, real artist names, copied melody, copyrighted song reference, soundalike vocal, specific idol group imitation, named member vocal timbre, signature hook of an existing song, sultry seductive framing, schoolgirl coding, teen-coded romance, senior-radio nostalgia imagery, vintage tape saturation, nostalgic announcer voice, understated subdued vocal delivery, flat chorus, monotonous melody contour, generic demo-band sound, karaoke backing track, muddy low-end mix, excessive reverb, thin placeholder hook, stock loop arrangement, overlong intro, weak four-on-floor drive, brittle pluck pattern, overly sentimental friendship lyric, faceless backing stack, rushed 150 BPM phrasing, limp unison stab, crowded hallway ambience",
+                      "lyrics":  "[intro]\n\n[Verse 1: Member B  bright head-voice lift, airy upper register, Member E  warm low register, mellow husky undertone]\n복도 의자 위 배 한 조각\n너는 예전처럼 먼저 건네\n달라졌냐고 묻지도 않고\n웃긴 얘기부터 꺼내 놓아\n내 어깨가 천천히 내려가\n손등에 묻은 과즙이 시원해\n그때의 골목 냄새가 돌아와\n너는 내 표정을 먼저 읽어\n\n[Chorus: All]\nStill You\n큰 말 없이도 알아봐 줘\n사람 많은 하루를 지나\n내 이름 뒤의 나를 불러\n\n[Rap Verse 2: Member D  syncopated rhythmic delivery, playful pocket timing, Member A  restrained high register, controlled head-tone shimmer]\nbackstage pass 없어도 너는 straight\n화려한 말 대신 같은 plate\n어릴 때 별명 아직도 saved\n그 한마디에 나를 다시 set\n낡은 농담 하나면 충분해\n우린 다른 높이에서도 같아\n그 말투가 나를 바닥에 세워\n바쁜 복도도 잠깐 집이 돼\n\n[Chorus: All]\n배 한 조각처럼 담백하게\nStill You\n사람 많은 하루를 지나\n내 이름 뒤의 나를 불러\n\n[Final Chorus: All]\nStill You\n큰 말 없이도 알아봐 줘\n사람 많은 하루를 지나\n내 이름 뒤의 나를 불러\nStill You",
+                      "youtube":  {
+                                      "title":  "Backstage Pear - 친구에게 건네는 K-POP",
+                                      "description":  "유명해진 뒤에도 그대로인 친구를 만나는 백스테이지 장면. 빠른 신스 댄스 팝 안에 담백한 고마움을 담았습니다.",
+                                      "tags":  [
+                                                   "여자 아이돌 노래",
+                                                   "여자 아이돌 신스댄스",
+                                                   "낮의 도시 K-POP",
+                                                   "친구 노래",
+                                                   "K-POP 걸그룹 플레이리스트",
+                                                   "여돌 플레이리스트",
+                                                   "자신감 노래"
+                                               ]
+                                  },
+                      "genreId":  "kridol-synth-dance",
+                      "genreText":  "sleek Korean idol synth dance pop, four-on-the-floor kick, bright pluck synth",
+                      "lyricTheme":  "krkidolf-childhood-friend-still-there",
+                      "lyricThemeText":  "meeting a childhood friend backstage who never once treated her differently after fame",
+                      "lyricThemeArc":  "quiet gratitude anchoring into steady loyalty",
+                      "pov":  "firstPerson",
+                      "verseStyle":  "dialogue",
+                      "verseStyleText":  "verse lines use direct address or short conversational fragments without becoming spoken-word",
+                      "chorusStyle":  "hookRepeat",
+                      "chorusStyleText":  "chorus lines use compact repeated hook callbacks and simple answer phrases",
+                      "effectiveVocalPresetId":  "bright-young-female",
+                      "vocalPresetSource":  "plan",
+                      "qualityScore":  0,
+                      "warnings":  [
+
+                                   ]
+                  },
+                  {
+                      "trackNo":  14,
+                      "title":  "Practice Room",
+                      "titleLocalized":  "남은연습",
+                      "seasonMoment":  "Late afternoon practice room with winter sky cooling behind the windows.",
+                      "listenerSituation":  "After the hallway clears in late afternoon, she stays in the empty practice room and repeats scales from a marked notebook.",
+                      "emotionArc":  "quiet solitary discipline hardening into private resolve",
+                      "distinctChoice":  {
+                                             "ruleId":  "WORD_ACCUMULATION",
+                                             "descriptionKo":  "[Intro: instrumental] [Verse 1: A+C] [Chorus: All] [Rap Verse 2: D+B] [Chorus: All] [Final: All]로 낮게 마무리하며, 다른 곡과 달리 표시한 단어가 절마다 하나씩 늘어난다.",
+                                             "params":  {
+                                                            "words":  [
+                                                                          "표시",
+                                                                          "호흡",
+                                                                          "선"
+                                                                      ]
+                                                        }
+                                         },
+                      "hookPhrase":  "One More Scale",
+                      "stylePrompt":  "Korean idol performance trap pop, 98 BPM, 808 sub bass, trap hi-hat rolls, punchy synth stab, clean electric guitar, Verse: IVM7-III7-vi-I7 marusa progression, Chorus: vi-IV-I-V movement, maj7 color, Bridge: vi-IV-V-I komuro-cycle progression, bright young female voice, light rhythmic phrasing, slight smoky depth, paired antecedent-consequent hook, sparse arrangement, half-time chorus weight, Verse: sparse funk guitar groove, voice-forward / Pre-Chorus: rising synth riser build, filtered high-pass tension / Chorus: four-on-the-floor disco pulse, full horn stack / Bridge: half-time rap delivery, stripped-back beat, instrumental intro, single-note answer after the hook, short intro, 3:10-3:35, full arrangement, not a short cut",
+                      "excludePrompt":  "famous artist imitation, real artist names, copied melody, copyrighted song reference, soundalike vocal, specific idol group imitation, named member vocal timbre, signature hook of an existing song, sultry seductive framing, schoolgirl coding, teen-coded romance, senior-radio nostalgia imagery, vintage tape saturation, nostalgic announcer voice, understated subdued vocal delivery, slow ballad pacing, flat chorus, monotonous melody contour, generic demo-band sound, karaoke backing track, muddy low-end mix, excessive reverb, thin placeholder hook, stock loop arrangement, overlong intro, aggressive drill vocal, chaotic hi-hat clutter, muddy 808 impact, sleepy practice vignette, harsh scale drilling, weak half-time chorus, overdark trap mood",
+                      "lyrics":  "[intro]\n\n[Verse 1: Member A  thick chest-voice tone, driving lower-mid weight, Member C  low gritty rap flow, rough rasped edge]\n그녀는 노트에 표시를 남겨\n빈 방의 먼지가 낮게 앉아\n창에는 식어 가는 오후가 붙고\n입술은 같은 길을 천천히 돌아\n혼자 남은 시간이 등을 세워\n거울 가장자리엔 표시가 늘고\n호흡은 낮지만 선은 곧아\n물병의 차가움이 손에 남아\n\n[Chorus: All]\nOne More Scale\n작은 표시가 길이 돼\n아무도 보지 않는 자리\n그녀는 더 선명해져\n\n[Rap Verse 2: Member D  syncopated rhythmic delivery, playful pocket timing, Member B  light falsetto lean, delicate breath-edge]\nmark one, 호흡 check, 선을 draw\n틀린 곳마다 다시 go\n혼자라 해도 멈추지 않아\n낮은 창가에 결심을 놔\n닫힌 문틈에도 표시가 보여\n작은 호흡마다 선을 다시 긋네\n의자 등받이에 외투가 쉬고\n땀 대신 맑은 결심이 남아\n다음 칸까지 발을 옮겨\n\n[Chorus: All]\n노트 끝에서 숨을 고르고\nOne More Scale\n아무도 보지 않는 자리\n그녀는 더 선명해져\n\n[Final Chorus: All]\nOne More Scale\n작은 표시가 길이 돼\n아무도 보지 않는 자리\n그녀는 더 선명해져\nOne More Scale",
+                      "youtube":  {
+                                      "title":  "Practice Room - 차분한 퍼포먼스 트랩",
+                                      "description":  "비어 있는 연습실에서 혼자 남아 다시 반복하는 결심. 느린 퍼포먼스 트랩 팝으로 만든 평화로운 클로징 직전 트랙.",
+                                      "tags":  [
+                                                   "여자 아이돌 노래",
+                                                   "퍼포먼스 트랩",
+                                                   "연습실 감성",
+                                                   "낮의 도시 K-POP",
+                                                   "K-POP 걸그룹 플레이리스트",
+                                                   "자신감 노래",
+                                                   "여돌 플레이리스트"
+                                               ]
+                                  },
+                      "genreId":  "kridol-performance-trap",
+                      "genreText":  "high-energy Korean idol performance trap pop, 808 sub bass, trap hi-hat rolls",
+                      "lyricTheme":  "krkidolf-late-night-vocal-practice-alone",
+                      "lyricThemeText":  "running scales alone in an empty practice room long after the rest of the group has gone to sleep",
+                      "lyricThemeArc":  "quiet solitary discipline hardening into private resolve",
+                      "pov":  "thirdPerson",
+                      "verseStyle":  "narrative",
+                      "verseStyleText":  "verse lines unfold as plain scene narration with concrete actions and time movement",
+                      "chorusStyle":  "image",
+                      "chorusStyleText":  "chorus lines focus on sensory images, objects, light, weather, and small gestures",
+                      "effectiveVocalPresetId":  "bright-young-female",
+                      "vocalPresetSource":  "plan",
+                      "qualityScore":  0,
+                      "warnings":  [
+
+                                   ]
+                  },
+                  {
+                      "trackNo":  15,
+                      "title":  "Leave It Open",
+                      "titleLocalized":  "열린컷",
+                      "seasonMoment":  "Warm studio daylight on a winter magazine-cover set.",
+                      "listenerSituation":  "At a magazine-cover shoot, she holds a still pose until the stiffness loosens into natural confidence.",
+                      "emotionArc":  "self-conscious posing loosening into natural power",
+                      "distinctChoice":  {
+                                             "ruleId":  "KEY_LIFT",
+                                             "descriptionKo":  "[Intro: instrumental] [Verse 1: F+G] [Chorus: All] [Rap Verse 2: C+B] [Chorus: All] [Final: All]로 천천히 닫고, 다른 곡과 달리 1번의 낮 길 이미지를 끝에 열어 둔다."
+                                         },
+                      "hookPhrase":  "Leave It Open",
+                      "stylePrompt":  "Korean idol midtempo R\u0026B, 70 BPM, 808-influenced sub pulse, chopped vocal-sample stab, muted finger-snap layer, plucked nylon guitar figure, Verse: IV-V-iii-vi royal road progression, Chorus: vi-IV-V-I komuro-cycle progression, husky female alto, bright forward delivery, faint vibrato shimmer, descending final-hook resolution, medium arrangement, unison doubled chorus, Verse: intimate reggaeton-lite percussion, sparse voice-forward mix / Pre-Chorus: sparse funk guitar stab build, syncopated pre-drop tension / Chorus: full pop chorus lift, layered vocal harmony, instrumental intro, brief bridge-like ad-lib chant punctuates the final lift, final chorus semitone key lift, unresolved loop-back ending, short intro, 3:10-3:35, full arrangement, not a short cut",
+                      "excludePrompt":  "famous artist imitation, real artist names, copied melody, copyrighted song reference, soundalike vocal, specific idol group imitation, named member vocal timbre, signature hook of an existing song, sultry seductive framing, schoolgirl coding, teen-coded romance, senior-radio nostalgia imagery, vintage tape saturation, nostalgic announcer voice, understated subdued vocal delivery, flat chorus, monotonous melody contour, generic demo-band sound, karaoke backing track, muddy low-end mix, excessive reverb, thin placeholder hook, stock loop arrangement, overlong intro, lo-fi study beat, dusty piano loop, bedroom tape hiss, overlong slow-tempo sprawl, sleepy ballad drift, stiff photo-shoot cliche, overpowering ad-lib chant, muddy sub pulse, excessive key-change drama",
+                      "lyrics":  "[intro]\n\n[Verse 1: Member F  breathy textured tone, close intimate mic presence, Member G  warm low register, mellow husky undertone]\n흰 바닥 위에 발을 맞춰 서\n어색한 손가락을 천천히 펴\n렌즈 앞에서 숨이 좁아지다\n창밖의 낮 길을 떠올려 봐\n첫 곡처럼 웃음이 어깨에 닿아\n대낮의 길을 같이 걷던 온기\n그 장면이 자세를 부드럽게 해\n\n[Chorus: All]\nLeave It Open\n굳은 표정도 풀려 가\n내가 나를 보는 순간\n사진 밖의 길이 이어져\n\n[Rap Verse 2: Member C  heavy bass-register attack, blunt percussive delivery, Member B  light falsetto lean, delicate breath-edge]\npose hold, no rush, 눈은 clear\n어색한 line 사라져 here\n손끝의 힘을 살짝 내려\n내 이름답게 장면을 열어\n딱딱한 어깨가 천천히 내려\n눈빛이 먼저 문을 찾아\n스태프의 손짓에 웃음이 돌아\n앞줄의 친구들 웃음도 스쳐\n다음 장면을 남겨 두고 서\n\n[Chorus: All]\n숨을 고르고 다시 바라봐\nLeave It Open\n내가 나를 보는 순간\n사진 밖의 길이 이어져\n\n[Final Chorus: All]\nLeave It Open\n굳은 표정도 풀려 가\n내가 나를 보는 순간\n사진 밖의 길이 이어져\nLeave It Open",
+                      "youtube":  {
+                                      "title":  "Leave It Open - 따뜻한 K-POP R\u0026B 클로저",
+                                      "description":  "매거진 촬영장의 어색함이 자기 확신으로 풀리는 순간. 첫 트랙의 낮 길 이미지를 살짝 되돌리며 여운을 남기는 클로저.",
+                                      "tags":  [
+                                                   "여자 아이돌 노래",
+                                                   "K-POP R\u0026B",
+                                                   "낮의 도시 K-POP",
+                                                   "여돌 플레이리스트",
+                                                   "자신감 노래",
+                                                   "클로징 트랙",
+                                                   "K-POP 걸그룹 플레이리스트"
+                                               ]
+                                  },
+                      "genreId":  "kridol-midtempo-rnb",
+                      "genreText":  "Korean idol trap-soul crossover, 808-influenced sub pulse, plucked nylon guitar figure, wide negative-space stereo field",
+                      "lyricTheme":  "krkidolf-magazine-cover-shoot-confidence",
+                      "lyricThemeText":  "holding a still pose for a magazine cover shot, finding real confidence past the initial stiffness",
+                      "lyricThemeArc":  "self-conscious posing loosening into natural power",
+                      "pov":  "secondPerson",
+                      "verseStyle":  "dialogue",
+                      "verseStyleText":  "verse lines use direct address or short conversational fragments without becoming spoken-word",
+                      "chorusStyle":  "narrative",
+                      "chorusStyleText":  "chorus lines unfold as plain scene narration with concrete actions and time movement",
+                      "effectiveVocalPresetId":  "husky-jazz-female",
+                      "vocalPresetSource":  "plan",
+                      "qualityScore":  0,
+                      "warnings":  [
+
+                                   ]
+                  }
+              ]
+}

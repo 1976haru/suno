@@ -1,0 +1,725 @@
+﻿{
+    "meta":  {
+                 "setName":  "20260814_굿모닝추억라디오_병원대기실에서마음이편해지는음악",
+                 "generatedAt":  "2026-08-14T10:55:59.226Z",
+                 "channelId":  "good-morning-memory-radio",
+                 "channelLabel":  "굿모닝 추억라디오",
+                 "conceptLabel":  "병원 대기실에서 마음이 편해지는 음악",
+                 "songCount":  15,
+                 "lyricLanguage":  "english",
+                 "bridgeVersion":  "0.21.0"
+             },
+    "songs":  [
+                  {
+                      "trackNo":  1,
+                      "title":  "Number Card",
+                      "titleLocalized":  "순서를기다리며",
+                      "seasonMoment":  "Late December clinic morning, a small thermos of tea beside a numbered card and a low radio in the waiting room.",
+                      "listenerSituation":  "Alone in a hospital waiting room, I hold my appointment card and make tea from a thermos while the corner radio steadies the hour.",
+                      "emotionArc":  "ordinary routine becoming a warm companion",
+                      "distinctChoice":  {
+                                             "ruleId":  "VERSE_TAIL_REPEAT",
+                                             "descriptionKo":  "두 절의 끝을 같은 카드 이미지로 맺어 대기실의 시간이 천천히 가라앉게 한다.",
+                                             "params":  {
+                                                            "phrase":  "the number card"
+                                                        }
+                                         },
+                      "hookPhrase":  "Let The Hour Settle",
+                      "stylePrompt":  "mid-century French chanson cafe pop, 70 BPM, soulful female voice, restrained understated reading, warm rounded midrange, intimate close-mic, nonsense-syllable backing vocals, singing starts immediately, no intro tag, full playback level from first bar, musette accordion, nylon guitar, upright bass, brushed drums, medium cafe arrangement, Verse: I-vi-IV-V doo-wop progression / Chorus: IV-I-V-vi warm cycle progression, chord changes locked to the beat, bass on the root, real cadence lift into chorus, two-note pickup phrases, double-tracked hook with harmony a third above, minor-key comfort, analog room tone, short intro, 3:10-3:35, full arrangement, not a short cut",
+                      "excludePrompt":  "famous artist imitation, copied melodies, copyrighted song references, soundalike vocals, real artist or band names, existing song titles, imitating a specific singer voice or style, shouted or belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation that obscures the melody, cavernous hall reverb, abrupt dynamic jumps, flat chorus with no lift, monotonous melody contour, generic demo-band sound, glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement, childish lyrics, too old-fashioned trot mood, Paris cafe caricature, harsh accordion tremolo, medical alarm ambience, waiting-room beep effects",
+                      "lyrics":  "[Verse 1]\nFluorescent squares shine over blue chairs\nMy thermos opens with a little sigh\nThe appointment card rests on my sleeve\nA nurse calls someone else\u0027s name\nI pour the tea into its lid\nAnd breathe the ginger rising there\nMy gloves lie folded like small pillows\nBeside the pen they gave me\nA corner radio names the weather\nI smooth the number card\n\n[Chorus]\nThe wall clock moves without scolding\nLet The Hour Settle\nMy hands remember ordinary work\nAnd the room grows easier to bear\n\n[Verse 2]\nAcross the aisle, a couple shares raisins\nA boy draws ships on a form\nThe elevator opens, closes, opens\nLike a patient silver mouth\nI add one sugar, stir it slowly\nThe steam draws a tiny cloud\nI set my fear beside the number card\n\n[Chorus]\nThe tea turns amber in the lid\nLet The Hour Settle\nNothing has to hurry me\nThrough this plain December air\n\n[Instrumental Break]\n\n[Final Chorus]\nLet The Hour Settle\nThe radio keeps its gentle corner\nThe nurse will call me when it is time\nMy coat lies folded on my knees\nAnd comfort gathers, sip by sip\nLet The Hour Settle",
+                      "youtube":  {
+                                      "title":  "Number Card - Calm Chanson Waiting Room Song",
+                                      "description":  "A gentle chanson cafe ballad for hospital waiting rooms, morning coffee, and warm old-pop reflection for senior listeners.",
+                                      "tags":  [
+                                                   "아침 음악",
+                                                   "커피 음악",
+                                                   "추억 팝송",
+                                                   "50대 음악",
+                                                   "60대 음악",
+                                                   "감성 팝",
+                                                   "병원 대기실 음악",
+                                                   "calm chanson",
+                                                   "comfort music"
+                                               ]
+                                  },
+                      "genreId":  "chanson",
+                      "genreText":  "French chanson cafe pop, waltz or slow 4/4 cafe pulse, musette tremolo accordion",
+                      "lyricTheme":  "senior-kitchen-radio-tea",
+                      "lyricThemeText":  "making tea in a small kitchen while an old radio plays low in the corner",
+                      "lyricThemeArc":  "ordinary routine becoming a warm companion",
+                      "pov":  "firstPerson",
+                      "verseStyle":  "image",
+                      "verseStyleText":  "verse lines focus on sensory images, objects, light, weather, and small gestures",
+                      "chorusStyle":  "narrative",
+                      "chorusStyleText":  "chorus lines unfold as plain scene narration with concrete actions and time movement",
+                      "effectiveVocalPresetId":  "soulful-female",
+                      "vocalPresetSource":  "plan",
+                      "qualityScore":  0,
+                      "warnings":  [
+
+                                   ]
+                  },
+                  {
+                      "trackNo":  2,
+                      "title":  "Step A Little Closer",
+                      "titleLocalized":  "처음잡던날",
+                      "seasonMoment":  "Late December cardiology waiting room, winter coats folded while an old summer dance returns in memory.",
+                      "listenerSituation":  "A man waiting with his wife for a routine hospital checkup remembers the first slow dance that made his shy hand certain.",
+                      "emotionArc":  "nervous shyness blooming into certainty",
+                      "distinctChoice":  {
+                                             "ruleId":  "ARRANGEMENT_NUANCE",
+                                             "descriptionKo":  "중간 간주에서 독주 악기가 보컬 선율에 대답해 첫 춤의 망설임을 풀어 준다."
+                                         },
+                      "hookPhrase":  "Step A Little Closer",
+                      "stylePrompt":  "late-1960s close-harmony duo pop, 74 BPM, low calm male baritone, gentle swung phrasing, airy breath-forward tone, soft plate ambience, close four-part backing harmony, instrumental intro with no sung line, full playback level from first bar, acoustic guitar, electric piano, upright bass, restrained brushed drums, sparse duo arrangement, I-V-vi-IV progression, chord changes locked to the beat, bass on the root, real cadence lift into chorus, hook built on top three scale degrees, mid instrumental harmonica answers the vocal line, intimate analog studio warmth, short intro, 3:10-3:35, full arrangement, not a short cut",
+                      "excludePrompt":  "famous artist imitation, copied melodies, copyrighted song references, soundalike vocals, real artist or band names, existing song titles, imitating a specific singer voice or style, shouted or belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation that obscures the melody, cavernous hall reverb, abrupt dynamic jumps, flat chorus with no lift, monotonous melody contour, generic demo-band sound, glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement, competing lead vocals, overlarge production, hospital monitor sounds, dancehall parody, brittle acoustic strum",
+                      "lyrics":  "[Intro]\n\n[Verse 1]\nYour scarf is folded on the chair\nThe clinic window shows the parking lot\nYou joke that I still count my steps\nThe way I did that summer dance\nI see the doorway of the social hall\nAnd your blush beside the punch\nMy left hand hovered near your shoulder\nAfraid to land too soon\nThe corner fan moved paper flowers\nWhile my shoes argued with courage\n\n[Chorus]\nYour ribbon brushed my Sunday cuff\nStep A Little Closer\nThe room went bright around us\nAnd my shy feet found the floor\n\n[Verse 2]\nNow magazines lean by your elbow\nAnd snow dusts cars beyond the glass\nYou tap my sleeve when they call numbers\nThen smile as if we have all day\nThe receptionist lowers her voice kindly\nI answer with a steadier nod\nI remember one slow circle\nYour hand choosing mine at last\n\n[Chorus]\nThe waiting room becomes that summer\nStep A Little Closer\nYour shoulder knows my heartbeat\nLike it knew it long ago\n\n[Final Chorus]\nStep A Little Closer\nIf the hallway feels too narrow\nIf the clock speaks louder today\nWe have crossed one floor together\nAnd I can cross this one with you\nStep A Little Closer",
+                      "youtube":  {
+                                      "title":  "Step A Little Closer - Close Harmony Waiting Room Ballad",
+                                      "description":  "A calm old-pop memory of a first dance, written for hospital waiting rooms, winter mornings, and senior coffee playlists.",
+                                      "tags":  [
+                                                   "아침 음악",
+                                                   "커피 음악",
+                                                   "추억 팝송",
+                                                   "50대 음악",
+                                                   "60대 음악",
+                                                   "병원 대기실 음악",
+                                                   "close harmony",
+                                                   "first dance memory",
+                                                   "comfort ballad"
+                                               ]
+                                  },
+                      "genreId":  "oldpop-close-harmony-duo",
+                      "genreText":  "1970s close-harmony duo pop, acoustic guitar, electric piano, restrained acoustic backing",
+                      "lyricTheme":  "senior-first-dance-memory",
+                      "lyricThemeText":  "remembering the first slow dance at a summer social, hand shy on a shoulder for the first time",
+                      "lyricThemeArc":  "nervous shyness blooming into certainty",
+                      "pov":  "firstPerson",
+                      "verseStyle":  "dialogue",
+                      "verseStyleText":  "verse lines use direct address or short conversational fragments without becoming spoken-word",
+                      "chorusStyle":  "image",
+                      "chorusStyleText":  "chorus lines focus on sensory images, objects, light, weather, and small gestures",
+                      "effectiveVocalPresetId":  "low-calm-male",
+                      "vocalPresetSource":  "plan",
+                      "qualityScore":  0,
+                      "warnings":  [
+
+                                   ]
+                  },
+                  {
+                      "trackNo":  3,
+                      "title":  "Hospital Hill",
+                      "titleLocalized":  "안도의귀가",
+                      "seasonMoment":  "Late December after-visit dusk, hospital hill turning blue while a summer drive rises in both voices.",
+                      "listenerSituation":  "After a hospital appointment ends better than feared, two people drive down the hill and remember a young summer ride with open windows.",
+                      "emotionArc":  "restlessness turning into free-wheeling joy",
+                      "distinctChoice":  {
+                                             "ruleId":  "ARRANGEMENT_NUANCE",
+                                             "descriptionKo":  "브릿지에 빌린 화음 하나를 넣어 검사 뒤의 긴장이 풀리는 색을 만든다."
+                                         },
+                      "hookPhrase":  "Ride Home Easy",
+                      "stylePrompt":  "1960s-70s soul pop, 74 BPM, small mixed vocal group, alternating verses into joined chorus, tight unison with light detune, soft plate ambience, nonsense-syllable backing vocals, instrumental intro with no sung line, full playback level from first bar, Wurlitzer, muted guitar, smooth bass, light soul drums, sparse hand-played groove, Verse: IV-I-V-vi warm cycle progression / Chorus: I-V-vi-IV progression, chord changes locked to the beat, bass on the root, real cadence lift into chorus, descending hook resolution, bridge uses one borrowed chord color, analog tape warmth, short intro, 3:10-3:35, full arrangement, not a short cut",
+                      "excludePrompt":  "famous artist imitation, copied melodies, copyrighted song references, soundalike vocals, real artist or band names, existing song titles, imitating a specific singer voice or style, shouted or belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation that obscures the melody, cavernous hall reverb, abrupt dynamic jumps, flat chorus with no lift, monotonous melody contour, generic demo-band sound, glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement, harsh horn stabs, overbusy hi-hat, medical alarm ambience, dramatic diagnosis lyric, modern soul gloss",
+                      "lyrics":  "[Intro]\n\n[Verse 1: Male Vocal]\nYou fold the clinic paper twice\nAnd tuck it under the sun visor\nThe hospital hill falls behind us\nBlue windows shining in the mirror\nThe nurse had said the plainest sentence\nBut it opened all the air\nI say the road smells almost like July\nYou say roll yours down first\n\n[Chorus: Male and Female Duet]\nThe road bends softly past the pharmacy\nRide Home Easy\nOur worried names loosen their grip\nAs the town begins to move\n\n[Verse 2: Female Vocal]\nYou find the old coast road station\nI laugh because the dial still sticks\nThe winter trees lean over traffic\nBut I hear summer in your grin\nWe pass the diner without turning\nThen choose the river way instead\nWe take the long way by the water\nAnd let our shoulders lower\n\n[Bridge: Male and Female Call and Response]\nOne borrowed color crosses the turn\nOne breath changes in the lane\nYou say, not bad for Tuesday\nI say, not bad for us\nThe paper on the visor rustles\nLike leaves behind the seats\n\n[Final Chorus: Male and Female Duet Harmony]\nRide Home Easy\nLet the hospital lights grow smaller\nLet the dashboard hold our hands\nWe have had harder miles before\nAnd found a tune inside them\nStill safe beside each passing window\nRide Home Easy",
+                      "youtube":  {
+                                      "title":  "Hospital Hill - Retro Soul Pop Comfort Drive",
+                                      "description":  "A soft retro soul-pop duet for the relief after an appointment, suited to hospital waiting rooms, coffee mornings, and gentle memory playlists.",
+                                      "tags":  [
+                                                   "아침 음악",
+                                                   "커피 음악",
+                                                   "추억 팝송",
+                                                   "병원 대기실 음악",
+                                                   "retro soul pop",
+                                                   "comfort drive",
+                                                   "senior playlist",
+                                                   "calm music",
+                                                   "winter memory"
+                                               ]
+                                  },
+                      "genreId":  "retro-soul-pop",
+                      "genreText":  "soft retro soul pop, sixteenth-note hi-hat groove, tight horn section stabs",
+                      "lyricTheme":  "senior-convertible-radio-night",
+                      "lyricThemeText":  "driving with the windows down on a warm summer night, the radio playing low and the road stretching ahead",
+                      "lyricThemeArc":  "restlessness turning into free-wheeling joy",
+                      "pov":  "secondPerson",
+                      "verseStyle":  "dialogue",
+                      "verseStyleText":  "verse lines use direct address or short conversational fragments without becoming spoken-word",
+                      "chorusStyle":  "hookRepeat",
+                      "chorusStyleText":  "chorus lines use compact repeated hook callbacks and simple answer phrases",
+                      "effectiveVocalPresetId":  "mixed-harmony-group",
+                      "vocalPresetSource":  "plan",
+                      "qualityScore":  0,
+                      "warnings":  [
+
+                                   ]
+                  },
+                  {
+                      "trackNo":  4,
+                      "title":  "Platform Sleeve",
+                      "titleLocalized":  "손을흔들며",
+                      "seasonMoment":  "Late December hospital shuttle stop, a train-platform memory warming the glass doors.",
+                      "listenerSituation":  "Near the hospital shuttle bay, I watch a loved one leave for rehab transfer and remember a youthful platform goodbye that ended in hope.",
+                      "emotionArc":  "sharp ache softening into quiet hope",
+                      "distinctChoice":  {
+                                             "ruleId":  "ARRANGEMENT_NUANCE",
+                                             "descriptionKo":  "마지막 후렴 끝의 훅을 거의 무반주처럼 낮춰 이별을 안부로 바꾼다."
+                                         },
+                      "hookPhrase":  "Wave Me Home",
+                      "stylePrompt":  "1960s folk pop, 98 BPM, soft warm female alto, light rhythmic phrasing, velvety low resonance, dry and forward, unison shout on the hook, ensemble unison lead, instrumental intro with no sung line, strummed acoustic guitar, light mandolin texture, soft piano, upright bass, medium natural room arrangement, Verse: I-V-vi-IV progression / Chorus: I-V-vi-iii-IV-I-IV-V progression / Bridge: I-vi-IV-V doo-wop progression, paired antecedent-consequent melody, answer riff after hook, final chorus ends with hook almost a cappella, hand-played warmth, short intro, 3:10-3:35, full arrangement, not a short cut",
+                      "excludePrompt":  "famous artist imitation, copied melodies, copyrighted song references, soundalike vocals, real artist or band names, existing song titles, imitating a specific singer voice or style, shouted or belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation that obscures the melody, cavernous hall reverb, abrupt dynamic jumps, flat chorus with no lift, monotonous melody contour, generic demo-band sound, glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement, childish lyrics, too old-fashioned trot mood, bus-station sound effects, march rhythm, melodramatic goodbye, brittle mandolin clutter",
+                      "lyrics":  "[Intro]\n\n[Verse 1]\nThe shuttle glass is streaked with sleet\nYour blanket rides across my arm\nI hold the little overnight bag\nWhile orderlies unlock the bay\nA train from years ago returns\nWith steam along my coat\nYour old joke waits behind your smile\nToo tired to travel far\n\n[Chorus]\nAt the curb and at the platform\nWave Me Home\nYour lifted hand can cross a mile\nAnd make the distance kind\n\n[Verse 2]\nBack then, your suitcase bumped my ankle\nAnd I tried to sound brave\nNow the van door hums beside us\nYour smile is smaller, but it stays\nThe driver checks a paper twice\nI tuck the scarf around your shoulder\nAnd name the first meal after return\n\n[Bridge]\nIf the road takes longer today\nLet it keep you gently there\nI will count the lamps, not worries\nTill the same doors open again\n\n[Chorus]\nThe driver nods, the window lowers\nWave Me Home\nI stand with both hands open\nAs the shuttle finds the street\n\n[Final Chorus]\nWave Me Home\nFrom winter glass and station smoke\nFrom every leaving I have known\nYour palm lifts through the glass\nI will save the porch lamp for you\nMy last line falls nearly bare\nWave Me Home",
+                      "youtube":  {
+                                      "title":  "Platform Sleeve - Folk Pop Hospital Shuttle Ballad",
+                                      "description":  "A gentle folk-pop song about a hospital shuttle goodbye and a hopeful return, created for calming waiting-room and coffee playlist listening.",
+                                      "tags":  [
+                                                   "아침 음악",
+                                                   "커피 음악",
+                                                   "추억 팝송",
+                                                   "병원 대기실 음악",
+                                                   "folk pop",
+                                                   "comfort ballad",
+                                                   "senior music",
+                                                   "winter playlist",
+                                                   "gentle vocal"
+                                               ]
+                                  },
+                      "genreId":  "folk-pop",
+                      "genreText":  "clean folk-pop storytelling, steady strummed folk pulse, fingerpicked acoustic answers, warm groove",
+                      "lyricTheme":  "senior-platform-goodbye-whistle",
+                      "lyricThemeText":  "standing on a train platform as the whistle blows, a hand still raised long after the train pulls away",
+                      "lyricThemeArc":  "sharp ache softening into quiet hope",
+                      "pov":  "firstPerson",
+                      "verseStyle":  "image",
+                      "verseStyleText":  "verse lines focus on sensory images, objects, light, weather, and small gestures",
+                      "chorusStyle":  "hookRepeat",
+                      "chorusStyleText":  "chorus lines use compact repeated hook callbacks and simple answer phrases",
+                      "effectiveVocalPresetId":  "soft-female",
+                      "vocalPresetSource":  "plan",
+                      "qualityScore":  0,
+                      "warnings":  [
+
+                                   ]
+                  },
+                  {
+                      "trackNo":  5,
+                      "title":  "Count Me In",
+                      "titleLocalized":  "발걸음세던밤",
+                      "seasonMoment":  "Hospital rehab corridor in late December, polished floors bringing back a 1950s record-hop gym.",
+                      "listenerSituation":  "While waiting outside a rehabilitation room, I remember crossing a gym floor at a record hop and finding courage among friends.",
+                      "emotionArc":  "awkward courage breaking into bright delight",
+                      "distinctChoice":  {
+                                             "ruleId":  "ARRANGEMENT_NUANCE",
+                                             "descriptionKo":  "탐색 슬롯으로 가사를 춤 순서표처럼 나열해 어색한 용기가 박자 안에 들어오게 한다."
+                                         },
+                      "hookPhrase":  "Count Me In",
+                      "stylePrompt":  "1950s-60s doo-wop close harmony, 78 BPM, mature soulful male tenor, earnest forward delivery, soft husky grain, narrow mono-leaning room, nonsense-syllable backing vocals, instrumental intro with no sung line, upright bass, brushed snare, muted electric guitar, close-harmony backing vocals, sparse 12/8 triplet shuffle, Verse: I-vi-IV-V doo-wop progression / Chorus: I-V-vi-iii-IV-I-IV-V progression, chord changes locked to the beat, bass on the root, real cadence lift into chorus, sustained first hook word, eight-bar tenor sax solo after second chorus named in arrangement, tube-amp warmth, short intro, 3:10-3:35, full arrangement, not a short cut",
+                      "excludePrompt":  "famous artist imitation, copied melodies, copyrighted song references, soundalike vocals, real artist or band names, existing song titles, imitating a specific singer voice or style, shouted or belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation that obscures the melody, cavernous hall reverb, abrupt dynamic jumps, flat chorus with no lift, monotonous melody contour, generic demo-band sound, glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement, childish lyrics, too old-fashioned trot mood, novelty sock-hop shouting, harsh sax squeal, gym crowd noise, slapstick dance lyric, modern drum snap",
+                      "lyrics":  "[Intro]\n\n[Verse 1]\nOne, find the edge of the waxed floor\nTwo, nod back when Frankie grins\nThree, tuck my fear behind my collar\nFour, cross under paper streamers\nFive, miss the beat and laugh\nSix, try again with both eyes open\nSeven, feel the spotlight on my shoes\nEight, keep moving anyway\nThe rehab door clicks down the hallway\nAnd I still know the list\n\n[Chorus]\nBright shoes sliding, shoulders turning\nCount Me In\nThe room gives space to clumsy courage\nAnd the whole crowd starts to shine\n\n[Verse 2]\nNine, ask before the record changes\nTen, let my left hand rise\nEleven, hear my name from three good friends\nTwelve, stop pretending I might leave\nThirteen, breathe when the bright doors open\nFourteen, let someone offer an arm\nNow a therapist calls another patient\nA walker glides across the tile\nI bless each careful step\nAnd answer from that crowded night\n\n[Chorus]\nBlue chairs, gym floor, winter hallway\nCount Me In\nI carry one old bit of bravery\nInto this softer afternoon\n\n[Final Chorus]\nCount Me In\nFor the first square crossed too slowly\nFor the smile that steadied me\nFor the small steps taken later\nWhen courage came back dressed as care\nCount Me In",
+                      "youtube":  {
+                                      "title":  "Count Me In - Doo-Wop Rehab Waiting Room Memory",
+                                      "description":  "A brighter doo-wop close-harmony song about courage, dancing, and steady steps, suited to hospital waiting rooms and nostalgic coffee playlists.",
+                                      "tags":  [
+                                                   "아침 음악",
+                                                   "커피 음악",
+                                                   "추억 팝송",
+                                                   "병원 대기실 음악",
+                                                   "doo-wop harmony",
+                                                   "record hop",
+                                                   "rehab waiting room",
+                                                   "senior playlist",
+                                                   "bright old pop"
+                                               ]
+                                  },
+                      "genreId":  "oldpop-doowop-harmony",
+                      "genreText":  "classic doo-wop pop, upright bass, brushed snare",
+                      "lyricTheme":  "senioroldpop-gym-record-hop",
+                      "lyricThemeText":  "crossing a polished gym floor at a record hop while paper streamers sway overhead",
+                      "lyricThemeArc":  "awkward courage breaking into bright delight",
+                      "pov":  "firstPerson",
+                      "verseStyle":  "dialogue",
+                      "verseStyleText":  "verse lines use direct address or short conversational fragments without becoming spoken-word",
+                      "chorusStyle":  "image",
+                      "chorusStyleText":  "chorus lines focus on sensory images, objects, light, weather, and small gestures",
+                      "effectiveVocalPresetId":  "warm-mature-male",
+                      "vocalPresetSource":  "plan",
+                      "qualityScore":  0,
+                      "warnings":  [
+
+                                   ]
+                  },
+                  {
+                      "trackNo":  6,
+                      "title":  "Curtain Call",
+                      "titleLocalized":  "커튼뒤에서",
+                      "seasonMoment":  "Late December outpatient lounge, a school-auditorium memory returning while grandparents wait with a folded coat.",
+                      "listenerSituation":  "Two grandparents in a hospital lounge remember standing backstage at a school talent show where stage fright turned into confidence.",
+                      "emotionArc":  "stage fright turning into shining confidence",
+                      "distinctChoice":  {
+                                             "ruleId":  "ARRANGEMENT_NUANCE",
+                                             "descriptionKo":  "마지막 후렴에서만 세 갈래 화음을 펼쳐 무대 뒤의 떨림이 자신감으로 변한다."
+                                         },
+                      "hookPhrase":  "Take The Stage",
+                      "stylePrompt":  "mid-century French chanson cafe pop, 78 BPM, male and female duet, call and answer, wide octave harmony, tape slap echo, close four-part backing harmony, instrumental intro with no sung line, musette accordion, nylon guitar, upright bass, brushed drums, medium waltz cafe pulse, Verse: IV-I-V-vi warm cycle progression / Chorus: I-V-vi-IV progression / Bridge: ii-V-I turnaround, maj7 add9 color, chord changes locked to the beat, bass on the root, real cadence lift into chorus, simple stepwise melody, three-part harmony on the last chorus, analog tape warmth, short intro, 3:10-3:35, full arrangement, not a short cut",
+                      "excludePrompt":  "famous artist imitation, copied melodies, copyrighted song references, soundalike vocals, real artist or band names, existing song titles, imitating a specific singer voice or style, shouted or belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation that obscures the melody, cavernous hall reverb, abrupt dynamic jumps, flat chorus with no lift, monotonous melody contour, generic demo-band sound, glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement, childish lyrics, too old-fashioned trot mood, cabaret exaggeration, school-play novelty, harsh tape slap, medical hallway noise",
+                      "lyrics":  "[Intro]\n\n[Verse 1: Male Vocal]\nYour folded coat lies by the clinic plant\nThe waiting screen glows without sound\nYou say our grandson looked so serious\nBefore his school show years ago\nI see the curtain breathing near him\nAnd friends whispering his name\nHis paper crown bent at one corner\nBut he wore it like a king\n\n[Chorus: Male and Female Duet]\nThe hallway hush becomes that backstage\nTake The Stage\nSmall knees stop shaking in the shadow\nWhen one good friend says go\n\n[Verse 2: Female Vocal]\nYou held the flowers much too early\nI saved three seats with my glove\nHe peeked out once, then disappeared\nBehind a stripe of red cloth\nA teacher lifted both her thumbs\nThe row behind us leaned ahead\nThe nurse smiles now beside the doorway\nAs if she knows the scene\n\n[Chorus: Male and Female Duet]\nThe clipboard rests, the room grows kinder\nTake The Stage\nOld applause returns so gently\nIt steadies both our hands\n\n[Final Chorus: Male and Female Duet Harmony]\nTake The Stage\nFor the child who found his footing\nFor the grown hearts waiting here\nFor paper crowns and brave small bows\nFor friends who whisper, you can go\nEven the hallway air seems kinder today\nThree close parts rise together\nAnd fear becomes a smaller thing\nTake The Stage",
+                      "youtube":  {
+                                      "title":  "Curtain Call - Chanson Cafe Waiting Room Duet",
+                                      "description":  "A tender hospital lounge duet recalling a school talent show, designed for calming senior playlists and warm nostalgic listening.",
+                                      "tags":  [
+                                                   "아침 음악",
+                                                   "커피 음악",
+                                                   "추억 팝송",
+                                                   "병원 대기실 음악",
+                                                   "chanson duet",
+                                                   "school stage memory",
+                                                   "comfort music",
+                                                   "senior playlist",
+                                                   "winter ballad"
+                                               ]
+                                  },
+                      "genreId":  "chanson",
+                      "genreText":  "French chanson cafe pop, waltz or slow 4/4 cafe pulse, musette tremolo accordion, minor-key melancholy",
+                      "lyricTheme":  "senioroldpop-school-auditorium-talent",
+                      "lyricThemeText":  "standing backstage at a school auditorium talent show while curtains rustle and friends whisper",
+                      "lyricThemeArc":  "stage fright turning into shining confidence",
+                      "pov":  "secondPerson",
+                      "verseStyle":  "dialogue",
+                      "verseStyleText":  "verse lines use direct address or short conversational fragments without becoming spoken-word",
+                      "chorusStyle":  "hookRepeat",
+                      "chorusStyleText":  "chorus lines use compact repeated hook callbacks and simple answer phrases",
+                      "effectiveVocalPresetId":  "male-female-duet",
+                      "vocalPresetSource":  "plan",
+                      "qualityScore":  0,
+                      "warnings":  [
+
+                                   ]
+                  },
+                  {
+                      "trackNo":  7,
+                      "title":  "Orchard Notes",
+                      "titleLocalized":  "수확뒤의길",
+                      "seasonMoment":  "Rural clinic porch in late December, harvest crates remembered under an autumn moon.",
+                      "listenerSituation":  "In a country clinic waiting porch, I make a gentle letter-list from an orchard walk after harvest with someone I loved.",
+                      "emotionArc":  "hard work settling into tender rest",
+                      "distinctChoice":  {
+                                             "ruleId":  "ARRANGEMENT_NUANCE",
+                                             "descriptionKo":  "탐색 슬롯으로 편지체 목록 가사를 써서 수확 뒤의 쉼을 차분히 적어 내려간다."
+                                         },
+                      "hookPhrase":  "Rest Your Hands",
+                      "stylePrompt":  "late-1960s close-harmony duo pop, 86 BPM, low calm male baritone, legato sustained lines, slight nasal brightness, warm natural room, unison shout on the hook, close four-part backing harmony, instrumental intro with no sung line, acoustic guitar, electric piano, upright bass, restrained brushed drums, full but gentle arrangement, I-V-vi-IV verses, vi-IV-I-V chorus lift, chord changes locked to the beat, bass on the root, real cadence lift into chorus, narrow repeated melodic figure, bridge instruments drop out to voice and one instrument, close analog warmth, short intro, 3:10-3:35, full arrangement, not a short cut",
+                      "excludePrompt":  "famous artist imitation, copied melodies, copyrighted song references, soundalike vocals, real artist or band names, existing song titles, imitating a specific singer voice or style, shouted or belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation that obscures the melody, cavernous hall reverb, abrupt dynamic jumps, flat chorus with no lift, monotonous melody contour, generic demo-band sound, glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement, childish lyrics, too old-fashioned trot mood, country pastiche, barn-dance stomp, overbright harmony, clinical sound effects, sentimental harvest sermon",
+                      "lyrics":  "[Intro]\n\n[Verse 1]\nDear Ruth, item one, the clinic porch is clean\nItem two, my coat still smells of apples\nItem three, your gloves would laugh at me\nFor worrying this appointment thin\nItem four, the moon over our old lane\nOnce silvered every stacked crate\nItem four and a half, the porch rail warms me\nLike sun kept in a crate\n\n[Chorus]\nAfter the long rows and ladders\nRest Your Hands\nLet the red fruit sleep in boxes\nLet the barn door hold the chill\n\n[Verse 2]\nItem five, I remember your shoulder\nBrushing mine past the pump\nItem six, we were tired enough\nTo tell the truth without speeches\nItem seven, the nurse says soon\nAnd I believe her kindly\nItem eight, your apron would be mended\nBecause you never wasted cloth\n\n[Bridge]\nNo wheels, no weather, no tally now\nOnly your name inside my palm\nOnly the orchard breathing slowly\nWhere my fear can sit down\n\n[Chorus]\nThe county road lies pale outside\nRest Your Hands\nI have carried heavier baskets\nThan the hour I carry now\n\n[Final Chorus]\nRest Your Hands\nIf the door opens with my name\nIf the doctor asks me how I am\nI will answer from that orchard\nTired, grateful, standing here\nRest Your Hands",
+                      "youtube":  {
+                                      "title":  "Orchard Notes - Gentle Close Harmony Clinic Song",
+                                      "description":  "A letter-style rural memory for hospital and clinic waiting rooms, blending close harmony with calm old-pop comfort.",
+                                      "tags":  [
+                                                   "아침 음악",
+                                                   "커피 음악",
+                                                   "추억 팝송",
+                                                   "병원 대기실 음악",
+                                                   "close harmony",
+                                                   "orchard memory",
+                                                   "senior music",
+                                                   "comfort playlist",
+                                                   "gentle old pop"
+                                               ]
+                                  },
+                      "genreId":  "oldpop-close-harmony-duo",
+                      "genreText":  "1970s close-harmony duo pop, acoustic guitar, electric piano",
+                      "lyricTheme":  "senioroldpop-orchard-moon-lane",
+                      "lyricThemeText":  "walking a moonlit orchard lane after harvest while crates sit stacked beside the barn",
+                      "lyricThemeArc":  "hard work settling into tender quiet",
+                      "pov":  "firstPerson",
+                      "verseStyle":  "image",
+                      "verseStyleText":  "verse lines focus on sensory images, objects, light, weather, and small gestures",
+                      "chorusStyle":  "hookRepeat",
+                      "chorusStyleText":  "chorus lines use compact repeated hook callbacks and simple answer phrases",
+                      "effectiveVocalPresetId":  "low-calm-male",
+                      "vocalPresetSource":  "plan",
+                      "qualityScore":  0,
+                      "warnings":  [
+
+                                   ]
+                  },
+                  {
+                      "trackNo":  8,
+                      "title":  "Share The Snow",
+                      "titleLocalized":  "눈오는로비",
+                      "seasonMoment":  "Winter hospital lobby during a snowstorm, vending-machine snacks passed between stranded strangers.",
+                      "listenerSituation":  "A snowstorm keeps several strangers in a hospital lobby until shared snacks and small talk make the room feel temporarily familial.",
+                      "emotionArc":  "stranded worry softening into temporary family",
+                      "distinctChoice":  {
+                                             "ruleId":  "ARRANGEMENT_NUANCE",
+                                             "descriptionKo":  "마지막 후렴 직전 길게 끄는 한 음으로 낯선 사람들이 한 가족처럼 모이는 순간을 만든다."
+                                         },
+                      "hookPhrase":  "Share The Snow",
+                      "stylePrompt":  "1960s-70s soul pop, 74 BPM, mature elegant female mezzo-soprano, bright forward delivery, slight smoky depth, narrow mono-leaning room, ensemble unison lead, unison shout on the hook, instrumental intro with no sung line, Wurlitzer, muted guitar, smooth bass, light soul drums, medium retro soul arrangement, Verse: I-V-vi-iii-IV-I-IV-V progression / Chorus: I-vi-ii-V progression, chord changes locked to the beat, bass on the root, real cadence lift into chorus, symmetric four-bar phrases, half-time-weighted chorus, sustained lead note into the final chorus, tape warmth, short intro, 3:10-3:35, full arrangement, not a short cut",
+                      "excludePrompt":  "famous artist imitation, copied melodies, copyrighted song references, soundalike vocals, real artist or band names, existing song titles, imitating a specific singer voice or style, shouted or belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation that obscures the melody, cavernous hall reverb, abrupt dynamic jumps, flat chorus with no lift, monotonous melody contour, generic demo-band sound, glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement, childish lyrics, too old-fashioned trot mood, blizzard sound effects, motel parody, harsh horn stabs, overbusy soul groove, medical monitor ambience",
+                      "lyrics":  "[Intro]\n\n[Verse 1]\nSnow seals the hospital doors with white\nThe lobby rug holds melted stars\nA driver offers peanut crackers\nA grandmother trades a clementine\nThe travel map curls by the pay phone\nNo road outside looks open yet\nA clerk brings extra paper towels\nFor boots lined by the wall\nSomeone laughs at the weather report\nAnd the whole room looks up\n\n[Chorus]\nThe vending light turns soft on faces\nShare The Snow\nWe pass the little silver packets\nAnd worry loses its sharp edge\n\n[Verse 2]\nA young nurse changes out the coffee\nA child builds towers from paper cups\nMr. Allen tells the same bus story\nTill three tired people smile\nI came in counting only minutes\nNow I can name this room\nYour orange peel perfumes my fingers\nA trucker lends his magazine\nThe desk clerk finds a blanket\nFor the woman by the plant\n\n[Chorus]\nThe storm keeps writing on the windows\nShare The Snow\nOur coats hang close along the benches\nLike neighbors on a fence\n\n[Final Chorus]\nShare The Snow\nHold one note before the doorway\nLet it gather all our names\nNo one planned this winter family\nBut the lobby warms between us\nStranded hearts make room for kindness\nAnd winter gives us back our breath\nShare The Snow",
+                      "youtube":  {
+                                      "title":  "Share The Snow - Retro Soul Hospital Lobby Song",
+                                      "description":  "A warm retro soul-pop song for a snowbound hospital lobby, made for calming waiting-room playlists and nostalgic senior listening.",
+                                      "tags":  [
+                                                   "아침 음악",
+                                                   "커피 음악",
+                                                   "추억 팝송",
+                                                   "병원 대기실 음악",
+                                                   "retro soul pop",
+                                                   "winter comfort",
+                                                   "hospital lobby",
+                                                   "senior playlist",
+                                                   "calming music"
+                                               ]
+                                  },
+                      "genreId":  "retro-soul-pop",
+                      "genreText":  "soft retro soul pop, sixteenth-note hi-hat groove, tight horn section stabs, tasteful backing vocals",
+                      "lyricTheme":  "senioroldpop-snowbound-motel-lobby",
+                      "lyricThemeText":  "waiting out a snowstorm in a motel lobby while strangers share vending machine snacks",
+                      "lyricThemeArc":  "stranded worry softening into temporary family",
+                      "pov":  "firstPerson",
+                      "verseStyle":  "dialogue",
+                      "verseStyleText":  "verse lines use direct address or short conversational fragments without becoming spoken-word",
+                      "chorusStyle":  "image",
+                      "chorusStyleText":  "chorus lines focus on sensory images, objects, light, weather, and small gestures",
+                      "effectiveVocalPresetId":  "mature-female",
+                      "vocalPresetSource":  "plan",
+                      "qualityScore":  0,
+                      "warnings":  [
+
+                                   ]
+                  },
+                  {
+                      "trackNo":  9,
+                      "title":  "Stay For The Score",
+                      "titleLocalized":  "함께듣던경기",
+                      "seasonMoment":  "Late December hospital family lounge, a portable radio memory of autumn porch steps filling the room.",
+                      "listenerSituation":  "Families in a hospital lounge follow a championship game on a small radio, and porch-step memories turn cheering into neighborly calm.",
+                      "emotionArc":  "restless cheering settling into neighborhood warmth",
+                      "distinctChoice":  {
+                                             "ruleId":  "ARRANGEMENT_NUANCE",
+                                             "descriptionKo":  "마지막 후렴 직전 길게 잡는 한 음으로 응원 소리를 따뜻한 합창처럼 모은다."
+                                         },
+                      "hookPhrase":  "Stay For The Score",
+                      "stylePrompt":  "1960s folk pop, 98 BPM, male and female duet, trading lines mid-phrase, close third harmony, dry and forward, ensemble unison lead, instrumental intro with no sung line, strummed acoustic guitar, fingerpicked answers, light mandolin texture, soft piano, upright bass, full natural-room arrangement, I-vi-IV-V doo-wop progression, chord changes locked to the beat, bass on the root, real cadence lift into chorus, call-and-response hook shape, sustained lead note into final chorus, hand-played porch warmth, short intro, 3:10-3:35, full arrangement, not a short cut",
+                      "excludePrompt":  "famous artist imitation, copied melodies, copyrighted song references, soundalike vocals, real artist or band names, existing song titles, imitating a specific singer voice or style, shouted or belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation that obscures the melody, cavernous hall reverb, abrupt dynamic jumps, flat chorus with no lift, monotonous melody contour, generic demo-band sound, glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement, childish lyrics, too old-fashioned trot mood, sports chant shouting, crowd roar, brittle folk strum, overbusy duet trading, hospital television noise",
+                      "lyrics":  "[Intro]\n\n[Verse 1: Male Vocal]\nThe family lounge smells like oranges\nMrs. Cole guards the little dial\nYou say the third quarter always tests us\nI say my uncle said the same\nThe elevator rings behind the sofas\nNobody leaves the room\nThe visiting hours sign blinks softly\nBeside a framed autumn print\n\n[Chorus: Male and Female Duet]\nPorch steps return beneath our shoes\nStay For The Score\nThe whole ward leans toward the answer\nThen laughs at its own hope\n\n[Verse 2: Female Vocal]\nYour father used to slap his knee\nWhen autumn games went bad\nMy mother brought out paper plates\nAnd called the neighbors over\nNow strangers trade statistics gently\nWhile appointment cards lie still\nYou pass the hard candy leftward\nI save the red one\n\n[Bridge: Male and Female Call and Response]\nYou ask if cheering helps a body\nI say it helps the waiting\nYou say the clock is moving slowly\nI say the room is moving with it\nA boy near the curtain mouths the count\nAnd suddenly we all know him\n\n[Chorus: Male and Female Duet]\nThe broadcast fades, then finds us clearer\nStay For The Score\nA nurse grins once beside the doorway\nAnd lets the ending come\n\n[Final Chorus: Male and Female Duet Harmony]\nStay For The Score\nHold the note over the last play\nLet the whole lounge breathe together\nWin or lose, we found a table\nWhere every worry had a chair\nStay For The Score",
+                      "youtube":  {
+                                      "title":  "Stay For The Score - Folk Pop Hospital Lounge Duet",
+                                      "description":  "A gentle folk-pop duet about listening to a game in a hospital family lounge, built for calming waits and nostalgic coffee playlists.",
+                                      "tags":  [
+                                                   "아침 음악",
+                                                   "커피 음악",
+                                                   "추억 팝송",
+                                                   "병원 대기실 음악",
+                                                   "folk pop duet",
+                                                   "family lounge",
+                                                   "neighborhood memory",
+                                                   "senior playlist",
+                                                   "comfort music"
+                                               ]
+                                  },
+                      "genreId":  "folk-pop",
+                      "genreText":  "clean folk-pop storytelling, steady strummed folk pulse, fingerpicked acoustic answers",
+                      "lyricTheme":  "senioroldpop-football-radio-porch",
+                      "lyricThemeText":  "listening to a championship game on a portable radio from the porch steps",
+                      "lyricThemeArc":  "restless cheering settling into neighborhood warmth",
+                      "pov":  "secondPerson",
+                      "verseStyle":  "dialogue",
+                      "verseStyleText":  "verse lines use direct address or short conversational fragments without becoming spoken-word",
+                      "chorusStyle":  "hookRepeat",
+                      "chorusStyleText":  "chorus lines use compact repeated hook callbacks and simple answer phrases",
+                      "effectiveVocalPresetId":  "male-female-duet",
+                      "vocalPresetSource":  "plan",
+                      "qualityScore":  0,
+                      "warnings":  [
+
+                                   ]
+                  },
+                  {
+                      "trackNo":  10,
+                      "title":  "Chalked Sleeve",
+                      "titleLocalized":  "양복맞추던날",
+                      "seasonMoment":  "Late December pre-op fitting room memory, tailor chalk returning while a hospital gown is measured.",
+                      "listenerSituation":  "Alone before a hospital fitting, I remember a tailor marking my wedding jacket and teaching my nervous shoulders dignity.",
+                      "emotionArc":  "self-conscious nerves straightening into dignity",
+                      "distinctChoice":  {
+                                             "ruleId":  "ARRANGEMENT_NUANCE",
+                                             "descriptionKo":  "탐색 슬롯으로 재단사의 치수표처럼 나열형 가사를 써서 긴장을 품위로 바꾼다."
+                                         },
+                      "hookPhrase":  "Stand Tall, Heart",
+                      "stylePrompt":  "1950s-60s doo-wop close harmony, 100 BPM, soft warm female alto, tender confiding delivery, clear glassy brightness, tape slap echo, unison shout on the hook, instrumental intro with no sung line, upright bass, brushed snare, muted electric guitar, close-harmony backing vocals, full 12/8 triplet shuffle, Verse: I-V-vi-IV progression / Chorus: I-vi-ii-V progression, chord changes locked to the beat, bass on the root, real cadence lift into chorus, rising melodic sequence into chorus, final chorus closes with hook almost a cappella, narrow mono tube color, short intro, 3:10-3:35, full arrangement, not a short cut",
+                      "excludePrompt":  "famous artist imitation, copied melodies, copyrighted song references, soundalike vocals, real artist or band names, existing song titles, imitating a specific singer voice or style, shouted or belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation that obscures the melody, cavernous hall reverb, abrupt dynamic jumps, flat chorus with no lift, monotonous melody contour, generic demo-band sound, glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement, childish lyrics, too old-fashioned trot mood, novelty tailor lyric, harsh tape slap, wedding march parody, medical equipment sounds, frantic shuffle",
+                      "lyrics":  "[Intro]\n\n[Verse 1]\nMeasure one, the shoulder seam\nMeasure two, the breath I hide\nThe hospital robe waits on a hook\nBut my mind walks back to broadcloth\nA tailor chalked my wedding sleeve\nAnd told me not to shrink\nHis mirror held a frightened groom\nTrying to look grown\nMeasure five, the space for breathing\nMeasure six, the tremble gone\nHe pinned the hem with careful fingers\nAnd smiled without a joke\n\n[Chorus]\nThe white mark crossed the dark cloth\nStand Tall, Heart\nA nervous boy became a husband\nOne careful inch at a time\n\n[Verse 2]\nMeasure three, my collarbone\nMeasure four, the cuff and wrist\nThe nurse is kinder than my worrying\nThe curtain keeps its modest blue\nI hear that tailor\u0027s silver scissors\nOpen, close, then rest\nMeasure seven, keep the chin up\nMeasure eight, let kindness work\nMy shoes point squarely at the tiles\nLike they know where to stand\n\n[Chorus]\nThe fitting room and clinic curtain\nStand Tall, Heart\nBoth ask me to stand easy\nWhile another hand takes care\n\n[Instrumental Break]\n\n[Final Chorus]\nStand Tall, Heart\nLet the chalk line find your shoulders\nLet the mirror answer softly\nYou have worn brave cloth before\nLet the sleeve remember vows\nLet the collar spare your pride\nWhen the door opens, step forward\nThe last hook falls nearly bare\nStand Tall, Heart",
+                      "youtube":  {
+                                      "title":  "Chalked Sleeve - Doo-Wop Comfort Fitting Song",
+                                      "description":  "A doo-wop close-harmony memory about a tailor, dignity, and a hospital fitting room, made for calm waiting-room playlists.",
+                                      "tags":  [
+                                                   "아침 음악",
+                                                   "커피 음악",
+                                                   "추억 팝송",
+                                                   "병원 대기실 음악",
+                                                   "doo-wop ballad",
+                                                   "tailor memory",
+                                                   "comfort music",
+                                                   "senior playlist",
+                                                   "wedding memory"
+                                               ]
+                                  },
+                      "genreId":  "oldpop-doowop-harmony",
+                      "genreText":  "classic doo-wop pop, upright bass, brushed snare, French chanson cafe pop",
+                      "lyricTheme":  "senioroldpop-tailor-wedding-jacket",
+                      "lyricThemeText":  "standing still while a tailor measures a wedding jacket and chalks bright marks on dark cloth",
+                      "lyricThemeArc":  "self-conscious nerves straightening into dignity",
+                      "pov":  "firstPerson",
+                      "verseStyle":  "dialogue",
+                      "verseStyleText":  "verse lines use direct address or short conversational fragments without becoming spoken-word",
+                      "chorusStyle":  "narrative",
+                      "chorusStyleText":  "chorus lines unfold as plain scene narration with concrete actions and time movement",
+                      "effectiveVocalPresetId":  "soft-female",
+                      "vocalPresetSource":  "plan",
+                      "qualityScore":  0,
+                      "warnings":  [
+
+                                   ]
+                  },
+                  {
+                      "trackNo":  11,
+                      "title":  "Basement Stairs",
+                      "titleLocalized":  "지하실계단",
+                      "seasonMoment":  "Late December hospital corridor, basement-party laughter remembered while waiting near the stairs.",
+                      "listenerSituation":  "Near a hospital stairwell, a man remembers a basement party where one slow number gave everyone permission to ask.",
+                      "emotionArc":  "teenage hesitation blooming into remembered sweetness",
+                      "distinctChoice":  {
+                                             "ruleId":  "ARRANGEMENT_NUANCE",
+                                             "descriptionKo":  "마지막 후렴에서 리드가 훅을 낮은 음으로 떨어뜨려 십대의 망설임을 조용히 되살린다."
+                                         },
+                      "hookPhrase":  "Ask Me To Dance",
+                      "stylePrompt":  "mid-century French chanson cafe pop, 90 BPM, mature soulful male tenor, clipped rhythmic phrasing, clean rounded tone, tape slap echo, close four-part backing harmony, ensemble unison lead, singing starts immediately, musette accordion, nylon guitar, upright bass, brushed drums, medium cafe arrangement, Verse: I-vi-IV-V doo-wop progression / Chorus: I-V-vi-IV progression, chord changes locked to the beat, bass on the root, real cadence lift into chorus, two-note pickup melody with clipped cadence, hook double-tracked with harmony a third above, lead drops low into the hook in final chorus, analog warmth, short intro, 3:10-3:35, full arrangement, not a short cut",
+                      "excludePrompt":  "famous artist imitation, copied melodies, copyrighted song references, soundalike vocals, real artist or band names, existing song titles, imitating a specific singer voice or style, shouted or belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation that obscures the melody, cavernous hall reverb, abrupt dynamic jumps, flat chorus with no lift, monotonous melody contour, generic demo-band sound, glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement, childish lyrics, too old-fashioned trot mood, cabaret melodrama, basement party noise, harsh accordion, hospital announcement clutter, overdone teenage slang",
+                      "lyrics":  "[Verse 1]\nThe stairwell sign glows green by radiology\nMy shoes pause on the rubber mat\nA porter whistles down the corridor\nAnd I am seventeen again\nBy basement steps in Jerry\u0027s house\nWatching couples gather nerve\nMy paper cup bends in my fingers\nThe same way then, the same way now\n\n[Chorus]\nThe bright bulbs shook above the laundry\nAsk Me To Dance\nA whole room waited for one question\nAnd I hoped it would be mine\n\n[Verse 2]\nI hold today\u0027s folded appointment sheet\nLike a ticket to some floor\nThe door below keeps opening inward\nWith laughter from a younger room\nShe wore a yellow cardigan\nI wore too much surprise\nA cousin called my name too loudly\nAnd mercy gave me somewhere to look\n\n[Bridge]\nThe hospital wall is pale and practical\nThe memory is not\nIt leans beside me on the railing\nAnd sweetens every breath\n\n[Chorus]\nSomeone changes places near the elevator\nAsk Me To Dance\nMy old fear bows politely\nAnd lets the present pass\n\n[Instrumental Break]\n\n[Final Chorus]\nAsk Me To Dance\nLow as the words I almost swallowed\nNear as the stairs beneath my hand\nIf they call my name, I will answer\nWith that young courage in my chest\nAnd a grateful laugh tucked under it\nAsk Me To Dance",
+                      "youtube":  {
+                                      "title":  "Basement Stairs - Chanson Cafe Hospital Corridor Song",
+                                      "description":  "A tender chanson cafe memory for hospital corridors and waiting rooms, recalling a basement party and a slow-dance question.",
+                                      "tags":  [
+                                                   "아침 음악",
+                                                   "커피 음악",
+                                                   "추억 팝송",
+                                                   "병원 대기실 음악",
+                                                   "chanson cafe",
+                                                   "basement party memory",
+                                                   "old pop ballad",
+                                                   "senior playlist",
+                                                   "comfort music"
+                                               ]
+                                  },
+                      "genreId":  "chanson",
+                      "genreText":  "French chanson cafe pop, waltz or slow 4/4 cafe pulse, musette tremolo accordion",
+                      "lyricTheme":  "senioroldpop-basement-party-slow-song",
+                      "lyricThemeText":  "waiting near the basement stairs until a slow song gives everyone permission to ask",
+                      "lyricThemeArc":  "teenage hesitation blooming into remembered sweetness",
+                      "pov":  "firstPerson",
+                      "verseStyle":  "narrative",
+                      "verseStyleText":  "verse lines unfold as plain scene narration with concrete actions and time movement",
+                      "chorusStyle":  "hookRepeat",
+                      "chorusStyleText":  "chorus lines use compact repeated hook callbacks and simple answer phrases",
+                      "effectiveVocalPresetId":  "warm-mature-male",
+                      "vocalPresetSource":  "plan",
+                      "qualityScore":  0,
+                      "warnings":  [
+
+                                   ]
+                  },
+                  {
+                      "trackNo":  12,
+                      "title":  "Fire Escape",
+                      "titleLocalized":  "도시의난간",
+                      "seasonMoment":  "Late December city hospital balcony, alley laughter remembered from a summer fire escape.",
+                      "listenerSituation":  "Two people wait on a hospital balcony above the city, turning a fire-escape memory into a tender way to sit with loneliness.",
+                      "emotionArc":  "private loneliness opening into city tenderness",
+                      "distinctChoice":  {
+                                             "ruleId":  "ARRANGEMENT_NUANCE",
+                                             "descriptionKo":  "탐색 슬롯으로 대화체 문답 가사를 길게 써서 도시의 외로움을 둘의 안부로 바꾼다."
+                                         },
+                      "hookPhrase":  "Look Down Gently",
+                      "stylePrompt":  "late-1960s close-harmony duo pop, 86 BPM, small mixed vocal group, male lead with female harmony, loose lines meeting hook, chamber ambience, nonsense-syllable backing vocals, instrumental intro with no sung line, acoustic guitar, electric piano, upright bass, restrained brushed drums, medium intimate arrangement, Verse: IV-I-V-vi warm cycle progression / Chorus: ii-V-I turnaround, maj7 add9 color, chord changes locked to the beat, bass on the root, real cadence lift into chorus, top-three-scale-degree hook, lead drops low into the hook in final chorus, chamber analog warmth, short intro, 3:10-3:35, full arrangement, not a short cut",
+                      "excludePrompt":  "famous artist imitation, copied melodies, copyrighted song references, soundalike vocals, real artist or band names, existing song titles, imitating a specific singer voice or style, shouted or belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation that obscures the melody, cavernous hall reverb, abrupt dynamic jumps, flat chorus with no lift, monotonous melody contour, generic demo-band sound, glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement, competing lead vocals, city siren effects, hospital roof noise, sentimental spoken scene, brittle electric piano, overwide harmony spread",
+                      "lyrics":  "[Intro]\n\n[Verse 1: Male Vocal]\nYou ask why I chose the balcony\nI say the ward was getting small\nYou say the city looks forgiving\nI say it learned from rooftops\nBelow, a taxi takes the corner\nLike yellow paint in rain\nThe visitor badge warms my pocket\nYour blanket brushes my sleeve\n\n[Chorus: Male and Female Duet]\nFrom iron rails and hospital glass\nLook Down Gently\nThe alley keeps its old laughter\nAnd sends a little up\n\n[Verse 2: Female Vocal]\nI ask if you remember June\nYou say the fire escape was hot\nI say we heard three radios arguing\nYou say we owned the sky\nTonight your blanket covers both our knees\nAnd the city does not pry\nA bakery fan turns below us\nCarrying sugar into the air\n\n[Bridge: Male and Female Call and Response]\nAre you afraid?\nOnly when I forget to breathe\nShould we go in?\nNot until the light changes\nThen count the windows with me\nOne for home, and one for hope\n\n[Chorus: Male and Female Duet]\nThe ambulance bay grows quiet below\nLook Down Gently\nOur two cups steam against the railing\nLike windows finding dawn\n\n[Final Chorus: Male and Female Duet Harmony]\nLook Down Gently\nLow as the words that help us stay\nSoft as the street after rain\nLoneliness is not the whole city\nWhen your shoulder keeps me here\nThe call light glows, but not yet\nLook Down Gently",
+                      "youtube":  {
+                                      "title":  "Fire Escape - Close Harmony City Hospital Duet",
+                                      "description":  "A calm close-harmony duet set on a hospital balcony, recalling a summer fire escape and easing the feeling of waiting.",
+                                      "tags":  [
+                                                   "아침 음악",
+                                                   "커피 음악",
+                                                   "추억 팝송",
+                                                   "병원 대기실 음악",
+                                                   "close harmony duet",
+                                                   "city memory",
+                                                   "hospital balcony",
+                                                   "senior music",
+                                                   "comfort playlist"
+                                               ]
+                                  },
+                      "genreId":  "oldpop-close-harmony-duo",
+                      "genreText":  "1970s close-harmony duo pop, acoustic guitar, electric piano, intimate two-voice blend",
+                      "lyricTheme":  "senioroldpop-fire-escape-summer",
+                      "lyricThemeText":  "sitting on a fire escape above a warm alley while distant laughter rises from below",
+                      "lyricThemeArc":  "private loneliness opening into city tenderness",
+                      "pov":  "secondPerson",
+                      "verseStyle":  "dialogue",
+                      "verseStyleText":  "verse lines use direct address or short conversational fragments without becoming spoken-word",
+                      "chorusStyle":  "hookRepeat",
+                      "chorusStyleText":  "chorus lines use compact repeated hook callbacks and simple answer phrases",
+                      "effectiveVocalPresetId":  "mixed-harmony-group",
+                      "vocalPresetSource":  "plan",
+                      "qualityScore":  0,
+                      "warnings":  [
+
+                                   ]
+                  },
+                  {
+                      "trackNo":  13,
+                      "title":  "Row With Me",
+                      "titleLocalized":  "새벽호숫가",
+                      "seasonMoment":  "Late December imaging wait, a summer lake sunrise returning while mist colors the clinic window.",
+                      "listenerSituation":  "During an early hospital imaging wait, I remember unlocking a rented rowboat at sunrise with someone who made uncertainty feel adventurous.",
+                      "emotionArc":  "sleepy uncertainty becoming gentle adventure",
+                      "distinctChoice":  {
+                                             "ruleId":  "ARRANGEMENT_NUANCE",
+                                             "descriptionKo":  "가장 느린 곡에서 마지막 훅을 전체 유니즌처럼 모아 조용한 출발감을 만든다."
+                                         },
+                      "hookPhrase":  "Row With Me",
+                      "stylePrompt":  "1960s-70s retro soul pop, 67 BPM, mature soulful male tenor, conversational unhurried phrasing, smoky low resonance, chamber ambience, instrumental intro with no sung line, Wurlitzer, muted guitar, smooth bass, light soul drums, sparse slow soul groove, I-V-vi-IV verses, vi-IV-I-V chorus lift, chord changes locked to the beat, bass on the root, real cadence lift into chorus, descending final hook resolution, stop-time accent on first chorus word, full ensemble unison on the final hook, misty analog chamber warmth, short intro, 3:10-3:35, full arrangement, not a short cut",
+                      "excludePrompt":  "famous artist imitation, copied melodies, copyrighted song references, soundalike vocals, real artist or band names, existing song titles, imitating a specific singer voice or style, shouted or belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation that obscures the melody, cavernous hall reverb, abrupt dynamic jumps, flat chorus with no lift, monotonous melody contour, generic demo-band sound, glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement, childish lyrics, too old-fashioned trot mood, water sound effects, overdone nautical lyric, harsh soul backbeat, clinical machine ambience, sluggish melody without cadence",
+                      "lyrics":  "[Intro]\n\n[Verse 1]\nThe imaging desk is not open yet\nI sit beneath a frosted pane\nA paper bracelet turns my wrist\nAnd takes me back to borrowed oars\nYou fumbled with the rusty lock\nBeside a lake at sunrise\nMist loosened from the wooden dock\nAnd made the morning ours\nThe metal key was cold enough\nTo wake both sleepy hands\n\n[Chorus]\nSleep still clung around our collars\nRow With Me\nWe pushed away without a plan\nAnd let the water teach us\n\n[Verse 2]\nToday the hallway smells of wax\nThe technician nods behind the door\nI close my eyes, not from fear\nBut to see that silver lake\nYou said adventure starts this small\nA key, a rope, one breath\nThe form on my knee stops fluttering\nWhen I remember how you laughed\n\n[Chorus]\nThe clinic glass grows pale with winter\nRow With Me\nI feel the first pull through my shoulders\nAnd find the day can open\n\n[Final Chorus]\nRow With Me\nLet the final hook gather softly\nLet every voice move as one\nThe room becomes a quiet shoreline\nAnd I step forward when they call\nWith lake mist inside my steady breathing\nRow With Me",
+                      "youtube":  {
+                                      "title":  "Row With Me - Slow Retro Soul Imaging Wait Song",
+                                      "description":  "A slow retro soul-pop memory for early hospital waits, recalling a sunrise rowboat and turning uncertainty into gentle adventure.",
+                                      "tags":  [
+                                                   "아침 음악",
+                                                   "커피 음악",
+                                                   "추억 팝송",
+                                                   "병원 대기실 음악",
+                                                   "retro soul pop",
+                                                   "lake memory",
+                                                   "calm hospital music",
+                                                   "senior playlist",
+                                                   "comfort song"
+                                               ]
+                                  },
+                      "genreId":  "retro-soul-pop",
+                      "genreText":  "soft retro soul pop, sixteenth-note hi-hat groove, tight horn section stabs",
+                      "lyricTheme":  "senioroldpop-boat-rental-sunrise",
+                      "lyricThemeText":  "unlocking a rented rowboat at sunrise while mist pulls away from the lake surface",
+                      "lyricThemeArc":  "sleepy uncertainty becoming gentle adventure",
+                      "pov":  "firstPerson",
+                      "verseStyle":  "dialogue",
+                      "verseStyleText":  "verse lines use direct address or short conversational fragments without becoming spoken-word",
+                      "chorusStyle":  "narrative",
+                      "chorusStyleText":  "chorus lines unfold as plain scene narration with concrete actions and time movement",
+                      "effectiveVocalPresetId":  "warm-mature-male",
+                      "vocalPresetSource":  "plan",
+                      "qualityScore":  0,
+                      "warnings":  [
+
+                                   ]
+                  },
+                  {
+                      "trackNo":  14,
+                      "title":  "Pool Fence",
+                      "titleLocalized":  "여름수영장",
+                      "seasonMoment":  "Late December hospital dayroom, a neighborhood pool memory warming the winter windows.",
+                      "listenerSituation":  "In a hospital dayroom, two voices remember a neighborhood pool where towels on a chain fence turned summer noise into freedom.",
+                      "emotionArc":  "summer noise turning into carefree memory",
+                      "distinctChoice":  {
+                                             "ruleId":  "ARRANGEMENT_NUANCE",
+                                             "descriptionKo":  "중간 간주에서 독주 악기가 보컬 한 줄에 대답해 수영장 기억의 반짝임을 남긴다."
+                                         },
+                      "hookPhrase":  "Save This Summer",
+                      "stylePrompt":  "1960s folk pop with chanson color, 86 BPM, small mixed vocal group, unison splitting to thirds, wide octave harmony, soft plate ambience, instrumental intro with no sung line, strummed acoustic guitar, musette accordion, upright bass, light mandolin texture, medium natural-room arrangement, Verse: I-V-vi-iii-IV-I-IV-V progression / Chorus: I-V-vi-IV progression, chord changes locked to the beat, bass on the root, real cadence lift into chorus, paired antecedent-consequent phrasing, mid instrumental clarinet answers the vocal line, answer riff after hook, soft analog plate warmth, short intro, 3:10-3:35, full arrangement, not a short cut",
+                      "excludePrompt":  "famous artist imitation, copied melodies, copyrighted song references, soundalike vocals, real artist or band names, existing song titles, imitating a specific singer voice or style, shouted or belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation that obscures the melody, cavernous hall reverb, abrupt dynamic jumps, flat chorus with no lift, monotonous melody contour, generic demo-band sound, glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement, childish lyrics, too old-fashioned trot mood, pool whistle effects, novelty summer chant, brittle mandolin, overbusy group harmony, hospital dayroom noise",
+                      "lyrics":  "[Intro]\n\n[Verse 1: Male Vocal]\nThe dayroom window shows December\nBut you say the pool gate squeaked\nI see towels along the chain fence\nRed, green, yellow, blue\nThe lifeguard lifted one sharp whistle\nAnd every child became a bird\nYour shoulder shines with summer water\nMy knees remember hot concrete\n\n[Chorus: Male and Female Duet]\nBare feet darkened on the pavement\nSave This Summer\nThe whole block smelled of lotion\nAnd coins for cherry ice\n\n[Verse 2: Female Vocal]\nYou wore your cousin\u0027s striped suit\nI carried two bent paper cups\nMrs. Han called from the deep end\nThough none of us went far\nNow a volunteer waters the dayroom fern\nAnd I hear that fence again\nThe doctor is late, but kindly\nSo we lend the hour our grin\n\n[Bridge: Male and Female Call and Response]\nWas it as loud as we remember?\nLouder, but kinder too\nDid we know how free we were?\nOnly when the whistle blew\nThe afternoon answers in splashes\nThen settles on our sleeves\n\n[Chorus: Male and Female Duet]\nWinter coats line these hospital chairs\nSave This Summer\nYet the bright towels keep arriving\nAcross the glass between us\n\n[Final Chorus: Male and Female Duet Harmony]\nSave This Summer\nLet the chain fence shine behind us\nLet the pool clock lose its hands\nWhen today grows careful and slow\nThat blue water still runs back\nAnd keeps our old names laughing\nSave This Summer",
+                      "youtube":  {
+                                      "title":  "Pool Fence - Folk Pop Dayroom Summer Memory",
+                                      "description":  "A gentle folk-pop duet for hospital dayrooms and waiting rooms, recalling neighborhood pool summers with warm old-pop harmony.",
+                                      "tags":  [
+                                                   "아침 음악",
+                                                   "커피 음악",
+                                                   "추억 팝송",
+                                                   "병원 대기실 음악",
+                                                   "folk pop duet",
+                                                   "summer memory",
+                                                   "hospital dayroom",
+                                                   "senior playlist",
+                                                   "comfort music"
+                                               ]
+                                  },
+                      "genreId":  "folk-pop",
+                      "genreText":  "clean folk-pop storytelling, steady strummed folk pulse, fingerpicked acoustic answers, French chanson cafe pop",
+                      "lyricTheme":  "senioroldpop-neighborhood-pool-whistle",
+                      "lyricThemeText":  "hearing the lifeguard whistle at the neighborhood pool while towels line the chain fence",
+                      "lyricThemeArc":  "summer noise turning into carefree memory",
+                      "pov":  "secondPerson",
+                      "verseStyle":  "narrative",
+                      "verseStyleText":  "verse lines unfold as plain scene narration with concrete actions and time movement",
+                      "chorusStyle":  "hookRepeat",
+                      "chorusStyleText":  "chorus lines use compact repeated hook callbacks and simple answer phrases",
+                      "effectiveVocalPresetId":  "mixed-harmony-group",
+                      "vocalPresetSource":  "plan",
+                      "qualityScore":  0,
+                      "warnings":  [
+
+                                   ]
+                  },
+                  {
+                      "trackNo":  15,
+                      "title":  "Carry One Flower",
+                      "titleLocalized":  "꽃한송이",
+                      "seasonMoment":  "Present-day late December, after a hospital checkup, a corner florist glowing on the walk to an anniversary dinner.",
+                      "listenerSituation":  "After a hospital checkup, a woman chooses one modest bouquet before walking slowly toward an anniversary dinner.",
+                      "emotionArc":  "careful affection deepening into devoted gratitude",
+                      "distinctChoice":  {
+                                             "ruleId":  "VERSE_TAIL_REPEAT",
+                                             "descriptionKo":  "1번 트랙의 번호표와 대기 이미지를 되비추며 두 절 끝을 같은 꽃 문장으로 맺는다.",
+                                             "params":  {
+                                                            "phrase":  "one flower"
+                                                        }
+                                         },
+                      "hookPhrase":  "Carry One Flower",
+                      "stylePrompt":  "1950s-60s doo-wop close harmony, 68 BPM, soulful female voice, restrained understated reading, clean bell tone, chamber ambience, singing starts immediately, no intro tag, upright bass, brushed snare, muted electric guitar, close-harmony backing vocals, sparse 12/8 triplet shuffle, I-vi-IV-V doo-wop progression, chord changes locked to the beat, bass on the root, real cadence lift into chorus, sustained first hook word, gentle harmony lift, closer reflects track one numbered-card calm, unresolved final cadence for looped playlist, narrow mono tube warmth, short intro, 3:10-3:35, full arrangement, not a short cut",
+                      "excludePrompt":  "famous artist imitation, copied melodies, copyrighted song references, soundalike vocals, real artist or band names, existing song titles, imitating a specific singer voice or style, shouted or belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation that obscures the melody, cavernous hall reverb, abrupt dynamic jumps, flat chorus with no lift, monotonous melody contour, generic demo-band sound, glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement, childish lyrics, too old-fashioned trot mood, florist novelty lyric, wedding march feel, hospital announcement clutter, overlong fade ending, brittle mono distortion",
+                      "lyrics":  "[Verse 1]\nThe clinic stamp dries on her card\nShe slips it in the coat inside\nOutside, December leans on windows\nBut the florist door glows green\nShe counts carnations, then stops counting\nThe scent of wet leaves follows her\nHer fingers test the ribbon once\nAs if checking a pulse\nThe clerk asks, any color today?\nShe smiles at the question\nAnd asks for one flower\n\n[Chorus]\nThe paper sleeve is folded neatly\nCarry One Flower\nDinner waits three blocks away\nWith his good coat on the chair\n\n[Verse 2]\nThe clerk ties twine around the stem\nAnd leaves room for her hand\nShe thinks of years in waiting rooms\nAnd all the doors they entered gently\nA cab slows down, she waves it onward\nThe pharmacy sign turns green on pavement\nHer shoes choose the slower block\nWhere snow has not yet landed\nTonight she will walk with one flower\n\n[Chorus]\nThe sidewalk shines beyond the awning\nCarry One Flower\nHer careful steps make time feel kinder\nThan any hurried ride\n\n[Instrumental Break]\n\n[Final Chorus]\nCarry One Flower\nPast the pharmacy, past the corner\nPast the hour that settled first\nShe will tell him, I am grateful\nFor all the ordinary miles\nFor hands that stayed through waiting\nAnd leave the ending open\nCarry One Flower",
+                      "youtube":  {
+                                      "title":  "Carry One Flower - Doo-Wop Anniversary Comfort Song",
+                                      "description":  "A comforting closer about leaving a hospital checkup and choosing a modest bouquet before an anniversary dinner, made for calm senior playlists.",
+                                      "tags":  [
+                                                   "아침 음악",
+                                                   "커피 음악",
+                                                   "추억 팝송",
+                                                   "병원 대기실 음악",
+                                                   "doo-wop harmony",
+                                                   "anniversary song",
+                                                   "comfort music",
+                                                   "senior playlist",
+                                                   "winter old pop"
+                                               ]
+                                  },
+                      "genreId":  "oldpop-doowop-harmony",
+                      "genreText":  "classic doo-wop pop, upright bass, brushed snare",
+                      "lyricTheme":  "senioroldpop-corner-florist-bouquet",
+                      "lyricThemeText":  "choosing one modest bouquet at a corner florist before walking to an anniversary dinner",
+                      "lyricThemeArc":  "careful affection deepening into devoted gratitude",
+                      "pov":  "thirdPerson",
+                      "verseStyle":  "dialogue",
+                      "verseStyleText":  "verse lines use direct address or short conversational fragments without becoming spoken-word",
+                      "chorusStyle":  "hookRepeat",
+                      "chorusStyleText":  "chorus lines use compact repeated hook callbacks and simple answer phrases",
+                      "effectiveVocalPresetId":  "soulful-female",
+                      "vocalPresetSource":  "plan",
+                      "qualityScore":  0,
+                      "warnings":  [
+
+                                   ]
+                  }
+              ]
+}

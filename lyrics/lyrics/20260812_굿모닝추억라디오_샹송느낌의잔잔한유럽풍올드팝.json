@@ -1,0 +1,648 @@
+{
+  "meta": {
+    "setName": "20260812_굿모닝추억라디오_샹송느낌의잔잔한유럽풍올드팝",
+    "generatedAt": "2026-08-11T21:32:21.557Z",
+    "channelId": "good-morning-memory-radio",
+    "channelLabel": "굿모닝 추억라디오",
+    "conceptLabel": "샹송 느낌의 잔잔한 유럽풍 올드팝",
+    "songCount": 15,
+    "lyricLanguage": "english",
+    "bridgeVersion": "0.21.0"
+  },
+  "songs": [
+    {
+      "trackNo": 1,
+      "title": "Copper Kettle",
+      "titleLocalized": "오래된 찻물",
+      "seasonMoment": "a December kitchen just after dawn, with a low radio voice and steam on the window",
+      "listenerSituation": "making tea alone in a narrow kitchen while an old radio keeps the first minutes of the day company.",
+      "emotionArc": "lonely memory to warm acceptance",
+      "distinctChoice": {
+        "ruleId": "NO_INTRO",
+        "descriptionKo": "인트로 태그 없이 첫 줄부터 바로 노래가 시작되어 1번 트랙의 담백한 문을 연다."
+      },
+      "hookPhrase": "Stay A Little Longer",
+      "stylePrompt": "Warm Morning Glow Pop, timeless European old-pop chanson touch, 65 BPM, female clear mezzo lead, restrained understated reading, warm rounded midrange, tape slap echo, gentle unhurried phrasing throughout, I-vi-IV-V doo-wop progression, acoustic guitar arpeggio, warm electric piano, soft bass, minimal light percussion, moderate arrangement, full playback level from the first sung word, no intro tag, singing starts immediately, hook line double-tracked with harmony a third above on repeats, rounded major-key cadence, soft cafe-radio atmosphere, short wordless break before final chorus, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copied lyrics, copyrighted song reference, soundalike vocal, real artist or band names, existing song title, shouted or belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, cavernous hall reverb, dense syncopation obscuring the melody, flat chorus with no lift, monotonous melody contour, generic demo-band sound, glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement, childish lyrics, dramatic power ballad shouting, busy percussion crowding the mezzo, brittle acoustic attack, sleepy fade-in, sentimental spoken narration, cafe sound effects covering the vocal",
+      "lyrics": "[Verse 1]\nEnamel steam climbs near the cupboard door\nA small red dial warms by the bread\nI set one cup where morning can find it\nAnd let the water clear its head\nYour old chair keeps its patient angle\nThe room remembers how we moved\n\n[Pre-Chorus]\nI do not ask the day for answers\nOnly a hand of winter sun\nAnd one familiar voice from far away\n\n[Chorus]\nThe first cup waits beside me\nStay A Little Longer\nLet the small room turn forgiving\nLet the hour come in slow\n\n[Verse 2]\nA letter weight holds down the calendar\nI brush the edge, then leave it there\nThe spoon grows warm beneath my thumb\nOutside, a baker lifts his shutters\nAnd cold air sweetens on the stair\nI hum because the house allows it\nI sit as if you might approve\n\n[Instrumental Break]\n\n[Final Chorus]\nStay A Little Longer\nThe first cup shines beside me\nThe day can start without hurrying\nStay A Little Longer",
+      "youtube": {
+        "title": "Copper Kettle | Gentle European Old Pop Morning Tea",
+        "description": "A soft warm-glow opener for morning coffee and winter calm, set in a small kitchen with tea, radio warmth, and a memory that stays kindly near.",
+        "tags": [
+          "morning coffee music",
+          "gentle old pop",
+          "chanson pop",
+          "winter cafe music",
+          "nostalgic playlist",
+          "senior playlist",
+          "아침 음악",
+          "커피 음악",
+          "추억 팝송"
+        ]
+      },
+      "genreId": "oldpop-warm-morning-glow",
+      "genreText": "timeless warm glow pop, acoustic guitar arpeggio, warm electric piano",
+      "lyricTheme": "senior-kitchen-radio-tea",
+      "lyricThemeText": "making tea in a small kitchen while an old radio plays low in the corner",
+      "lyricThemeArc": "ordinary routine becoming a warm companion",
+      "pov": "firstPerson",
+      "verseStyle": "image",
+      "verseStyleText": "verse lines focus on sensory images, objects, light, weather, and small gestures",
+      "chorusStyle": "narrative",
+      "chorusStyleText": "chorus lines unfold as plain scene narration with concrete actions and time movement",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 2,
+      "title": "The First Step",
+      "titleLocalized": "첫춤의 날",
+      "seasonMoment": "a younger summer social remembered during a bright December cafe morning",
+      "listenerSituation": "remembering a summer social where two young people waited by a gymnasium doorway before their first slow dance.",
+      "emotionArc": "nervous shyness blooming into certainty",
+      "distinctChoice": {
+        "ruleId": "CALL_AND_RESPONSE",
+        "descriptionKo": "중간 무가사 구간에서 솔로 선율이 보컬의 마지막 말을 대답하듯 받아 대표곡의 기억점을 만든다."
+      },
+      "hookPhrase": "Take My Hand Slowly",
+      "stylePrompt": "70s Soft Rock AM Gold, 1970s European AM-radio warmth, 82 BPM, alternating verses into joined chorus, tight unison with light detune, soft plate ambience, male and female duet, falsetto lift on the chorus, I-V-vi-IV progression, clean electric guitar arpeggios, brushed snare, rounded bass, sparse arrangement, full level instrumental intro from the first bar, solo instrument answers the vocal line in the mid-song turn, joined chorus widens gently, soft plate room, chanson-leaning adult pop melody, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copied lyrics, copyrighted song reference, soundalike vocal, real artist or band names, existing song title, shouted or belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, cavernous hall reverb, dense syncopation obscuring the melody, flat chorus with no lift, monotonous melody contour, generic demo-band sound, glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement, childish lyrics, arena rock distortion, gated snare, digital synth sheen, oversized falsetto run, duet voices blurring into one singer, prom-night novelty tone",
+      "lyrics": "[Intro]\n\n[Verse 1: Male Vocal]\nYou waited by the gymnasium doorway\nWith paper flowers taped to the wall\nA ribbon brushed your borrowed collar\nI kept one thumb inside my jacket\nAs if courage could hide there at all\nThe floor smelled faintly of wax and oranges\nYour eyes asked whether I would move\n\n[Chorus: Male and Female Duet]\nWe crossed the room in careful inches\nTake My Hand Slowly\nTwo new shadows found the circle\nAnd learned the turn by heart\n\n[Verse 2: Female Vocal]\nI saw your blush before you spoke\nMy white shoes barely touched the floor\nThe paper lanterns trembled over us\nA cousin laughed beside the punch bowl\nThen kindly looked toward the door\nYou said, one step, and I believed you\nThe whole room softened at the side\n\n[Instrumental Break]\n\n[Chorus: Male and Female Duet]\nThe paper flowers leaned above us\nTake My Hand Slowly\nSummer held its breath a moment\nAnd let our feet begin at last\n\n[Final Chorus: Male and Female Duet Harmony]\nTake My Hand Slowly\nWe are shy, then we are certain\nLet the old room turn once more\nTake My Hand Slowly",
+      "youtube": {
+        "title": "The First Step | 70s Soft Rock Duet First Dance Memory",
+        "description": "A gentle male-female duet about the first slow dance, shy hands, and a summer social remembered with warm old-pop softness.",
+        "tags": [
+          "70s soft rock",
+          "duet song",
+          "first dance",
+          "nostalgic pop",
+          "morning coffee music",
+          "easy listening",
+          "50대 음악",
+          "60대 음악"
+        ]
+      },
+      "genreId": "oldpop-soft-rock-am",
+      "genreText": "1970s AM-gold soft rock, clean electric guitar arpeggios, soft kick drum, soulful lead with call-and-response backing",
+      "lyricTheme": "senior-first-dance-memory",
+      "lyricThemeText": "remembering the first slow dance at a summer social, hand shy on a shoulder for the first time",
+      "lyricThemeArc": "nervous shyness blooming into certainty",
+      "pov": "firstPerson",
+      "verseStyle": "dialogue",
+      "verseStyleText": "verse lines use direct address or short conversational fragments without becoming spoken-word",
+      "chorusStyle": "image",
+      "chorusStyleText": "chorus lines focus on sensory images, objects, light, weather, and small gestures",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 3,
+      "title": "Round And Round",
+      "titleLocalized": "세탁소의 봄",
+      "seasonMoment": "a city laundromat in younger days, remembered through a clear winter window",
+      "listenerSituation": "feeding coins into a laundromat washer while a favorite coat circles behind the glass and city morning waits outside.",
+      "emotionArc": "tedious waiting becoming reflective calm",
+      "distinctChoice": {
+        "ruleId": "HOOK_REPEAT_4X",
+        "descriptionKo": "훅을 정확히 네 번만 배치하고 마지막 후렴에서 세 갈래 화음으로 기억의 원을 닫는다."
+      },
+      "hookPhrase": "Round And Round",
+      "stylePrompt": "Motown Pop Soul, 1970s pop-soul oldies warmth, 82 BPM, male mid baritone-tenor lead, gentle swung phrasing, airy breath-forward tone, soft plate ambience, nonsense-syllable backing vocals, I-vi-IV-V doo-wop progression, tambourine on all four beats, melodic electric bass, horn section stabs, sparse arrangement, full playback level glassy electric-piano intro, stop-time accent on the chorus first word, three-part harmony on the last chorus, compact hook callbacks, mono-leaning soul-pop punch, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copied lyrics, copyrighted song reference, soundalike vocal, real artist or band names, existing song title, shouted or belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, cavernous hall reverb, dense syncopation obscuring the melody, flat chorus with no lift, monotonous melody contour, generic demo-band sound, glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement, childish lyrics, harsh horn blasts, funk jam excess, modern wide stereo, digital pad, trap hats, comic laundromat sound effects, backing syllables covering the lead",
+      "lyrics": "[Intro]\n\n[Verse 1]\nTwo quarters clicked inside the silver slot\nYour winter coat turned blue behind the glass\nA woman sorted aprons near the window\nBlue soap gathered under the lid\nThe owner counted change without a word\nYou told yourself the wait was nothing\nThen watched the sleeve go past again\n\n[Chorus]\nRound And Round\nThe city turns but lets you breathe\nSoap on cotton, sun on tile\nOne small worry starts to leave\n\n[Verse 2]\nA paper cup steamed on the folding shelf\nYou kept your ticket under one dry palm\nThe coat came back in patient circles\nThe wall clock clicked above dry carnations\nLike weather learning how to calm\nOutside, delivery boys crossed the avenue\nYou smiled before you knew the reason\n\n[Chorus]\nThe glass made circles soft as rain\nRound And Round\nYour shoulders loosened with the turning\nOne deep breath returned beside you\nYour name felt kinder in your mind\n\n[Instrumental Break]\n\n[Final Chorus]\nRound And Round\nLet the window brighten slowly\nYour folded coat came home forgiven\nRound And Round",
+      "youtube": {
+        "title": "Round And Round | Warm Pop Soul Laundromat Memory",
+        "description": "A gentle pop-soul track about a city laundromat, a favorite coat, and the calm that arrives while waiting.",
+        "tags": [
+          "pop soul oldies",
+          "laundromat song",
+          "nostalgic playlist",
+          "male vocal",
+          "morning music",
+          "retro soul pop",
+          "감성 팝",
+          "추억 팝송"
+        ]
+      },
+      "genreId": "oldpop-motown-pop-soul",
+      "genreText": "Motown-style pop soul, tambourine on all four beats, melodic electric bass",
+      "lyricTheme": "senioroldpop-laundromat-quarter-spin",
+      "lyricThemeText": "feeding quarters into a laundromat machine while a favorite coat turns behind the glass",
+      "lyricThemeArc": "tedious waiting becoming reflective calm",
+      "pov": "secondPerson",
+      "verseStyle": "dialogue",
+      "verseStyleText": "verse lines use direct address or short conversational fragments without becoming spoken-word",
+      "chorusStyle": "hookRepeat",
+      "chorusStyleText": "chorus lines use compact repeated hook callbacks and simple answer phrases",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 4,
+      "title": "The Blue Folder",
+      "titleLocalized": "약속한 계단",
+      "seasonMoment": "young autumn sunlight on courthouse stone after a brief civil ceremony",
+      "listenerSituation": "standing on courthouse steps with a marriage license folder held between two trembling hands.",
+      "emotionArc": "formal nervousness opening into lifelong promise",
+      "distinctChoice": {
+        "ruleId": "ARRANGEMENT_NUANCE",
+        "descriptionKo": "마지막 후렴에서만 세 갈래 화음이 들어와 서류의 긴장이 평생의 약속으로 넓어진다."
+      },
+      "hookPhrase": "We Said Yes",
+      "stylePrompt": "Warm Morning Glow Pop, timeless European old-pop singalong, 98 BPM, female low warm contralto, light rhythmic phrasing, velvety low resonance, dry and forward, gentle unhurried phrasing throughout, plain unadorned melodic delivery, IV-I-V-vi warm cycle progression, acoustic guitar arpeggio, warm electric piano, clean electric guitar arpeggios, medium arrangement, short melodic string counterline intro, answer riff after chorus lines, three-part harmony on the last chorus, dry close vocal, bright courthouse-step lift, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copied lyrics, copyrighted song reference, soundalike vocal, real artist or band names, existing song title, shouted or belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, cavernous hall reverb, dense syncopation obscuring the melody, flat chorus with no lift, monotonous melody contour, generic demo-band sound, glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement, childish lyrics, rushed novelty wedding march, overbright contralto push, stiff courthouse narration, modern dance backbeat, string counterline becoming theatrical, harmony stack hiding the plain lead",
+      "lyrics": "[Intro]\nA blue folder warmed between our hands\n\n[Verse 1]\nThe clerk had stamped the date in violet\nYour thumb kept rubbing at the seam\nMy good coat smelled of bus seats and rain\nYour hatpin leaned as if in dream\nWe stood where pigeons never settled\nToo scared to laugh, too glad to run\nThe courthouse door gave back our faces\nAnd made us look like anyone\n\n[Chorus]\nWe Said Yes\nOn the steps with traffic turning\nOne folder held our names together\nOne bright noon began to lean\n\n[Verse 2]\nYou asked if my mother would be crying\nI said she would pretend to sneeze\nA taxi driver tipped his cap\nThe bakery sent a breath of yeast\nI tucked the license close beside me\nLike bread still warm beneath my arm\nNo gold parade, no grand announcement\nOnly your hand finding my sleeve\n\n[Bridge]\nYears had not arrived to test us\nRent and winter stood ahead\nBut your smile steadied on my shoulder\nAnd all the formal words turned kind\n\n[Chorus]\nThe stone was cool beneath our shoes\nWe Said Yes\nThe city kept its ordinary hour\nOur small promise learned to shine\n\n[Final Chorus]\nWe Said Yes\nLet the folder close softly\nLet both young hands bless the stair\nWe Said Yes",
+      "youtube": {
+        "title": "The Blue Folder | Warm Courthouse Promise Old Pop",
+        "description": "A plainspoken warm old-pop song about courthouse steps, a marriage license, and a nervous promise becoming lifelong gratitude.",
+        "tags": [
+          "warm old pop",
+          "courthouse wedding",
+          "gentle singalong",
+          "nostalgic pop",
+          "morning playlist",
+          "adult pop",
+          "계절 플레이리스트",
+          "커피 음악"
+        ]
+      },
+      "genreId": "oldpop-warm-morning-glow",
+      "genreText": "timeless warm glow pop, acoustic guitar arpeggio, warm electric piano, warm AM-radio compression",
+      "lyricTheme": "senioroldpop-courthouse-license-steps",
+      "lyricThemeText": "standing on courthouse steps with a marriage license folder held between two trembling hands",
+      "lyricThemeArc": "formal nervousness opening into lifelong promise",
+      "pov": "firstPerson",
+      "verseStyle": "image",
+      "verseStyleText": "verse lines focus on sensory images, objects, light, weather, and small gestures",
+      "chorusStyle": "hookRepeat",
+      "chorusStyleText": "chorus lines use compact repeated hook callbacks and simple answer phrases",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 5,
+      "title": "Little Hand Rising",
+      "titleLocalized": "작은 손짓",
+      "seasonMoment": "present-day December morning outside a hospital nursery window",
+      "listenerSituation": "waiting with family outside a hospital nursery until a nurse lifts one tiny bundled hand toward the glass.",
+      "emotionArc": "anxious pacing breaking into wordless gratitude",
+      "distinctChoice": {
+        "ruleId": "VERSE_TAIL_REPEAT",
+        "descriptionKo": "각 절 끝을 작은 손짓의 변형으로 맺어 가족이 같은 장면을 오래 바라보는 느낌을 만든다.",
+        "params": {
+          "phrase": "little hand"
+        }
+      },
+      "hookPhrase": "Little Hand Rising",
+      "stylePrompt": "70s Soft Rock AM Gold, 1970s AM-gold family pop, 82 BPM, call and answer, wide octave harmony, chamber ambience, male and female duet, alternating chest and falsetto, I-V-vi-IV progression, clean electric guitar arpeggios, soft kick drum, brushed snare, rounded bass, sparse arrangement, fingerpicked acoustic intro, backing answers in the chorus, sustained lead note into the final chorus, gentle octave harmony, warm nursery-window lift, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copied lyrics, copyrighted song reference, soundalike vocal, real artist or band names, existing song title, shouted or belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, cavernous hall reverb, dense syncopation obscuring the melody, flat chorus with no lift, monotonous melody contour, generic demo-band sound, glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement, childish lyrics, lullaby nursery cliché, medical-drama melodrama, arena soft-rock chorus, gated reverb, digital synth pad, showy duet runs, percussion louder than the family scene",
+      "lyrics": "[Intro]\n\n[Verse 1: Male Vocal]\nWe walked the corridor in small circles\nYour sister held two paper cups\nMy cousin kept counting elevator arrows\nThe vending glow made halos on our coats\nMy brother read the same sign twice\nThen gave pretending not to care up\nThe window glowed with folded blankets\nAnd all our joking turned to prayer\n\n[Chorus: Male and Female Duet]\nA nurse came near the shining glass\nLittle Hand Rising\nNo one spoke for half a minute\nJoy stood open in the air\n\n[Verse 2: Female Vocal]\nYour mother pressed her ring to her mouth\nI felt my old knees find the wall\nA tiny fist came free of cotton\nAnd waved at nobody at all\nA silver bracelet flashed beneath the lamp\nThe whole bright hallway leaned together\nToward that one small moving hand\n\n[Instrumental Break]\n\n[Chorus: Male and Female Duet]\nThe winter window held our faces\nLittle Hand Rising\nAll the years we carried forward\nMet the child behind the glass\n\n[Final Chorus: Male and Female Duet Harmony]\nLittle Hand Rising\nLet the small hand open gently\nBless the room and bless the waiting\nLittle Hand Rising",
+      "youtube": {
+        "title": "Little Hand Rising | 70s Soft Rock Family Arrival",
+        "description": "A warm duet about waiting outside a nursery window and seeing one tiny hand turn family worry into gratitude.",
+        "tags": [
+          "70s soft rock",
+          "family song",
+          "new baby song",
+          "nostalgic pop",
+          "morning coffee music",
+          "soft duet",
+          "아침 음악",
+          "감성 팝"
+        ]
+      },
+      "genreId": "oldpop-soft-rock-am",
+      "genreText": "1970s AM-gold soft rock, clean electric guitar arpeggios, soft kick drum",
+      "lyricTheme": "senioroldpop-newborn-waiting-room",
+      "lyricThemeText": "waiting outside a hospital nursery until a nurse lifts one tiny bundled hand",
+      "lyricThemeArc": "anxious pacing breaking into wordless gratitude",
+      "pov": "firstPerson",
+      "verseStyle": "dialogue",
+      "verseStyleText": "verse lines use direct address or short conversational fragments without becoming spoken-word",
+      "chorusStyle": "image",
+      "chorusStyleText": "chorus lines focus on sensory images, objects, light, weather, and small gestures",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 6,
+      "title": "Lucky Seat",
+      "titleLocalized": "행운의 자리",
+      "seasonMoment": "present-day community center morning with paper cards and December coats",
+      "listenerSituation": "marking a bingo card at the community center while neighbors argue cheerfully over lucky seats.",
+      "emotionArc": "small competition warming into shared delight",
+      "distinctChoice": {
+        "ruleId": "MODE_SHIFT",
+        "descriptionKo": "초반 절은 단조 기색으로 시작하고 마지막 후렴에서 장조로 열리며 공동체의 웃음이 커진다."
+      },
+      "hookPhrase": "Mark One More Square",
+      "stylePrompt": "Motown Pop Soul, 1970s community-center soul pop, 82 BPM, male falsetto-leaning tenor, earnest forward delivery, soft husky grain, narrow mono-leaning room, close four-part backing harmony, I-vi-IV-V doo-wop progression, tambourine on all four beats, melodic electric bass, gospel-toned backing vocals, horn section stabs, medium arrangement, nylon-string intro color, minor verse opening into a major final chorus, pre-chorus dropout feel before chorus downbeat, friendly group energy, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copied lyrics, copyrighted song reference, soundalike vocal, real artist or band names, existing song title, shouted or belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, cavernous hall reverb, dense syncopation obscuring the melody, flat chorus with no lift, monotonous melody contour, generic demo-band sound, glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement, childish lyrics, casino novelty tone, harsh tambourine slap, horn stabs too brash, falsetto strain, modern wide stereo polish, trap hats, bingo calls becoming spoken comedy",
+      "lyrics": "[Intro]\n\n[Verse 1]\nYou claim the corner seat is lucky\nMrs. Lane says that is hers\nSomeone passes peppermint candies\nSomeone mishears forty as four\nRed stamps waited by the doorway\nA wool hat leaned over one ear\nYour card stays blank in the free square\nUntil the caller clears his throat\n\n[Chorus]\nMark One More Square\nLet the little room lean closer\nLet the coats slip from the chairs\nLet the winter morning grin\n\n[Verse 2]\nYou guard three beans beneath your fingers\nThe room complains, then laughs again\nA thermos lid rolls toward the doorway\nA paper snowflake twirled above us\nA grandson waves from near the pen\nWhen B twelve lands across your center\nYou look around before you cheer\n\n[Chorus]\nThe tables knock, the ladies answer\nMark One More Square\nNo prize could shine as brightly\nOld rivals shared one peppermint\nAs the faces gathered here\n\n[Instrumental Break]\n\n[Final Chorus]\nMark One More Square\nLet the minor worry open\nLet the last marked row turn golden\nEvery table joins in\nMark One More Square",
+      "youtube": {
+        "title": "Lucky Seat | Pop Soul Community Center Morning",
+        "description": "A friendly pop-soul oldies track about bingo cards, winter coats, lucky seats, and neighbors turning competition into delight.",
+        "tags": [
+          "pop soul oldies",
+          "community center",
+          "bingo song",
+          "senior playlist",
+          "nostalgic pop",
+          "morning music",
+          "50대 음악",
+          "60대 음악"
+        ]
+      },
+      "genreId": "oldpop-motown-pop-soul",
+      "genreText": "Motown-style pop soul, tambourine on all four beats, melodic electric bass, gospel-toned backing",
+      "lyricTheme": "senioroldpop-bingo-community-center",
+      "lyricThemeText": "marking a bingo card at the community center while neighbors argue over lucky seats",
+      "lyricThemeArc": "small competition warming into shared delight",
+      "pov": "secondPerson",
+      "verseStyle": "dialogue",
+      "verseStyleText": "verse lines use direct address or short conversational fragments without becoming spoken-word",
+      "chorusStyle": "hookRepeat",
+      "chorusStyleText": "chorus lines use compact repeated hook callbacks and simple answer phrases",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 7,
+      "title": "Let Me Step Out",
+      "titleLocalized": "막이 오르면",
+      "seasonMoment": "young December talent show backstage, remembered with morning cafe warmth",
+      "listenerSituation": "standing backstage at a school auditorium talent show while curtains rustle and friends whisper encouragement.",
+      "emotionArc": "stage fright turning into shining confidence",
+      "distinctChoice": {
+        "ruleId": "KEY_LIFT",
+        "descriptionKo": "마지막 후렴 직전 긴 음을 잡고 반음 전조로 올라가 무대에 나서는 순간을 만든다."
+      },
+      "hookPhrase": "Let Me Step Out",
+      "stylePrompt": "Warm Morning Glow Pop, timeless radio-friendly old pop, 92 BPM, male thin bright tenor, legato sustained lines, slight nasal brightness, intimate close-mic, plain unadorned melodic delivery, warm conversational lead delivery, I-V-vi-iii-IV-I-IV-V progression, acoustic guitar arpeggio, warm electric piano, soft bass, full layered arrangement, soft slide-guitar swell intro, final chorus modulates up a semitone, sustained lead note into the final chorus, doubled unison hook, school-stage glow, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copied lyrics, copyrighted song reference, soundalike vocal, real artist or band names, existing song title, shouted or belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, cavernous hall reverb, dense syncopation obscuring the melody, flat chorus with no lift, monotonous melody contour, generic demo-band sound, glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement, childish lyrics, theatrical belting, talent-show parody, nasal tenor becoming sharp, key lift too dramatic, applause sound effects, busy percussion under sustained lines, modern pop polish",
+      "lyrics": "[Intro]\nBehind the curtain, I count to three\n\n[Verse 1]\nA chalk star marked my place on the floor\nMy good shirt scratched beneath the tie\nRaymond whispered, you will be fine\nThen laughed too loud and looked away\nThe curtain rope made little circles\nBeside the teacher's careful shoes\nI held my breath until my name came\nAnd almost let it pass me by\n\n[Chorus]\nThe hallway vanished into color\nLet Me Step Out\nAll those faces turned to kindness\nAnd left me room to try\n\n[Verse 2]\nSomeone's sister fixed my collar\nA paper moon hung near the wing\nI thought of home and dishes\nI thought of every foolish thing\nThen one brave foot crossed the shadow\nThe second followed like a friend\nMy fear stayed waiting by the curtain\nBut I was not with it then\n\n[Bridge]\nIf my voice shook, it shook honestly\nIf my hands moved, they moved free\nThe room was larger than my worry\nAnd smaller than my dream\n\n[Chorus]\nThe first step found a gentle landing\nLet Me Step Out\nI saw my classmates smiling forward\nAnd knew the floor was mine\n\n[Final Chorus]\nLet Me Step Out\nThe curtain rises into morning\nMy shaking heart becomes a lantern\nLet Me Step Out",
+      "youtube": {
+        "title": "Let Me Step Out | Warm Old Pop Talent Show Memory",
+        "description": "A warm radio-friendly old-pop highlight about stage fright, a school curtain, and the first brave step into confidence.",
+        "tags": [
+          "warm old pop",
+          "talent show song",
+          "male vocal",
+          "nostalgic playlist",
+          "morning coffee music",
+          "radio friendly pop",
+          "감성 팝",
+          "계절 플레이리스트"
+        ]
+      },
+      "genreId": "oldpop-warm-morning-glow",
+      "genreText": "timeless warm glow pop, acoustic guitar arpeggio, warm electric piano",
+      "lyricTheme": "senioroldpop-school-auditorium-talent",
+      "lyricThemeText": "standing backstage at a school auditorium talent show while curtains rustle and friends whisper",
+      "lyricThemeArc": "stage fright turning into shining confidence",
+      "pov": "firstPerson",
+      "verseStyle": "image",
+      "verseStyleText": "verse lines focus on sensory images, objects, light, weather, and small gestures",
+      "chorusStyle": "hookRepeat",
+      "chorusStyleText": "chorus lines use compact repeated hook callbacks and simple answer phrases",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 8,
+      "title": "Orchard Moon",
+      "titleLocalized": "수확 뒤 달빛",
+      "seasonMoment": "a young autumn harvest night recalled during a clear December morning",
+      "listenerSituation": "walking a moonlit orchard lane after harvest while crates sit stacked beside the barn.",
+      "emotionArc": "hard work settling into tender quiet",
+      "distinctChoice": {
+        "ruleId": "SINGLE_CHORUS",
+        "descriptionKo": "중간 후렴을 생략하고 브릿지에서 반주가 사라지는 한 번의 큰 숨으로 전환한다."
+      },
+      "hookPhrase": "Rest A While, Love",
+      "stylePrompt": "70s Soft Rock AM Gold, 1970s soft-rock chanson shade, 82 BPM, female full chest alto, bright forward delivery, slight smoky depth, tape slap echo, double-tracked lead vocal, smooth crooning legato, I-V-vi-IV progression, clean electric guitar arpeggios, rounded bass, brushed snare, medium arrangement, light pizzicato string intro, half-time chorus weight, instruments drop out in the bridge, double-tracked final hook, orchard-after-harvest tenderness, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copied lyrics, copyrighted song reference, soundalike vocal, real artist or band names, existing song title, shouted or belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, cavernous hall reverb, dense syncopation obscuring the melody, flat chorus with no lift, monotonous melody contour, generic demo-band sound, glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement, childish lyrics, power ballad shouting, country-rock twang overload, gated snare, digital synth sheen, pizzicato novelty, smoky alto pushed harsh, bridge dropout feeling empty",
+      "lyrics": "[Intro]\n\n[Verse 1]\nCrates rested by the barn in columns\nApples bruised sweetly in the straw\nYour sleeve was damp from late work\nMy palms were dark with orchard dust\nA moth circled the porch bulb behind us\nWe walked where moonlight silvered ruts\nAnd nobody asked us to be strong\n\n[Chorus]\nRest A While, Love\nThe harvest can wait till daylight\nLet the lane hold both our footsteps\nLet the barn roof catch the moon\n\n[Verse 2]\nYou said the ladder nearly caught you\nI said I saw and held my breath\nA lantern swung beside the wellhead\nThe hired boys had gone to town\nYour laugh came softer than the apples\nWe carried no basket, only silence\nAnd one shared tiredness turning kind\n\n[Bridge]\nYour hand found mine without a question\nThe night air cooled the backs of leaves\nFor those two breaths, nothing hurried\nEven the road forgot to leave\n\n[Instrumental Break]\n\n[Final Chorus]\nRest A While, Love\nThe crates can dream beside the barn\nWe have done enough together\nRest A While, Love",
+      "youtube": {
+        "title": "Orchard Moon | 70s Soft Rock Autumn Chanson",
+        "description": "A smoky alto soft-rock ballad about an orchard after harvest, moonlit lanes, and tenderness after a long day's work.",
+        "tags": [
+          "70s soft rock",
+          "autumn song",
+          "chanson pop",
+          "female vocal",
+          "nostalgic playlist",
+          "morning coffee music",
+          "추억 팝송",
+          "계절 플레이리스트"
+        ]
+      },
+      "genreId": "oldpop-soft-rock-am",
+      "genreText": "1970s AM-gold soft rock, clean electric guitar arpeggios, soft kick drum, clean electric arpeggios",
+      "lyricTheme": "senioroldpop-orchard-moon-lane",
+      "lyricThemeText": "walking a moonlit orchard lane after harvest while crates sit stacked beside the barn",
+      "lyricThemeArc": "hard work settling into tender quiet",
+      "pov": "firstPerson",
+      "verseStyle": "dialogue",
+      "verseStyleText": "verse lines use direct address or short conversational fragments without becoming spoken-word",
+      "chorusStyle": "image",
+      "chorusStyleText": "chorus lines focus on sensory images, objects, light, weather, and small gestures",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 9,
+      "title": "Hear The Neighbors Cheer",
+      "titleLocalized": "골목의 함성",
+      "seasonMoment": "a younger autumn afternoon on porch steps with a portable radio",
+      "listenerSituation": "listening to a championship game on a portable radio from the porch steps while neighbors gather along the block.",
+      "emotionArc": "restless cheering settling into neighborhood warmth",
+      "distinctChoice": {
+        "ruleId": "ARRANGEMENT_NUANCE",
+        "descriptionKo": "마지막 후렴의 훅을 거의 아카펠라처럼 낮춰 반복해 경기의 열기가 동네 온기로 가라앉는다."
+      },
+      "hookPhrase": "Hear The Neighbors Cheer",
+      "stylePrompt": "70s Piano Pop Ballad, 1970s piano-led neighborhood pop, 98 BPM, female soft head-voice lead, tender confiding delivery, clear glassy brightness, soft plate ambience, double-tracked lead vocal, I-V-vi-IV verses, vi-IV-I-V chorus lift, grand piano, string section entering at the chorus, restrained brushed drums, warm bass, full arrangement, soft acoustic harmonics intro, final hook repeated almost a cappella at the close, octave-bright final color without belting, porch-radio memory, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copied lyrics, copyrighted song reference, soundalike vocal, real artist or band names, existing song title, shouted or belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, cavernous hall reverb, dense syncopation obscuring the melody, flat chorus with no lift, monotonous melody contour, generic demo-band sound, glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement, childish lyrics, arena drums, oversized power-ballad climax, sports chant shouting, gated reverb, digital synth pad, piano pounding, strings swallowing the soft head voice",
+      "lyrics": "[Intro]\n\n[Verse 1]\nThe porch boards held the heat of September\nA portable radio leaned by my shoe\nMr. Crane kept score on a shopping receipt\nWhile children chased a red cap loose\nWe groaned when the runner stumbled\nThen laughed because he made it home\nThe whole block tilted toward the speaker\nAs if the game were in our street\n\n[Chorus]\nHear The Neighbors Cheer\nScreen doors open, shutters tremble\nNames fly over hedges and rails\nThen settle back like leaves\n\n[Verse 2]\nI passed a lemonade jar to my father\nHe said the coach had lost his mind\nAunt Rose waved from the upstairs landing\nWith flour shining on her wrist\nWhen the final swing found daylight\nEven quiet Mrs. Bell cried out\nFor one bright minute, all our houses\nShared a single open room\n\n[Bridge]\nAfter the shout, we listened harder\nTo shoes on gravel, cups set down\nThe score was only ink by supper\nBut the street had learned our sound\n\n[Chorus]\nThe maple shade moved over the steps\nHear The Neighbors Cheer\nNot for winning, not forever\nJust because we had been here\n\n[Final Chorus]\nHear The Neighbors Cheer\nLike a porch lamp after shouting\nLet the porch grow calm again\nHear The Neighbors Cheer",
+      "youtube": {
+        "title": "Hear The Neighbors Cheer | 70s Piano Pop Porch Memory",
+        "description": "A piano-led old-pop ballad about a neighborhood gathered around a portable radio, cheering a game and finding warmth together.",
+        "tags": [
+          "70s piano pop",
+          "neighborhood song",
+          "old pop ballad",
+          "female vocal",
+          "nostalgic playlist",
+          "autumn music",
+          "아침 음악",
+          "추억 팝송"
+        ]
+      },
+      "genreId": "oldpop-piano-ballad-70s",
+      "genreText": "1970s piano-led pop ballad, grand piano, string section entering at the chorus, warm AM-radio compression",
+      "lyricTheme": "senioroldpop-football-radio-porch",
+      "lyricThemeText": "listening to a championship game on a portable radio from the porch steps",
+      "lyricThemeArc": "restless cheering settling into neighborhood warmth",
+      "pov": "firstPerson",
+      "verseStyle": "dialogue",
+      "verseStyleText": "verse lines use direct address or short conversational fragments without becoming spoken-word",
+      "chorusStyle": "narrative",
+      "chorusStyleText": "chorus lines unfold as plain scene narration with concrete actions and time movement",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 10,
+      "title": "Room 12",
+      "titleLocalized": "눈 속의 가족",
+      "seasonMoment": "a winter travel morning delayed by snow in a small motel lobby",
+      "listenerSituation": "waiting out a snowstorm in a motel lobby while strangers share vending machine snacks and borrowed patience.",
+      "emotionArc": "stranded worry softening into temporary family",
+      "distinctChoice": {
+        "ruleId": "VERSE2_HALF_LENGTH",
+        "descriptionKo": "2절을 1절보다 짧게 줄여 눈보라 속 초조함이 마지막 후렴 전의 두 마디 정적으로 바로 모이게 한다."
+      },
+      "hookPhrase": "Share This Winter Hour",
+      "stylePrompt": "Motown Pop Soul, 1970s snowbound soul-pop travel scene, 98 BPM, trading lines mid-phrase, close third harmony, intimate close-mic, male and female duet, ensemble unison lead, I-vi-IV-V doo-wop progression, tambourine on all four beats, melodic electric bass, horn section stabs, full arrangement, short spiccato-string intro color, harmony-lift chorus, two unaccompanied bars before the last chorus, ensemble unison lead on final hook, close room punch, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copied lyrics, copyrighted song reference, soundalike vocal, real artist or band names, existing song title, shouted or belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, cavernous hall reverb, dense syncopation obscuring the melody, flat chorus with no lift, monotonous melody contour, generic demo-band sound, glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement, childish lyrics, blizzard sound effects, harsh horn hits, rushed duet trades, showy ensemble shouting, modern wide stereo, digital pad, trap hats, motel scene turning comic",
+      "lyrics": "[Intro: Male and Female Duet]\nSnow keeps tapping at the lobby glass\n\n[Verse 1: Male Vocal]\nThe clerk said all the roads were closed\nRoom keys rested in a chipped blue bowl\nThe lobby clock had stopped at seven\nSnow whitened every license plate\nA salesman shared his crackers with a widow\nTwo sisters argued over the payphone\nYour scarf was damp across your suitcase\nMy coat dripped slowly by the mat\nWe counted miles we could not travel\nAnd watched the plows erase the street\n\n[Chorus: Male and Female Duet]\nShare This Winter Hour\nPass the paper cups around\nLet the storm keep what it needs\nWe can wait and not be alone\n\n[Verse 2: Female Vocal]\nA little boy dealt cards on carpet\nHis mother laughed for the first time\nThe ice machine hummed behind us\nYou traded almonds for a story\nAnd gave the room a wider smile\n\n[Bridge: Male and Female Call and Response]\nTwo breaths without a single word\nTwo heartbeats where worry stands aside\nThen every stranger leans together\nAs if the road has moved inside\n\n[Chorus: Male and Female Duet]\nThe vending glow turns soft on faces\nShare This Winter Hour\nSomeone finds a story from home\nSomeone passes us a chair\n\n[Final Chorus: Male and Female Duet Harmony]\nShare This Winter Hour\nLet the last unguarded minute gather\nLet the white road open when it will\nShare This Winter Hour",
+      "youtube": {
+        "title": "Room 12 | Snowbound Pop Soul Duet",
+        "description": "A warm soul-pop duet about a motel lobby during a snowstorm, where strangers share snacks, stories, and one winter hour.",
+        "tags": [
+          "pop soul duet",
+          "winter song",
+          "snowstorm music",
+          "old pop playlist",
+          "nostalgic pop",
+          "morning coffee music",
+          "커피 음악",
+          "계절 플레이리스트"
+        ]
+      },
+      "genreId": "oldpop-motown-pop-soul",
+      "genreText": "Motown-style pop soul, tambourine on all four beats, melodic electric bass",
+      "lyricTheme": "senioroldpop-snowbound-motel-lobby",
+      "lyricThemeText": "waiting out a snowstorm in a motel lobby while strangers share vending machine snacks",
+      "lyricThemeArc": "stranded worry softening into temporary family",
+      "pov": "secondPerson",
+      "verseStyle": "dialogue",
+      "verseStyleText": "verse lines use direct address or short conversational fragments without becoming spoken-word",
+      "chorusStyle": "hookRepeat",
+      "chorusStyleText": "chorus lines use compact repeated hook callbacks and simple answer phrases",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 11,
+      "title": "Measure Me Straight",
+      "titleLocalized": "맞춤옷의 날",
+      "seasonMoment": "a younger wedding week morning inside a tailor shop",
+      "listenerSituation": "standing still while a tailor measures a wedding jacket and chalks bright marks on dark cloth.",
+      "emotionArc": "self-conscious nerves straightening into dignity",
+      "distinctChoice": {
+        "ruleId": "OCTAVE_DOWN_CHORUS",
+        "descriptionKo": "마지막 후렴의 훅으로 남성 리드가 낮게 떨어져 떨림이 품위로 바뀌는 순간을 강조한다."
+      },
+      "hookPhrase": "Stand A Little Taller",
+      "stylePrompt": "Warm Morning Glow Pop, timeless tailored old-pop reflection, 92 BPM, male bright tenor lead, clipped rhythmic phrasing, clean rounded tone, chamber ambience, warm conversational lead delivery, plain unadorned melodic delivery, IV-I-V-vi warm cycle progression, acoustic guitar arpeggio, warm electric piano, medium arrangement, no intro tag, singing starts immediately, muted acoustic strum texture, hook doubled a third above on repeats, lead drops low into the hook in the final chorus, clipped verse rhythm, dignified tailor-shop calm, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copied lyrics, copyrighted song reference, soundalike vocal, real artist or band names, existing song title, shouted or belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, cavernous hall reverb, dense syncopation obscuring the melody, flat chorus with no lift, monotonous melody contour, generic demo-band sound, glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement, childish lyrics, slapstick tailor scene, barbershop parody harmony, tenor pushed nasal, clipped phrasing becoming rushed, chamber ambience too distant, low hook turning muddy, modern dance pulse",
+      "lyrics": "[Verse 1]\nChalk marks waited on the dark blue cloth\nThe tailor asked me not to breathe\nThe measure went lightly round my shoulder\nPins flashed briefly near my ribs\nThen made a number out of me\nI saw my collar in three mirrors\nAnd hardly knew which man was true\n\n[Chorus]\nStand A Little Taller\nLet the jacket learn your name\nLet the sleeve fall clean and simple\nLet the day be yours to wear\n\n[Verse 2]\nA bell rang over the narrow doorway\nMy uncle coughed and hid a grin\nThe tailor pinned the second cuff\nAnd said a groom should trust his chin\nA paper receipt curled by the register\nI looked down at polished buttons\nThen looked up because he waited\n\n[Bridge]\nI had been afraid of ceremony\nOf all the eyes that gather close\nBut dark cloth warmed beneath his fingers\nAnd courage fit me by degrees\n\n[Chorus]\nThe mirror softened at the edges\nStand A Little Taller\nNo crown, no speech, no borrowed thunder\nOnly shoulders finding room\n\n[Instrumental Break]\n\n[Final Chorus]\nStand A Little Taller\nMy nervous chin comes down gently\nLet the room approve in silence\nStand A Little Taller",
+      "youtube": {
+        "title": "Measure Me Straight | Warm Tailor Shop Old Pop",
+        "description": "A tender male-led old-pop reflection about a wedding jacket fitting, nervous self-consciousness, and quiet dignity.",
+        "tags": [
+          "warm old pop",
+          "tailor shop song",
+          "wedding memory",
+          "male vocal",
+          "nostalgic playlist",
+          "morning coffee music",
+          "50대 음악",
+          "감성 팝"
+        ]
+      },
+      "genreId": "oldpop-warm-morning-glow",
+      "genreText": "timeless warm glow pop, acoustic guitar arpeggio, warm electric piano",
+      "lyricTheme": "senioroldpop-tailor-wedding-jacket",
+      "lyricThemeText": "standing still while a tailor measures a wedding jacket and chalks bright marks on dark cloth",
+      "lyricThemeArc": "self-conscious nerves straightening into dignity",
+      "pov": "firstPerson",
+      "verseStyle": "narrative",
+      "verseStyleText": "verse lines unfold as plain scene narration with concrete actions and time movement",
+      "chorusStyle": "hookRepeat",
+      "chorusStyleText": "chorus lines use compact repeated hook callbacks and simple answer phrases",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 12,
+      "title": "Ask Me To Dance",
+      "titleLocalized": "천천히 춤을",
+      "seasonMoment": "a younger basement party remembered with December cafe softness",
+      "listenerSituation": "waiting near the basement stairs until a slow song gives everyone permission to ask someone to dance.",
+      "emotionArc": "teenage hesitation blooming into remembered sweetness",
+      "distinctChoice": {
+        "ruleId": "ARRANGEMENT_NUANCE",
+        "descriptionKo": "브릿지의 빌린 화음 하나가 파티의 소란을 잠깐 다른 색으로 물들이며 고백 직전의 떨림을 만든다."
+      },
+      "hookPhrase": "Ask Me To Dance",
+      "stylePrompt": "70s Soft Rock AM Gold, 1970s basement-party soft rock, 94 BPM, male lead with female harmony, loose lines meeting hook, soft plate ambience, male and female duet, gospel-inflected melisma, alternating chest and falsetto, I-vi-IV-V doo-wop progression, clean electric guitar arpeggios, brushed snare, tambourine on all four beats, medium arrangement, glassy electric-piano intro, bridge strips to voice and one instrument before full return, one borrowed chord colors the bridge, gentle dance-floor sway, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copied lyrics, copyrighted song reference, soundalike vocal, real artist or band names, existing song title, shouted or belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, cavernous hall reverb, dense syncopation obscuring the melody, flat chorus with no lift, monotonous melody contour, generic demo-band sound, glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement, childish lyrics, disco parody, overdone gospel run, crowded party shouting, gated snare, digital synth pad, falsetto showboating, borrowed chord sounding jazzy and distracting",
+      "lyrics": "[Intro]\n\n[Verse 1: Male Vocal]\nYou stood near the basement stairs\nWith streamers brushing at your sleeve\nThe crowd was bright and loud around us\nAll brave talk and polished heels\nA neighbor's cousin guarded the refreshments\nRed bulbs warmed the low ceiling\nI held a bottle of orange soda beneath the stairs\nAnd read your smile from far away\n\n[Chorus: Male and Female Duet]\nAsk Me To Dance\nLet the crowded room turn kindly\nLet one small question cross the floor\nLet our shy shoes find a way\n\n[Verse 2: Female Vocal]\nI saw you counting ceiling tiles\nPretending not to wait for me\nYour dress caught sparks from tinsel\nI saw your courage getting ready\nMy friends kept laughing by the mirror\nBut left a path that I could see\nWhen you came over, nearly tripping\nI made my answer with my hand slowly\n\n[Bridge: Male and Female Call and Response]\nOne borrowed color crossed the moment\nOne breath made all the noise step back\nThe wallpaper flowers watched us kindly\nYou said my name as if it mattered\nI said yes before you asked\n\n[Instrumental Break]\n\n[Final Chorus: Male and Female Duet Harmony]\nAsk Me To Dance\nLet the basement years turn golden\nLet the crowded room remember\nAsk Me To Dance",
+      "youtube": {
+        "title": "Ask Me To Dance | 70s Soft Rock Basement Party Duet",
+        "description": "A warm duet about a basement party, teenage hesitation, and the sweet courage of asking for the first slow dance.",
+        "tags": [
+          "70s soft rock",
+          "duet song",
+          "slow dance",
+          "basement party",
+          "nostalgic pop",
+          "morning coffee music",
+          "추억 팝송",
+          "감성 팝"
+        ]
+      },
+      "genreId": "oldpop-soft-rock-am",
+      "genreText": "1970s AM-gold soft rock, clean electric guitar arpeggios, soft kick drum, clean electric arpeggios",
+      "lyricTheme": "senioroldpop-basement-party-slow-song",
+      "lyricThemeText": "waiting near the basement stairs until a slow song gives everyone permission to ask",
+      "lyricThemeArc": "teenage hesitation blooming into remembered sweetness",
+      "pov": "secondPerson",
+      "verseStyle": "dialogue",
+      "verseStyleText": "verse lines use direct address or short conversational fragments without becoming spoken-word",
+      "chorusStyle": "hookRepeat",
+      "chorusStyleText": "chorus lines use compact repeated hook callbacks and simple answer phrases",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 13,
+      "title": "Above The Alley",
+      "titleLocalized": "도시의 난간",
+      "seasonMoment": "a young city summer night remembered as the set softens toward morning",
+      "listenerSituation": "sitting on a fire escape above a warm alley while distant laughter rises from below.",
+      "emotionArc": "private loneliness opening into city tenderness",
+      "distinctChoice": {
+        "ruleId": "ARRANGEMENT_NUANCE",
+        "descriptionKo": "가장 느린 템포에서 마지막 훅만 전체 유니즌으로 모여 도시의 외로움을 부드럽게 녹인다."
+      },
+      "hookPhrase": "Come Near, My Love",
+      "stylePrompt": "Motown Pop Soul, slow 1970s pop-soul reset, 63 BPM, male relaxed mid-range lead, conversational unhurried phrasing, smoky low resonance, warm natural room, ensemble unison lead, IV-I-V-vi warm cycle progression, tambourine on all four beats, melodic electric bass, clean electric guitar arpeggios, sparse arrangement, nylon-string waltz intro color, stop-time accent on chorus first word, full ensemble unison on the final hook, soft city-fire-escape mood, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copied lyrics, copyrighted song reference, soundalike vocal, real artist or band names, existing song title, shouted or belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, cavernous hall reverb, dense syncopation obscuring the melody, flat chorus with no lift, monotonous melody contour, generic demo-band sound, glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement, childish lyrics, draggy slow-soul timing, harsh tambourine, horn-heavy climax, modern wide stereo, digital pad, alley ambience covering the lead, smoky vocal turning muffled",
+      "lyrics": "[Intro]\nAbove the alley, the heat still glows\n\n[Verse 1]\nA fire escape held both our shadows\nYour knee touched mine through painted rails\nA cat crossed softly by the barrels\nYour shirt held laundry soap and smoke\nBelow, a kitchen window opened\nAnd laughter climbed with onion steam\nI had been lonely all that summer\nBut did not want to say it first\n\n[Chorus]\nCome Near, My Love\nLet the city soften under us\nLet the brick wall give back warmth\nLet one close voice be enough\n\n[Verse 2]\nYou pointed out a paper lantern\nStrung crooked over the back room door\nA woman watered basil from a can\nA taxi coughed beyond the corner\nThen left the street to us again\nYour shoulder settled near my shoulder\nFor once, I did not look away\nAnd made the whole block less alone\n\n[Instrumental Break]\n\n[Final Chorus]\nCome Near, My Love\nLet all the windows answer softly\nLet the alley hold its ember\nCome Near, My Love",
+      "youtube": {
+        "title": "Above The Alley | Slow Pop Soul City Memory",
+        "description": "A slow pop-soul reset about a fire escape, summer heat, and a lonely city moment becoming tender.",
+        "tags": [
+          "slow pop soul",
+          "city memory",
+          "male vocal",
+          "nostalgic playlist",
+          "old pop",
+          "summer night song",
+          "커피 음악",
+          "추억 팝송"
+        ]
+      },
+      "genreId": "oldpop-motown-pop-soul",
+      "genreText": "Motown-style pop soul, tambourine on all four beats, melodic electric bass",
+      "lyricTheme": "senioroldpop-fire-escape-summer",
+      "lyricThemeText": "sitting on a fire escape above a warm alley while distant laughter rises from below",
+      "lyricThemeArc": "private loneliness opening into city tenderness",
+      "pov": "firstPerson",
+      "verseStyle": "dialogue",
+      "verseStyleText": "verse lines use direct address or short conversational fragments without becoming spoken-word",
+      "chorusStyle": "narrative",
+      "chorusStyleText": "chorus lines unfold as plain scene narration with concrete actions and time movement",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 14,
+      "title": "Whistle At Noon",
+      "titleLocalized": "여름의 휘파람",
+      "seasonMoment": "younger summer noon at the neighborhood pool, recalled near the closing run",
+      "listenerSituation": "hearing the lifeguard whistle at the neighborhood pool while towels line the chain fence and children race for the water.",
+      "emotionArc": "summer noise turning into carefree memory",
+      "distinctChoice": {
+        "ruleId": "SCENE_PER_VERSE",
+        "descriptionKo": "1절은 수영장 울타리 밖, 2절은 물가 안쪽으로 장면을 바꾸어 같은 여름을 두 거리에서 비춘다."
+      },
+      "hookPhrase": "Dive Into Summer",
+      "stylePrompt": "70s Piano Pop Ballad, 1970s piano-led summer memory, 94 BPM, unison splitting to thirds, wide octave harmony, chamber ambience, male and female duet, falsetto lift on the chorus, I-V-vi-IV verses, vi-IV-I-V chorus lift, grand piano, warm bass, clean electric guitar arpeggios, medium arrangement, short spiccato-string intro, answer riff after chorus lines, solo instrument answers the vocal line in the mid-instrumental, unison splitting to thirds on final chorus, poolside nostalgia, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copied lyrics, copyrighted song reference, soundalike vocal, real artist or band names, existing song title, shouted or belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, cavernous hall reverb, dense syncopation obscuring the melody, flat chorus with no lift, monotonous melody contour, generic demo-band sound, glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement, childish lyrics, beach-party novelty, arena piano pounding, lifeguard whistle sound effects, gated snare, digital synth pad, falsetto lift becoming showy, spiccato strings too comic",
+      "lyrics": "[Intro: Male and Female Duet]\nThe whistle split the noon in two\n\n[Verse 1: Male Vocal]\nYou waited by the chain fence barefoot\nTowel stripes drying in the glare\nA paper ticket stuck to your wrist\nA blue towel snapped against the wire\nSunscreen shone along your nose\nAnd chlorine sweetened all the air\nMothers called names from shaded benches\nBoys made courage out of noise\nA wet coin cooled in your palm\n\n[Chorus: Male and Female Duet]\nDive Into Summer\nLet the bright fence turn to silver\nLet the blue gate swing and shine\nLet the whole block come alive\n\n[Verse 2: Female Vocal]\nInside the shallow end, you splashed me\nThen swore the cold had missed your knees\nMy cousin dared us past the rope\nYou laughed and shook water from your ears\nThe lifeguard smiled behind dark glasses\nAnd pointed two wild cousins back\nI floated where the roofline trembled\nFree as a towel in the heat\n\n[Instrumental Break]\n\n[Chorus: Male and Female Duet]\nThe noon kept ringing on the water\nDive Into Summer\nNo one owned the afternoon\nEvery call became a holiday\nIt belonged to our wet hands\n\n[Final Chorus: Male and Female Duet Harmony]\nDive Into Summer\nLet the chain fence glitter behind us\nLet the old pool open wide\nDive Into Summer",
+      "youtube": {
+        "title": "Whistle At Noon | 70s Piano Pop Summer Pool Memory",
+        "description": "A warm duet about a neighborhood pool, a lifeguard whistle, towels on the fence, and summer turning carefree in memory.",
+        "tags": [
+          "70s piano pop",
+          "summer memory",
+          "duet ballad",
+          "old pop playlist",
+          "nostalgic pop",
+          "morning coffee music",
+          "계절 플레이리스트",
+          "감성 팝"
+        ]
+      },
+      "genreId": "oldpop-piano-ballad-70s",
+      "genreText": "1970s piano-led pop ballad, grand piano, string section entering at the chorus, smooth adult lead vocal",
+      "lyricTheme": "senioroldpop-neighborhood-pool-whistle",
+      "lyricThemeText": "hearing the lifeguard whistle at the neighborhood pool while towels line the chain fence",
+      "lyricThemeArc": "summer noise turning into carefree memory",
+      "pov": "secondPerson",
+      "verseStyle": "narrative",
+      "verseStyleText": "verse lines unfold as plain scene narration with concrete actions and time movement",
+      "chorusStyle": "hookRepeat",
+      "chorusStyleText": "chorus lines use compact repeated hook callbacks and simple answer phrases",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 15,
+      "title": "One Flower",
+      "titleLocalized": "꽃 한 송이",
+      "seasonMoment": "present-day December morning, a corner florist before an anniversary dinner",
+      "listenerSituation": "choosing one modest bouquet at a corner florist before walking to an anniversary dinner, with the first track's tea-kitchen calm faintly returning.",
+      "emotionArc": "careful affection deepening into devoted gratitude",
+      "distinctChoice": {
+        "ruleId": "FINAL_QUESTION",
+        "descriptionKo": "마지막 훅을 질문으로 남겨 완전히 닫지 않고 1번 트랙의 작은 부엌 여운으로 다시 돌아가게 한다."
+      },
+      "hookPhrase": "Will You Walk Home?",
+      "stylePrompt": "Warm Morning Glow Pop, timeless comforting closer, 65 BPM, female narrow intimate lead, restrained understated reading, clean bell tone, chamber ambience, warm conversational lead delivery, I-V-vi-iii-IV-I-IV-V progression, acoustic guitar arpeggio, warm electric piano, clean electric guitar arpeggios, sparse arrangement, no intro tag, singing starts immediately, gentle harmony lift on chorus, one-bar rising swell into chorus, final chorus leaves an open question, subtle kettle-and-radio memory from track one, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copied lyrics, copyrighted song reference, soundalike vocal, real artist or band names, existing song title, shouted or belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, cavernous hall reverb, dense syncopation obscuring the melody, flat chorus with no lift, monotonous melody contour, generic demo-band sound, glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement, childish lyrics, wedding-commercial sentimentality, overdone flower-shop sound effects, bell tone becoming brittle, modern glossy pad, rushed closer pacing, final question answered too neatly",
+      "lyrics": "[Verse 1]\nShe chooses daisies from the corner bucket\nThen asks for one rose, not too red\nA bell above the counter answered her\nShe checks the card twice for spelling\nThe florist wraps them in brown paper\nAnd trims the stems above the thread\nHer purse holds mints and dinner money\nHer glove smells faintly of winter rain\n\n[Chorus]\nAt the crossing, she smiles to herself\nWill You Walk Home?\nOne modest ribbon keeps its promise\nOne small errand starts again\n\n[Verse 2]\nThe same old radio from breakfast\nStill murmurs through the flower shop door\nMorning from the first cup follows\nLike steam folded into her sleeve\nShe thinks of tea left on the table\nA silver kettle, one cup more\nThe street is cold but kind enough\nTo let her carry color slowly\n\n[Instrumental Break]\n\n[Final Chorus]\nWill You Walk Home?\nPast the window, past the corner\nThe dinner street waits open\nWith one flower and all our years\nWill You Walk Home?",
+      "youtube": {
+        "title": "One Flower | Gentle Anniversary Old Pop Closer",
+        "description": "A comforting warm-glow closer about choosing a modest bouquet before an anniversary dinner, ending with a soft question that keeps the playlist open.",
+        "tags": [
+          "gentle old pop",
+          "anniversary song",
+          "flower shop",
+          "morning coffee music",
+          "nostalgic playlist",
+          "comforting music",
+          "커피 음악",
+          "60대 음악"
+        ]
+      },
+      "genreId": "oldpop-warm-morning-glow",
+      "genreText": "timeless warm glow pop, acoustic guitar arpeggio, warm electric piano",
+      "lyricTheme": "senioroldpop-corner-florist-bouquet",
+      "lyricThemeText": "choosing one modest bouquet at a corner florist before walking to an anniversary dinner",
+      "lyricThemeArc": "careful affection deepening into devoted gratitude",
+      "pov": "thirdPerson",
+      "verseStyle": "dialogue",
+      "verseStyleText": "verse lines use direct address or short conversational fragments without becoming spoken-word",
+      "chorusStyle": "hookRepeat",
+      "chorusStyleText": "chorus lines use compact repeated hook callbacks and simple answer phrases",
+      "qualityScore": 0,
+      "warnings": []
+    }
+  ]
+}

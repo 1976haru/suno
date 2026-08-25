@@ -1,0 +1,672 @@
+{
+  "meta": {
+    "setName": "20260816_굿모닝추억라디오_70년대라디오에서흘러나오던팝송",
+    "generatedAt": "2026-08-15T21:44:10.420Z",
+    "channelId": "good-morning-memory-radio",
+    "channelLabel": "굿모닝 추억라디오",
+    "conceptLabel": "70년대 라디오에서 흘러나오던 팝송",
+    "songCount": 15,
+    "lyricLanguage": "english",
+    "bridgeVersion": "0.21.0"
+  },
+  "songs": [
+    {
+      "trackNo": 1,
+      "title": "One More Frame",
+      "titleLocalized": "그날의 우승",
+      "seasonMoment": "early winter recreation hall after league night",
+      "listenerSituation": "A younger group stands beside polished bowling lanes, passing a small league trophy around after the final frame.",
+      "emotionArc": "friendly rivalry turning into proud laughter",
+      "distinctChoice": {
+        "ruleId": "VERSE_TAIL_REPEAT",
+        "descriptionKo": "각 절 끝에 one more frame을 변형 없이 남겨 작은 우승의 기억을 반복 장치로 묶는다.",
+        "params": {
+          "phrase": "one more frame"
+        }
+      },
+      "hookPhrase": "One More Frame",
+      "stylePrompt": "Motown Pop Soul, 63 BPM, tambourine on all four beats, melodic electric bass, horn section stabs, gospel-toned backing vocals, Verse: I-vi-IV-V doo-wop progression / Chorus: IV-I-V-vi warm cycle progression, soulful female voice, restrained understated reading, warm rounded midrange, two-note pickup phrase, medium analog soul-pop arrangement, singing begins immediately with no lyric intro tag, full playback level from first bar, hook doubled with harmony a third above, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copyrighted song reference, soundalike vocal, real artist or band names, existing song title, shouted high notes, belted vocal peaks, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation hiding the melody, cavernous hall reverb, gated reverb, sidechain compression, digital synth pads, autotuned vocal, trap hi-hats, lo-fi vinyl crackle effect, flat chorus, monotonous melody contour, generic demo-band sound, glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop soul backing, brassy blasts, frantic tambourine",
+      "lyrics": "[Verse 1]\nSilver lanes shine past my careful shoes\nI lift the little cup and grin\nJune says I got lucky twice\nFrank points at the crooked score\nOur jackets wait on metal chairs\nI keep one more breath for one more frame\n\n[Chorus]\nOne More Frame\nLet the whole lane hear us laughing\nLet the small cup find my palm\nMy shy pride stands up straight\nWe wear that shine home on our sleeves\n\n[Verse 2]\nCola fizz climbs paper cups beside us\nLou still argues with the board\nMy wrist smells faintly of polished wax\nYour elbow nudges me toward courage\nA neighbor snaps the flash too soon\nWe save one more smile for one more frame\n\n[Chorus]\nThe spare that rolled so slowly\nOne More Frame\nTurns ordinary names to gold\nKeeps the room around us singing\n\n[Instrumental Break]\n\n[Final Chorus]\nOne More Frame\nLet tomorrow call us ordinary\nLet the doorway swing behind our cheers\nAunt May waves from lane three\nSomebody laughs until glasses fog\nThe little cup keeps shining beside the shelf\nOur friendly luck goes circling back again\nOne More Frame",
+      "youtube": {
+        "title": "One More Frame - Warm 70s Pop Soul Memory",
+        "description": "A gentle retro pop-soul track for morning coffee and easy reminiscence, built around a friendly bowling-league victory and the glow of shared laughter.",
+        "tags": [
+          "70s pop soul",
+          "oldies playlist",
+          "morning coffee music",
+          "추억 팝송",
+          "아침 음악",
+          "50대 음악",
+          "60대 음악",
+          "retro soul"
+        ]
+      },
+      "genreId": "oldpop-motown-pop-soul",
+      "genreText": "Motown-style pop soul, tambourine on all four beats, melodic electric bass",
+      "lyricTheme": "senioroldpop-bowling-league-trophy",
+      "lyricThemeText": "holding a small bowling league trophy beside polished lanes after the final frame is scored",
+      "lyricThemeArc": "friendly rivalry turning into proud laughter",
+      "pov": "firstPerson",
+      "verseStyle": "image",
+      "verseStyleText": "verse lines focus on sensory images, objects, light, weather, and small gestures",
+      "chorusStyle": "narrative",
+      "chorusStyleText": "chorus lines unfold as plain scene narration with concrete actions and time movement",
+      "effectiveVocalPresetId": "soulful-female",
+      "vocalPresetSource": "plan",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 2,
+      "title": "Come Back Smiling",
+      "titleLocalized": "다시 웃던 날",
+      "seasonMoment": "late autumn reunion hall with coat-room warmth",
+      "listenerSituation": "An older narrator pins on a high school reunion nametag, nearly leaves, then recognizes a familiar smile across the hall.",
+      "emotionArc": "nervous distance melting into familiar warmth",
+      "distinctChoice": {
+        "ruleId": "VERSE2_HALF_LENGTH",
+        "descriptionKo": "2절을 1절의 절반 길이로 줄여 오래 망설이던 마음이 짧은 행동으로 풀리게 한다."
+      },
+      "hookPhrase": "Come Back Smiling",
+      "stylePrompt": "70s Piano Pop Ballad, 76 BPM, grand piano, restrained brushed drums, warm bass, chamber strings at chorus, I-V-vi-IV verses, vi-IV-I-V chorus lift, low calm male baritone, gentle swung phrasing, airy breath-forward tone, sparse piano-forward arrangement, clean electric arpeggio intro, full playback level from first bar, eight-bar instrumental solo after second chorus, hook built on upper scale tones, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copyrighted song reference, soundalike vocal, real artist or band names, existing song title, shouted high notes, belted vocal peaks, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation hiding the melody, cavernous hall reverb, gated reverb, sidechain compression, digital synth pads, autotuned vocal, trap hi-hats, lo-fi vinyl crackle effect, flat chorus, monotonous melody contour, generic demo-band sound, glossy karaoke backing track, muddy low-end mix, thin placeholder hook, arena ballad drums, overdramatic piano flourishes, syrupy strings",
+      "lyrics": "[intro]\n\n[Verse 1]\nUnder gymnasium clocks, I pin borrowed courage to my careful jacket\nTo a paper square above my heart while I breathe\nThe hall smells of varnish, starch, and winter coats near the punch\nNames rise around me, almost familiar, then blur kindly\nI nearly turn toward the parking lot with my gloves on\nThen your old smile crosses the cider table as if no bell had rung\nAnd finds the boy I carried inside waiting by the coat rack all along\n\n[Chorus]\nThe years loosen softly at your greeting\nCome Back Smiling\nA folded photograph warms between our careful hands\nWe step into our names without apology\n\n[Verse 2]\nYou tease my tie, I praise your silver\nWe miss the old bell together\nThen walk toward the floor without hiding\n\n[Chorus]\nThe years loosen softly at your greeting\nCome Back Smiling\nA folded photograph warms between our careful hands\nWe step into our names without apology\n\n[Final Chorus]\nCome Back Smiling\nLet the ceiling lamps turn kindly on us\nLet the borrowed years sit down nearby\nWe pass the punch and all our weather\nNo one asks us to be young again\nOnly brave enough to say hello again today\nCome Back Smiling",
+      "youtube": {
+        "title": "Come Back Smiling - 70s Piano Pop Reunion Ballad",
+        "description": "A calm piano-led reunion song for warm nostalgia playlists, following the moment an old smile makes the years feel lighter.",
+        "tags": [
+          "70s piano ballad",
+          "reunion song",
+          "morning coffee music",
+          "추억 팝송",
+          "감성 팝",
+          "adult contemporary",
+          "old radio mood"
+        ]
+      },
+      "genreId": "oldpop-piano-ballad-70s",
+      "genreText": "1970s piano-led pop ballad, grand piano, string section entering at the chorus, rubato verse settling into a slow 4/4 chorus",
+      "lyricTheme": "senioroldpop-reunion-nametag-table",
+      "lyricThemeText": "pinning on a high school reunion nametag before recognizing an old smile across the hall",
+      "lyricThemeArc": "nervous distance melting into familiar warmth",
+      "pov": "firstPerson",
+      "verseStyle": "dialogue",
+      "verseStyleText": "verse lines use direct address or short conversational fragments without becoming spoken-word",
+      "chorusStyle": "image",
+      "chorusStyleText": "chorus lines focus on sensory images, objects, light, weather, and small gestures",
+      "effectiveVocalPresetId": "low-calm-male",
+      "vocalPresetSource": "plan",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 3,
+      "title": "River, Carry Us",
+      "titleLocalized": "강물의 약속",
+      "seasonMoment": "soft river air on a young autumn trip",
+      "listenerSituation": "A young couple and other passengers lean along a riverboat deck as the shoreline moves past and restlessness eases.",
+      "emotionArc": "restless longing settling into rolling calm",
+      "distinctChoice": {
+        "ruleId": "VERSE_TAIL_REPEAT",
+        "descriptionKo": "남녀가 서로 다른 절을 부르되 각 절 마지막에 beside the rail을 남겨 같은 난간으로 돌아오게 한다.",
+        "params": {
+          "phrase": "beside the rail"
+        }
+      },
+      "hookPhrase": "Roll Me Home",
+      "stylePrompt": "Philly Sweet Soul, 82 BPM, sweeping string section, vibraphone, soft sixteenth-note hi-hat, smooth electric bass, Verse: IV-I-V-vi warm cycle progression / Chorus: I-V-vi-IV progression / Bridge: I-vi-IV-V doo-wop progression, male and female duet, alternating verses, soft plate ambience, sparse velvet soul arrangement, glassy electric piano intro, full playback level from first bar, stop-time accent into chorus, three-part harmony on final chorus, descending hook cadence, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copyrighted song reference, soundalike vocal, real artist or band names, existing song title, shouted high notes, belted vocal peaks, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation hiding the melody, cavernous hall reverb, gated reverb, sidechain compression, digital synth pads, autotuned vocal, trap hi-hats, lo-fi vinyl crackle effect, flat chorus, monotonous melody contour, generic demo-band sound, glossy karaoke backing track, muddy low-end mix, thin placeholder hook, harsh string tone, showy melisma clutter, overbusy hi-hat",
+      "lyrics": "[intro]\n\n[Verse 1: Male Vocal]\nYour scarf keeps flying toward the brown water under a slate November sky\nI hold the rail and name each bridge with my ticket folded tight\nThe ticket ink stains my Sunday thumb\nPassengers laugh near the stern rail\nA sailor's cap tilts above our white wake\nI stand with my worried coat beside the rail\n\n[Chorus: Male and Female Duet]\nRoll Me Home\nLet the river turn the ache around\nLet the far town soften at the bend\nWe breathe in time and let it go\n\n[Verse 2: Female Vocal]\nYou ask what waits beyond the landing\nI watch warehouses loosen into mist like a ribbon of harbor smoke there\nA paper cup slides near our shoes\nYour hand finds mine without ceremony and gives my chest a softer rhythm\nMy restless plans drift out past the buoys\nWe share the cooler air beside the rail\n\n[Chorus: Male and Female Duet]\nLet the river turn the ache around\nRoll Me Home\nLet the far town soften at the bend\nWe breathe in time and let it go\n\n[Final Chorus: Male and Female Duet Harmony]\nRoll Me Home\nLet the river turn the ache around\nLet the far town soften at the bend\nThree close voices gather low and tender\nWe breathe in time and let it go\nRoll Me Home",
+      "youtube": {
+        "title": "River, Carry Us - Sweet 70s Soul Duet",
+        "description": "A Philadelphia-soul-flavored duet for reflective morning listening, set on a riverboat ride where worry turns into calm.",
+        "tags": [
+          "philly soul",
+          "70s duet",
+          "river song",
+          "추억 팝송",
+          "커피 음악",
+          "soft soul",
+          "seasonal playlist"
+        ]
+      },
+      "genreId": "oldpop-philly-soul-sweet",
+      "genreText": "1970s Philadelphia sweet soul, sweeping string section, vibraphone",
+      "lyricTheme": "senioroldpop-steamboat-deck-band",
+      "lyricThemeText": "leaning on a riverboat deck rail while a small band plays near the stern",
+      "lyricThemeArc": "restless longing settling into rolling calm",
+      "pov": "secondPerson",
+      "verseStyle": "dialogue",
+      "verseStyleText": "verse lines use direct address or short conversational fragments without becoming spoken-word",
+      "chorusStyle": "hookRepeat",
+      "chorusStyleText": "chorus lines use compact repeated hook callbacks and simple answer phrases",
+      "effectiveVocalPresetId": "male-female-duet",
+      "vocalPresetSource": "plan",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 4,
+      "title": "Fresh Paint",
+      "titleLocalized": "첫집의 노래",
+      "seasonMoment": "young first apartment on a cold November afternoon",
+      "listenerSituation": "Two young people stack records beside a borrowed turntable in their first apartment while fresh paint dries.",
+      "emotionArc": "bare-room worry becoming hopeful belonging",
+      "distinctChoice": {
+        "ruleId": "VERSE2_HALF_LENGTH",
+        "descriptionKo": "2절을 짧게 만들어 빈 방의 불안보다 후렴의 함께 산다는 확신이 더 크게 들리게 한다."
+      },
+      "hookPhrase": "This Room Is Ours",
+      "stylePrompt": "70s Piano Pop Ballad, 76 BPM, grand piano, 12-string electric guitar, restrained brushed drums, warm bass, I-V-vi-IV verses, vi-IV-I-V chorus lift, mature soulful male tenor, earnest forward delivery, soft husky grain, sparse mono-leaning room, fingerpicked acoustic intro color, sustained first-word hook landing, tambourine break cuts through the bridge, one-bar swell into chorus, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copyrighted song reference, soundalike vocal, real artist or band names, existing song title, shouted high notes, belted vocal peaks, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation hiding the melody, cavernous hall reverb, gated reverb, sidechain compression, digital synth pads, autotuned vocal, trap hi-hats, lo-fi vinyl crackle effect, flat chorus, monotonous melody contour, generic demo-band sound, glossy karaoke backing track, muddy low-end mix, thin placeholder hook, arena snare hits, theatrical key drama, cluttered apartment sound effects",
+      "lyrics": "[intro]\n\n[Verse 1]\nFresh paint sweetens the narrow kitchen wall because neither one of us owns a table\nYour suitcase keeps the bedroom door from closing\nI sort our records by the milk-crate shelf while hallway footsteps pass like weather\nYou laugh because the labels face the wrong way\nThe rent receipt lies flat beneath a jar\nTwo plates wait proudly on an orange towel soon\n\n[Chorus]\nThis Room Is Ours\nLet the bare floor learn our hopeful footsteps\nLet the new wall hold our names in pencil\nWe can make a home from almost nothing today\n\n[Verse 2]\nYou find a bent spoon in the drawer\nI say it shines enough for breakfast\nWe share the sill and watch steam climb\n\n[Chorus]\nLet the bare floor learn our hopeful footsteps\nThis Room Is Ours\nLet the new wall hold our names in pencil\nWe can make a home from almost nothing today\n\n[Final Chorus]\nThis Room Is Ours\nLet the bare floor learn our hopeful footsteps\nLet the new wall hold our names in pencil\nYour shoulder finds mine near the sill\nThe paint smell turns into bread\nThe neighbors pass and do not know us yet\nWe smile as if they will\nThis Room Is Ours",
+      "youtube": {
+        "title": "Fresh Paint - Warm 70s Piano Pop Ballad",
+        "description": "A tender first-apartment memory for coffee playlists, with a hopeful chorus about making a home from very little.",
+        "tags": [
+          "70s piano pop",
+          "first apartment song",
+          "nostalgic ballad",
+          "아침 음악",
+          "추억 팝송",
+          "감성 팝",
+          "old radio"
+        ]
+      },
+      "genreId": "oldpop-piano-ballad-70s",
+      "genreText": "1970s piano-led pop ballad, grand piano, string section entering at the chorus",
+      "lyricTheme": "senioroldpop-housewarming-record-stack",
+      "lyricThemeText": "stacking records beside a borrowed turntable in a first apartment still smelling of fresh paint",
+      "lyricThemeArc": "bare-room worry becoming hopeful belonging",
+      "pov": "firstPerson",
+      "verseStyle": "dialogue",
+      "verseStyleText": "verse lines use direct address or short conversational fragments without becoming spoken-word",
+      "chorusStyle": "image",
+      "chorusStyleText": "chorus lines focus on sensory images, objects, light, weather, and small gestures",
+      "effectiveVocalPresetId": "warm-mature-male",
+      "vocalPresetSource": "plan",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 5,
+      "title": "Step Into The Glow",
+      "titleLocalized": "춤추던 공원",
+      "seasonMoment": "bright park bandstand at the edge of early autumn",
+      "listenerSituation": "A young woman watches couples circle near a park bandstand, then takes one brave step toward the dance floor.",
+      "emotionArc": "wistful watching turning into a small brave step",
+      "distinctChoice": {
+        "ruleId": "ARRANGEMENT_NUANCE",
+        "descriptionKo": "탐색 슬롯으로 모타운 팝 소울에 브리티시 비트와 부드러운 차차 색을 섞어 공원 춤 장면을 만든다."
+      },
+      "hookPhrase": "Step Into The Glow",
+      "stylePrompt": "Motown Pop Soul with British beat pop and gentle cha-cha color, 98 BPM, tambourine on all four beats, melodic electric bass, horn section stabs, jangly 12-string guitar, Verse: I-vi-IV-V doo-wop progression / Chorus: I-V-vi-iii-IV-I-IV-V progression / Bridge: I-V-vi-IV progression, soft warm female alto, light rhythmic phrasing, clear glassy brightness, medium analog dance-pop soul, short string counterline intro, call-and-answer hook riff, lead jumps one octave into final chorus without belting, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copyrighted song reference, soundalike vocal, real artist or band names, existing song title, shouted high notes, belted vocal peaks, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation hiding the melody, cavernous hall reverb, gated reverb, sidechain compression, digital synth pads, autotuned vocal, trap hi-hats, lo-fi vinyl crackle effect, flat chorus, monotonous melody contour, generic demo-band sound, glossy karaoke backing track, muddy low-end mix, thin placeholder hook, harsh horn blasts, frantic dance tempo, brittle jangle, novelty cha-cha parody",
+      "lyrics": "[intro]\nThe grass is buzzing, and my shoes know why under lanterns\n\n[Verse 1]\nCouples turn beside the painted pavilion\nA spotlight skips across a laughing heel\nMy yellow dress catches someone calling\nThe crowded circle opens, bright and loud\nI hold my breath behind a paper cup\nThen let my left foot answer first\nThree aunties call instructions at once\n\n[Chorus]\nStep Into The Glow\nSway where the brave hands find you\nLaugh when the whole park turns\nLet the bright floor carry your name\n\n[Verse 2]\nYour cousin waves me toward the middle\nMy shy grin travels faster than I planned\nTwo little girls copy our turning shoulders\nThe benches clap along with summer dust\nThe park smells sweet with cut grass\nI nearly miss the second spin\nThen find my balance near your sleeve\n\n[Bridge]\n\n[Chorus]\nSway where the brave hands find you\nStep Into The Glow\nLaugh when the whole park turns\nLet the bright floor carry your name\n\n[Final Chorus]\nStep Into The Glow\nSway where the brave hands find you\nLaugh when the whole park turns\nMy brave heel lands right on answer\nMy heart rises clean above the circle\nLet the bright floor carry your name proudly again\nStep Into The Glow",
+      "youtube": {
+        "title": "Step Into The Glow - Upbeat Retro Park Dance",
+        "description": "A brighter old-pop soul track for comfortable morning energy, picturing a park dance where one small step becomes courage.",
+        "tags": [
+          "motown pop soul",
+          "retro dance song",
+          "70s pop",
+          "아침 음악",
+          "추억 팝송",
+          "계절 플레이리스트",
+          "coffee playlist"
+        ]
+      },
+      "genreId": "oldpop-motown-pop-soul",
+      "genreText": "Motown-style pop soul, tambourine on all four beats, melodic electric bass, lead pushed hard into the horn stabs on the chorus",
+      "lyricTheme": "senioroldpop-park-bandstand-waltz",
+      "lyricThemeText": "watching couples waltz beside a park bandstand as evening insects hum in the grass",
+      "lyricThemeArc": "wistful watching turning into a small brave step",
+      "pov": "firstPerson",
+      "verseStyle": "image",
+      "verseStyleText": "verse lines focus on sensory images, objects, light, weather, and small gestures",
+      "chorusStyle": "hookRepeat",
+      "chorusStyleText": "chorus lines use compact repeated hook callbacks and simple answer phrases",
+      "effectiveVocalPresetId": "soft-female",
+      "vocalPresetSource": "plan",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 6,
+      "title": "Aisle Seven",
+      "titleLocalized": "그 마트에서",
+      "seasonMoment": "present-day November grocery aisle with pear displays",
+      "listenerSituation": "Two old friends meet unexpectedly in a grocery aisle and forget the shopping list while laughing over small news.",
+      "emotionArc": "routine surprise opening into grateful laughter",
+      "distinctChoice": {
+        "ruleId": "VERSE_TAIL_REPEAT",
+        "descriptionKo": "두 절의 마지막을 aisle seven으로 끝내 현재의 우연한 만남을 한 장소에 고정한다.",
+        "params": {
+          "phrase": "aisle seven"
+        }
+      },
+      "hookPhrase": "Laugh With Me Again",
+      "stylePrompt": "Philly Sweet Soul, 82 BPM, sweeping string section, vibraphone, soft sixteenth-note hi-hat, smooth electric bass, Verse: IV-I-V-vi warm cycle progression / Chorus: I-V-vi-IV progression / Bridge: ii-V-I turnaround, maj7 add9 color, small mixed vocal group, call and answer, wide octave harmony, medium chamber soul arrangement, nylon-string acoustic intro color, pre-chorus dropout into chorus, four-part close harmony stacks under the final note, simple stepwise melody, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copyrighted song reference, soundalike vocal, real artist or band names, existing song title, shouted high notes, belted vocal peaks, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation hiding the melody, cavernous hall reverb, gated reverb, sidechain compression, digital synth pads, autotuned vocal, trap hi-hats, lo-fi vinyl crackle effect, flat chorus, monotonous melody contour, generic demo-band sound, glossy karaoke backing track, muddy low-end mix, thin placeholder hook, overripe string swells, crowded harmony blur, showy vocal runs, lounge pastiche",
+      "lyrics": "[intro]\n\n[Verse 1: Male Vocal]\nYou reach for pears above the frozen case\nI know your laugh before your face turns\nYour glasses flash with November window glare\nThe pears tumble softly into my basket\nMy list slides down behind the cart handle\nMilk can wait, and so can onions\nYou ask about my knees and granddaughter\nWe block the traffic in aisle seven\n\n[Chorus: Male and Female Duet]\nLaugh With Me Again\nLet the oranges roll between us\nLet the clerk pretend he minds\nWe have enough time for one more story\n\n[Verse 2: Female Vocal]\nYour hat sits crooked from the parking wind\nI tell you mine has lost its ribbon\nThe shopping list folds itself forgotten\nYou ask if I still make plum jam\nI say the jars are waiting\nWe compare our coupons like old medals\nNo one hurries us through aisle seven\n\n[Chorus: Male and Female Duet]\nLet the oranges roll between us\nLaugh With Me Again\nLet the clerk pretend he minds\nWe have enough time for one more story\n\n[Final Chorus: Male and Female Duet Harmony]\nLaugh With Me Again\nLet the oranges roll between us\nLet the clerk pretend he minds\nThe pears shine softly in both our baskets\nThe day goes bright behind our shoulders\nWe have enough time for one more story\nLaugh With Me Again",
+      "youtube": {
+        "title": "Aisle Seven - Sweet Soul Grocery Reunion",
+        "description": "A warm Philly soul duet about meeting an old friend in an ordinary grocery aisle and letting the errands wait.",
+        "tags": [
+          "philly sweet soul",
+          "old friend song",
+          "morning coffee music",
+          "추억 팝송",
+          "50대 음악",
+          "60대 음악",
+          "soft oldies"
+        ]
+      },
+      "genreId": "oldpop-philly-soul-sweet",
+      "genreText": "1970s Philadelphia sweet soul, sweeping string section, vibraphone, velvet Philadelphia-style orchestral soul mix",
+      "lyricTheme": "senioroldpop-grocery-aisle-meeting",
+      "lyricThemeText": "meeting an old friend in a grocery aisle and forgetting the shopping list completely",
+      "lyricThemeArc": "routine surprise opening into grateful laughter",
+      "pov": "secondPerson",
+      "verseStyle": "dialogue",
+      "verseStyleText": "verse lines use direct address or short conversational fragments without becoming spoken-word",
+      "chorusStyle": "hookRepeat",
+      "chorusStyleText": "chorus lines use compact repeated hook callbacks and simple answer phrases",
+      "effectiveVocalPresetId": "mixed-harmony-group",
+      "vocalPresetSource": "plan",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 7,
+      "title": "Spin Slow, Heart",
+      "titleLocalized": "도시 세탁소",
+      "seasonMoment": "young city morning inside a steamy laundromat",
+      "listenerSituation": "A young man waits alone in a city laundromat, watching a favorite coat turn behind the glass while his impatience settles.",
+      "emotionArc": "tedious waiting becoming reflective calm",
+      "distinctChoice": {
+        "ruleId": "KEY_LIFT",
+        "descriptionKo": "마지막 후렴 직전에 한 번만 반음 전조를 넣어 기다림이 풀리는 순간을 만든다."
+      },
+      "hookPhrase": "Spin Slow, Heart",
+      "stylePrompt": "Motown Pop Soul with British beat jangle and gentle country-soul color, 94 BPM, tambourine on all four beats, melodic electric bass, gospel-toned backing vocals, 12-string guitar, Verse: I-vi-IV-V doo-wop progression / Chorus: I-V-vi-IV progression, low calm male baritone, legato sustained lines, slight nasal brightness, full but warm analog room, soft slide-guitar intro color, narrow repeated hook rhythm, single semitone key lift into final chorus, lead lifts into falsetto on final chorus, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copyrighted song reference, soundalike vocal, real artist or band names, existing song title, shouted high notes, belted vocal peaks, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation hiding the melody, cavernous hall reverb, gated reverb, sidechain compression, digital synth pads, autotuned vocal, trap hi-hats, lo-fi vinyl crackle effect, flat chorus, monotonous melody contour, generic demo-band sound, glossy karaoke backing track, muddy low-end mix, thin placeholder hook, nasal harshness, rushed laundromat novelty, overdone falsetto, brittle 12-string",
+      "lyrics": "[intro]\nThe change in my palm feels heavy today\n\n[Verse 1]\nSoap scent gathers on the tiled floor\nMy favorite coat turns behind round glass\nA student reads the paper standing up\nWinter steam beads on the silver door\nA child counts quarters by the heater\nThe owner nods above his newspaper\nTraffic slides blue across the front door\nI learn to wait without checking time for once\n\n[Chorus]\nSpin Slow, Heart\nLet the old coat circle gently\nLet the city cool its hurry\nI am almost easy with myself\n\n[Verse 2]\nThe sleeve comes clean where rain had darkened\nMy knees quit tapping under me\nMy loose change stops sounding lonely\nThe city keeps its elbows to itself\nA woman folds towels with perfect corners\nThe window fog carries someone's name\nI breathe until the buzzer calls\nAnd stand less angry at the day\n\n[Bridge]\n\n[Chorus]\nLet the old coat circle gently\nSpin Slow, Heart\nLet the city cool its hurry\nI am almost easy with myself\n\n[Final Chorus]\nSpin Slow, Heart\nLet the old coat circle gently\nLet the city cool its hurry\nMy thin patience opens like a door\nThe clean wool smells like rain forgiven\nI am almost easy with myself\nSpin Slow, Heart",
+      "youtube": {
+        "title": "Spin Slow, Heart - Retro Soul Laundromat Memory",
+        "description": "A warm Motown-pop-soul highlight about a laundromat wait becoming a small lesson in patience.",
+        "tags": [
+          "motown pop soul",
+          "laundromat song",
+          "retro oldies",
+          "커피 음악",
+          "추억 팝송",
+          "70s radio",
+          "adult pop"
+        ]
+      },
+      "genreId": "oldpop-motown-pop-soul",
+      "genreText": "Motown-style pop soul, tambourine on all four beats, melodic electric bass",
+      "lyricTheme": "senioroldpop-laundromat-quarter-spin",
+      "lyricThemeText": "feeding quarters into a laundromat machine while a favorite coat turns behind the glass",
+      "lyricThemeArc": "tedious waiting becoming reflective calm",
+      "pov": "firstPerson",
+      "verseStyle": "image",
+      "verseStyleText": "verse lines focus on sensory images, objects, light, weather, and small gestures",
+      "chorusStyle": "hookRepeat",
+      "chorusStyleText": "chorus lines use compact repeated hook callbacks and simple answer phrases",
+      "effectiveVocalPresetId": "low-calm-male",
+      "vocalPresetSource": "plan",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 8,
+      "title": "Tiny Hand",
+      "titleLocalized": "작은 손인사",
+      "seasonMoment": "present-day nursery window during the first cold week",
+      "listenerSituation": "A family waits outside a hospital nursery until a nurse lifts one bundled newborn hand toward the glass.",
+      "emotionArc": "anxious pacing breaking into wordless gratitude",
+      "distinctChoice": {
+        "ruleId": "VERSE2_HALF_LENGTH",
+        "descriptionKo": "2절을 짧게 줄여 긴 기다림 뒤 작은 손인사가 곧바로 후렴으로 이어지게 한다."
+      },
+      "hookPhrase": "Here Comes Love",
+      "stylePrompt": "Philly Sweet Soul, 98 BPM, sweeping string section, vibraphone, soft sixteenth-note hi-hat, smooth electric bass, Verse: IV-I-V-vi warm cycle progression / Chorus: I-vi-IV-V doo-wop progression, soft warm female alto, tender confiding delivery, velvety low resonance, full layered 1970s soul arrangement, bouncy string intro figure, call-and-response hook shape, lead drops low into the hook on final chorus, almost a cappella final tag feel inside final chorus, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copyrighted song reference, soundalike vocal, real artist or band names, existing song title, shouted high notes, belted vocal peaks, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation hiding the melody, cavernous hall reverb, gated reverb, sidechain compression, digital synth pads, autotuned vocal, trap hi-hats, lo-fi vinyl crackle effect, flat chorus, monotonous melody contour, generic demo-band sound, glossy karaoke backing track, muddy low-end mix, thin placeholder hook, sentimental overacting, hospital sound effects, syrupy nursery bells, overpowering strings",
+      "lyrics": "[intro]\nWhite hallway breath, count softly now outside the glass\n\n[Verse 1]\nYour brother paces near the nursery glass\nGrandfather stands too straight beside the flowers\nMother smooths her coat for the third time\nMy sister keeps counting all the floor tiles\nSomeone brings paper cups we barely taste\nThe wall clock clicks with careful manners\nSomeone says breathe, and nobody does\nWe trade small news to hide our worry\nThen the nurse turns with a bundle\n\n[Chorus]\nHere Comes Love\nA tiny hand lifts through the window slowly\nAll our words fall back together\nThe room becomes a kinder world\n\n[Verse 2]\nYou cover your mouth and start laughing\nFather wipes his glasses with two fingers\nYour sleeve is damp where I grabbed it\nThe baby opens one dark eye\n\n[Bridge]\n\n[Chorus]\nA tiny hand lifts through the window slowly\nHere Comes Love\nAll our words fall back together\nThe room becomes a kinder world\n\n[Final Chorus]\nHere Comes Love\nA tiny hand lifts through the window slowly\nAll our words fall back together\nGrandmother's ring knocks softly on glass\nThe waiting hallway becomes a cradle\nNo one remembers how to speak\nYour face shines lower than a whisper\nThe room becomes a kinder world\nHere Comes Love",
+      "youtube": {
+        "title": "Tiny Hand - Tender 70s Sweet Soul Family Song",
+        "description": "A gentle family-arrival song for warm seasonal playlists, centered on the first tiny wave from behind a nursery window.",
+        "tags": [
+          "philly soul",
+          "family song",
+          "new baby song",
+          "아침 음악",
+          "감성 팝",
+          "추억 팝송",
+          "soft soul"
+        ]
+      },
+      "genreId": "oldpop-philly-soul-sweet",
+      "genreText": "1970s Philadelphia sweet soul, sweeping string section, vibraphone",
+      "lyricTheme": "senioroldpop-newborn-waiting-room",
+      "lyricThemeText": "waiting outside a hospital nursery until a nurse lifts one tiny bundled hand",
+      "lyricThemeArc": "anxious pacing breaking into wordless gratitude",
+      "pov": "secondPerson",
+      "verseStyle": "dialogue",
+      "verseStyleText": "verse lines use direct address or short conversational fragments without becoming spoken-word",
+      "chorusStyle": "hookRepeat",
+      "chorusStyleText": "chorus lines use compact repeated hook callbacks and simple answer phrases",
+      "effectiveVocalPresetId": "soft-female",
+      "vocalPresetSource": "plan",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 9,
+      "title": "Paper Vows",
+      "titleLocalized": "서약의 계단",
+      "seasonMoment": "young courthouse steps in crisp fall air",
+      "listenerSituation": "Two young people stand on courthouse steps holding a marriage-license folder between trembling hands.",
+      "emotionArc": "formal nervousness opening into lifelong promise",
+      "distinctChoice": {
+        "ruleId": "FINAL_QUESTION",
+        "descriptionKo": "마지막 후렴의 마지막 줄을 질문형 훅으로 남겨 서약 직전의 떨림을 끝까지 유지한다."
+      },
+      "hookPhrase": "Will You Stay?",
+      "stylePrompt": "70s Piano Pop Ballad, 76 BPM, grand piano, warm bass, restrained brushed drums, 12-string electric guitar, I-V-vi-IV verses, vi-IV-I-V chorus lift, soft warm female alto, bright forward delivery, slight smoky depth, medium tape-slap ballad arrangement, light pizzicato string intro color, half-time chorus weight, solo instrument answers the vocal line after second chorus, symmetric four-bar phrases, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copyrighted song reference, soundalike vocal, real artist or band names, existing song title, shouted high notes, belted vocal peaks, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation hiding the melody, cavernous hall reverb, gated reverb, sidechain compression, digital synth pads, autotuned vocal, trap hi-hats, lo-fi vinyl crackle effect, flat chorus, monotonous melody contour, generic demo-band sound, glossy karaoke backing track, muddy low-end mix, thin placeholder hook, oversized wedding drama, brittle tape echo, melodramatic sobbing, rushed vow phrasing",
+      "lyrics": "[intro]\n\n[Verse 1]\nThe courthouse stone is cool through my glove\nLoose leaves hop twice near the courthouse drain\nYour folder rests between our shaking hands\nA clerk says lunch begins in ten today\nYou whisper that ten is plenty\nYour new shoes shine against the stone\nMy hatpin worries at my collar\nI laugh too softly for the small steps\n\n[Chorus]\nThe seal is red beneath your thumb\nWill You Stay?\nOur names lean close across the page\nThe cold air cannot move us from these steps\n\n[Verse 2]\nYou ask if I am frightened\nI say yes, but not of you\nA courthouse flag snaps near the railing\nA woman behind us hums and smiles\nThe folder smells like ink and wool\nYour smile steadies both my knees\nThe folder warms against my coat\nWe turn toward the open door\n\n[Chorus]\nThe seal is red beneath your thumb\nWill You Stay?\nOur names lean close across the page\nThe cold air cannot move us from these steps\n\n[Final Chorus]\nWill You Stay?\nThe seal is red beneath your thumb\nOur names lean close across the page\nThe cold air cannot move us from these steps\nI take your hand above the steps\nWill You Stay?",
+      "youtube": {
+        "title": "Paper Vows - 70s Piano Pop Wedding Memory",
+        "description": "A restrained courthouse-love ballad for nostalgic listening, carrying the nervous grace of a young promise.",
+        "tags": [
+          "70s piano ballad",
+          "wedding memory",
+          "nostalgic pop",
+          "커피 음악",
+          "추억 팝송",
+          "감성 팝",
+          "adult ballad"
+        ]
+      },
+      "genreId": "oldpop-piano-ballad-70s",
+      "genreText": "1970s piano-led pop ballad, grand piano, string section entering at the chorus, verse delivered near-spoken, chorus opened into full chest voice",
+      "lyricTheme": "senioroldpop-courthouse-license-steps",
+      "lyricThemeText": "standing on courthouse steps with a marriage license folder held between two trembling hands",
+      "lyricThemeArc": "formal nervousness opening into lifelong promise",
+      "pov": "firstPerson",
+      "verseStyle": "dialogue",
+      "verseStyleText": "verse lines use direct address or short conversational fragments without becoming spoken-word",
+      "chorusStyle": "image",
+      "chorusStyleText": "chorus lines focus on sensory images, objects, light, weather, and small gestures",
+      "effectiveVocalPresetId": "soft-female",
+      "vocalPresetSource": "plan",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 10,
+      "title": "Call My Number",
+      "titleLocalized": "행운의 자리",
+      "seasonMoment": "present-day community center after breakfast hour",
+      "listenerSituation": "Neighbors mark bingo cards at a community center, teasing each other over lucky seats until the room becomes cheerful.",
+      "emotionArc": "small competition warming into shared delight",
+      "distinctChoice": {
+        "ruleId": "ARRANGEMENT_NUANCE",
+        "descriptionKo": "탐색 슬롯으로 모타운 팝 소울에 이지 부갈루와 라운지 소울을 섞고 브릿지에서 순간적으로 비운다."
+      },
+      "hookPhrase": "Call My Number",
+      "stylePrompt": "Motown Pop Soul with easy boogaloo and lounge-soul color, 98 BPM, tambourine on all four beats, melodic electric bass, horn section stabs, tight handclap backbeat, Verse: I-vi-IV-V doo-wop progression / Chorus: IV-I-V-vi warm cycle progression, mature soulful male tenor, clipped rhythmic phrasing, smoky low resonance, full close-mic analog arrangement, soft acoustic harmonics intro, rising sequence into chorus, instruments drop out in the bridge, octave-bright final chorus color without belting, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copyrighted song reference, soundalike vocal, real artist or band names, existing song title, shouted high notes, belted vocal peaks, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation hiding the melody, cavernous hall reverb, gated reverb, sidechain compression, digital synth pads, autotuned vocal, trap hi-hats, lo-fi vinyl crackle effect, flat chorus, monotonous melody contour, generic demo-band sound, glossy karaoke backing track, muddy low-end mix, thin placeholder hook, casino novelty tone, hard Latin percussion, brassy strain, rushed callouts",
+      "lyrics": "[intro]\n\n[Verse 1]\nMabel claims the corner table first\nSam says her sweater brings the luck\nThe bulletin board curls at one corner\nRain taps once against the entrance glass\nI mark my card beside the coffee urn\nSomeone hides a smile behind a cough\nThe caller clears his throat with ceremony\nAnd half the room leans forward\n\n[Chorus]\nCall My Number\nLet the little squares turn lucky\nLet the neighbors argue kindly\nWe all win when laughter rises\n\n[Verse 2]\nMy dauber stains my fingertips green\nRuth borrows mine and promises cake\nMabel swears the blue cards favor Tuesday\nI trade my seat with Mr. Lee\nThe room knows who will tease too loudly\nA chair scrapes back, then settles\nI miss one square and blame my glasses\nSam points it out before I can\n\n[Chorus]\nLet the little squares turn lucky\nCall My Number\nLet the neighbors argue kindly\nWe all win when laughter rises\n\n[Bridge]\nFor two clear breaths, the whole room waits\nThe caller smiles over his folded sheet\nEven Ruth keeps both hands folded\n\n[Final Chorus]\nCall My Number\nLet the little squares turn lucky\nLet the neighbors argue kindly\nThe card in my hand feels lighter for a while\nWe all win when laughter rises\nCall My Number",
+      "youtube": {
+        "title": "Call My Number - Retro Soul Community Center Song",
+        "description": "A warm, upbeat old-pop soul track about neighbors, bingo cards, and shared delight at a community center.",
+        "tags": [
+          "motown soul",
+          "community song",
+          "retro pop",
+          "아침 음악",
+          "50대 음악",
+          "60대 음악",
+          "추억 팝송"
+        ]
+      },
+      "genreId": "oldpop-motown-pop-soul",
+      "genreText": "Motown-style pop soul, tambourine on all four beats, melodic electric bass, velvet-toned romantic lead vocal",
+      "lyricTheme": "senioroldpop-bingo-community-center",
+      "lyricThemeText": "marking a bingo card at the community center while neighbors argue over lucky seats",
+      "lyricThemeArc": "small competition warming into shared delight",
+      "pov": "firstPerson",
+      "verseStyle": "dialogue",
+      "verseStyleText": "verse lines use direct address or short conversational fragments without becoming spoken-word",
+      "chorusStyle": "narrative",
+      "chorusStyleText": "chorus lines unfold as plain scene narration with concrete actions and time movement",
+      "effectiveVocalPresetId": "warm-mature-male",
+      "vocalPresetSource": "plan",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 11,
+      "title": "Take The Stage",
+      "titleLocalized": "무대 뒤에서",
+      "seasonMoment": "young school auditorium during a cool November program",
+      "listenerSituation": "A young man waits backstage at a school talent show while friends whisper and the curtains move.",
+      "emotionArc": "stage fright turning into shining confidence",
+      "distinctChoice": {
+        "ruleId": "VERSE_TAIL_REPEAT",
+        "descriptionKo": "각 절 끝을 behind the curtain으로 맞춰 무대 뒤 떨림이 같은 자리에서 달라지는 느낌을 준다.",
+        "params": {
+          "phrase": "behind the curtain"
+        }
+      },
+      "hookPhrase": "Take The Stage",
+      "stylePrompt": "70s Piano Pop Ballad, 94 BPM, grand piano, string section entering at chorus, restrained brushed drums, warm bass, Verse: I-V-vi-IV progression / Chorus: I-vi-IV-V doo-wop progression, mature soulful male tenor, conversational unhurried phrasing, clean rounded tone, medium dry-forward arrangement, singing begins immediately with no lyric intro tag, double-tracked hook widening a third above, sustained lead note into final chorus, two-note pickup phrasing, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copyrighted song reference, soundalike vocal, real artist or band names, existing song title, shouted high notes, belted vocal peaks, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation hiding the melody, cavernous hall reverb, gated reverb, sidechain compression, digital synth pads, autotuned vocal, trap hi-hats, lo-fi vinyl crackle effect, flat chorus, monotonous melody contour, generic demo-band sound, glossy karaoke backing track, muddy low-end mix, thin placeholder hook, school-play novelty, forced applause effects, brittle chorus lift, overly theatrical vibrato",
+      "lyrics": "[Verse 1]\nCurtain dust freckles my Sunday jacket\nEddie whispers jokes he cannot finish\nMy paper star is crooked on my chest\nWarm breath gathers near the side door\nA teacher checks the list twice\nMy palms make moons on my trousers\nThe hallway crowd sounds far away\nI count three breaths behind the curtain\n\n[Chorus]\nTake The Stage\nLet the first step find the floor\nLet the red seat rows turn friendly\nYour name can stand there by itself\n\n[Verse 2]\nSomeone pats my shoulder and misses\nMy cue card bends at one corner\nThe cue lamp winks above my head\nEddie mouths the first word for me\nI hear my mother clear her throat\nAnd stop being small behind the curtain\n\n[Bridge]\nI almost laugh at all this worry\nIt has borrowed my good shoes\nMy knees remember they can carry me\n\n[Chorus]\nLet the first step find the floor\nTake The Stage\nLet the red seat rows turn friendly\nYour name can stand there by itself\n\n[Instrumental Break]\n\n[Final Chorus]\nTake The Stage\nLet the first step find the floor\nLet the red seat rows turn friendly\nMy held note carries me forward again\nYour name can stand there by itself for once\nTake The Stage",
+      "youtube": {
+        "title": "Take The Stage - 70s Piano Pop Talent Show Memory",
+        "description": "A tender reflective pop ballad about backstage nerves becoming confidence at a school auditorium talent show.",
+        "tags": [
+          "70s piano pop",
+          "school memory",
+          "nostalgic ballad",
+          "아침 음악",
+          "감성 팝",
+          "추억 팝송",
+          "coffee music"
+        ]
+      },
+      "genreId": "oldpop-piano-ballad-70s",
+      "genreText": "1970s piano-led pop ballad, grand piano, string section entering at the chorus",
+      "lyricTheme": "senioroldpop-school-auditorium-talent",
+      "lyricThemeText": "standing backstage at a school auditorium talent show while curtains rustle and friends whisper",
+      "lyricThemeArc": "stage fright turning into shining confidence",
+      "pov": "firstPerson",
+      "verseStyle": "narrative",
+      "verseStyleText": "verse lines unfold as plain scene narration with concrete actions and time movement",
+      "chorusStyle": "hookRepeat",
+      "chorusStyleText": "chorus lines use compact repeated hook callbacks and simple answer phrases",
+      "effectiveVocalPresetId": "warm-mature-male",
+      "vocalPresetSource": "plan",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 12,
+      "title": "Harvest Hands",
+      "titleLocalized": "수확 뒤 달빛",
+      "seasonMoment": "autumn orchard lane after the harvest crates are stacked",
+      "listenerSituation": "Two young workers walk a moonlit orchard lane after harvest while stacked crates rest beside the barn.",
+      "emotionArc": "hard work settling into tender quiet",
+      "distinctChoice": {
+        "ruleId": "ARRANGEMENT_NUANCE",
+        "descriptionKo": "탐색 슬롯으로 모타운 팝 소울에 브리티시 비트와 포크팝 산책감을 겹쳐 수확 뒤 길을 만든다."
+      },
+      "hookPhrase": "Walk Home Close",
+      "stylePrompt": "Motown Pop Soul with British beat and folk-pop walk color, 94 BPM, tambourine on all four beats, melodic electric bass, horn section stabs, 12-string guitar, Verse: I-vi-IV-V doo-wop progression / Chorus: IV-I-V-vi warm cycle progression, small mixed vocal group, trading lines mid-phrase, close third harmony, medium intimate analog arrangement, glassy electric piano intro, bridge strips to voice and one instrument, strings build steadily under final chorus, top-three-scale hook shape, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copyrighted song reference, soundalike vocal, real artist or band names, existing song title, shouted high notes, belted vocal peaks, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation hiding the melody, cavernous hall reverb, gated reverb, sidechain compression, digital synth pads, autotuned vocal, trap hi-hats, lo-fi vinyl crackle effect, flat chorus, monotonous melody contour, generic demo-band sound, glossy karaoke backing track, muddy low-end mix, thin placeholder hook, rural caricature, rushed walking groove, harsh tambourine, stiff duet trading",
+      "lyrics": "[intro]\n\n[Verse 1: Female Vocal]\nYour sleeves smell of apples and cold grass\nThe barn door rests against the dark\nThe ladder shadows cross the lane behind us without any hurry now\nYour hair holds little leaves from the low limbs\nCrates stand stacked like patient neighbors\nI count the bruised fruit in your basket\nYou say the first frost may arrive soon\nI step where your boot has softened dust\n\n[Chorus: Male and Female Duet]\nWalk Home Close\nLet the orchard keep our secret\nLet the lane bend slow beneath us\nOur tired hands know where to rest\n\n[Verse 2: Male Vocal]\nYou tuck one apple in my pocket\nI tell you it will sweeten my coat\nThe moon lays silver on the ruts\nOur breath shows briefly over the fence\nI hear your laugh settle into mine\nYour shoulder brushes mine at the gate\nNo one calls from the farmhouse now\nWe leave the hard day on the crates\n\n[Chorus: Male and Female Duet]\nLet the orchard keep our secret\nWalk Home Close\nLet the lane bend slow beneath us\nOur tired hands know where to rest\n\n[Final Chorus: Male and Female Duet Harmony]\nWalk Home Close\nLet the orchard keep our secret\nLet the lane bend slow beneath us\nThe stacked crates fade behind the barn\nOur tired hands know where to rest\nWalk Home Close",
+      "youtube": {
+        "title": "Harvest Hands - Warm Orchard Soul Duet",
+        "description": "A gentle autumn duet with old-pop soul warmth, following two workers down an orchard lane after harvest.",
+        "tags": [
+          "motown pop soul",
+          "autumn playlist",
+          "orchard song",
+          "추억 팝송",
+          "계절 플레이리스트",
+          "커피 음악",
+          "retro duet"
+        ]
+      },
+      "genreId": "oldpop-motown-pop-soul",
+      "genreText": "Motown-style pop soul, tambourine on all four beats, melodic electric bass, gospel-toned backing",
+      "lyricTheme": "senioroldpop-orchard-moon-lane",
+      "lyricThemeText": "walking a moonlit orchard lane after harvest while crates sit stacked beside the barn",
+      "lyricThemeArc": "hard work settling into tender quiet",
+      "pov": "secondPerson",
+      "verseStyle": "dialogue",
+      "verseStyleText": "verse lines use direct address or short conversational fragments without becoming spoken-word",
+      "chorusStyle": "hookRepeat",
+      "chorusStyleText": "chorus lines use compact repeated hook callbacks and simple answer phrases",
+      "effectiveVocalPresetId": "mixed-harmony-group",
+      "vocalPresetSource": "plan",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 13,
+      "title": "Porch Score",
+      "titleLocalized": "그날의 중계",
+      "seasonMoment": "autumn porch steps during a neighborhood championship broadcast",
+      "listenerSituation": "Neighbors gather on porch steps around a portable radio during a championship game, then settle into shared warmth.",
+      "emotionArc": "restless cheering settling into neighborhood warmth",
+      "distinctChoice": {
+        "ruleId": "SINGLE_CHORUS",
+        "descriptionKo": "후렴을 마지막에 한 번만 두어 경기 중계의 기다림이 끝까지 쌓이다가 조용히 풀리게 한다."
+      },
+      "hookPhrase": "Stay Till The Call",
+      "stylePrompt": "Brush Ballad Jazz, 86 BPM, upright bass, brushed drums, piano-led arrangement, 12-string guitar color, Verse: I-V-vi-IV progression / Chorus: I-vi-IV-V doo-wop progression, mature elegant female mezzo-soprano, tender confiding delivery, faint vibrato shimmer, medium warm live-room arrangement, bouncy string intro color, paired antecedent-consequent melody, full stop before the band crashes back on the hook, close four-part backing harmony, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copyrighted song reference, soundalike vocal, real artist or band names, existing song title, shouted high notes, belted vocal peaks, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation hiding the melody, cavernous hall reverb, gated reverb, sidechain compression, digital synth pads, autotuned vocal, trap hi-hats, lo-fi vinyl crackle effect, flat chorus, monotonous melody contour, generic demo-band sound, glossy karaoke backing track, muddy low-end mix, thin placeholder hook, showy jazz solo clutter, smoky nightclub gloom, harsh brass peaks, sports-jingle parody",
+      "lyrics": "[intro]\nPorch boards creak, the whole block leans in under scarf collars\n\n[Verse 1]\nMr. Allen sets the portable box on a crate\nMrs. Green brings biscuits in a tin\nChildren trade guesses at the railing\nI hold my cup between both knees\nThe announcer's voice thins through cool air\nAnd every porch lamp seems to listen\n\n[Verse 2]\nYour brother says the runner looked safe\nThree voices answer from the walk\nA screen door snaps and someone groans\nLeaves scrape softly near the steps\nThe score stays tied for one long minute\nOur whole street holds one breath\n\n[Pre-Chorus]\nThen the last call comes through broken static\nNobody moves until it lands\nAnd all our shoulders rise together\n\n[Bridge]\n\n[Verse 3]\nYour aunt saves one biscuit for the driver\nA boy draws bases in porch dust\nMy cup has cooled against my knee\nNobody wants to go indoors\nThe winning call keeps ringing softly\nLike a coin spun on a table\n\n[Final Chorus]\nStay Till The Call\nLet the porch steps hold our cheering\nLet the cold air turn kind around us\nNeighbors pass the tin from hand to hand\nThe game is over, but we remain a while longer together\nStay Till The Call",
+      "youtube": {
+        "title": "Porch Score - Brush Ballad Jazz Memory",
+        "description": "An intimate brush-jazz old-pop track about a neighborhood listening together on porch steps during a championship game.",
+        "tags": [
+          "brush ballad jazz",
+          "old radio mood",
+          "autumn playlist",
+          "추억 팝송",
+          "커피 음악",
+          "adult jazz vocal",
+          "nostalgic pop"
+        ]
+      },
+      "genreId": "jazz-brush-ballad-jazz",
+      "genreText": "Brush Ballad Jazz, relaxed swing pocket, upright bass, airy female vocal",
+      "lyricTheme": "senioroldpop-football-radio-porch",
+      "lyricThemeText": "listening to a championship game on a portable radio from the porch steps",
+      "lyricThemeArc": "restless cheering settling into neighborhood warmth",
+      "pov": "secondPerson",
+      "verseStyle": "narrative",
+      "verseStyleText": "verse lines unfold as plain scene narration with concrete actions and time movement",
+      "chorusStyle": "hookRepeat",
+      "chorusStyleText": "chorus lines use compact repeated hook callbacks and simple answer phrases",
+      "effectiveVocalPresetId": "mature-female",
+      "vocalPresetSource": "plan",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 14,
+      "title": "Snowbound Kindness",
+      "titleLocalized": "눈 오는 로비",
+      "seasonMoment": "winter motel lobby during a stalled road trip",
+      "listenerSituation": "A group of stranded travelers waits out a snowstorm in a motel lobby and begins sharing vending-machine snacks.",
+      "emotionArc": "stranded worry softening into temporary family",
+      "distinctChoice": {
+        "ruleId": "VERSE2_HALF_LENGTH",
+        "descriptionKo": "2절을 절반으로 줄이고 바로 연주 구간을 두어 낯선 사람들이 가까워지는 순간을 비운다."
+      },
+      "hookPhrase": "Share This Snow",
+      "stylePrompt": "Philly Sweet Soul, 63 BPM, sweeping string section, vibraphone, soft sixteenth-note hi-hat, 12-string guitar, Verse: I-V-vi-iii-IV-I-IV-V progression / Chorus: I-V-vi-IV progression, soft warm female alto, restrained understated reading, clean bell tone, sparse chamber soul arrangement, nylon-string acoustic intro color, stop-time accent on first chorus word, eight-bar saxophone solo break, descending hook resolution, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copyrighted song reference, soundalike vocal, real artist or band names, existing song title, shouted high notes, belted vocal peaks, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation hiding the melody, cavernous hall reverb, gated reverb, sidechain compression, digital synth pads, autotuned vocal, trap hi-hats, lo-fi vinyl crackle effect, flat chorus, monotonous melody contour, generic demo-band sound, glossy karaoke backing track, muddy low-end mix, thin placeholder hook, shrill saxophone, blizzard sound effects, sentimental holiday cliche, lounge excess",
+      "lyrics": "[intro]\nSnow pins the sign to the motel glass while tires cool outside near the door\n\n[Verse 1]\nThe clerk says the highway gate is closed\nA salesman opens crackers with a key\nTwo sisters split a candy bar in thirds\nA mother warms her hands around a cup\nThe television shows a city with clear streets\nNobody says whose plans have come undone\nA thermos passes slowly from chair to chair\nI watch our wet coats make a row\nAnd feel my worry loosen by inches\n\n[Chorus]\nShare This Snow\nLet the lobby hold us gently for a while\nLet the vending light turn generous by the desk\nStrangers pass the little sweetness on without speeches\n\n[Verse 2]\nA driver gives the child his scarf\nHer father thanks him with both tired eyes\nSomeone laughs at the tired weather map\nI move my suitcase from the doorway\n\n[Instrumental Break]\n\n[Final Chorus]\nShare This Snow\nLet the lobby hold us gently for a while\nLet the vending light turn generous by the desk\nThe road can wait beyond the window\nA paper napkin catches crumbs between us all\nStrangers pass the little sweetness on without speeches\nShare This Snow",
+      "youtube": {
+        "title": "Snowbound Kindness - Slow Philly Soul Winter Song",
+        "description": "A soft winter-road soul track about strangers becoming a temporary family while snow closes the highway.",
+        "tags": [
+          "philly soul",
+          "winter playlist",
+          "oldies ballad",
+          "추억 팝송",
+          "계절 플레이리스트",
+          "커피 음악",
+          "soft 70s soul"
+        ]
+      },
+      "genreId": "oldpop-philly-soul-sweet",
+      "genreText": "1970s Philadelphia sweet soul, sweeping string section, vibraphone",
+      "lyricTheme": "senioroldpop-snowbound-motel-lobby",
+      "lyricThemeText": "waiting out a snowstorm in a motel lobby while strangers share vending machine snacks",
+      "lyricThemeArc": "stranded worry softening into temporary family",
+      "pov": "firstPerson",
+      "verseStyle": "dialogue",
+      "verseStyleText": "verse lines use direct address or short conversational fragments without becoming spoken-word",
+      "chorusStyle": "narrative",
+      "chorusStyleText": "chorus lines unfold as plain scene narration with concrete actions and time movement",
+      "effectiveVocalPresetId": "soft-female",
+      "vocalPresetSource": "plan",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 15,
+      "title": "Chalk On Cloth",
+      "titleLocalized": "맞춤 양복날",
+      "seasonMoment": "young wedding morning at a small tailor shop",
+      "listenerSituation": "A young man stands alone while a tailor measures a wedding jacket and marks dark cloth with bright chalk.",
+      "emotionArc": "self-conscious nerves straightening into dignity",
+      "distinctChoice": {
+        "ruleId": "FINAL_QUESTION",
+        "descriptionKo": "마지막 줄을 질문형 훅으로 남기고 1번의 작은 상처럼 빛나는 표식을 살짝 되돌린다."
+      },
+      "hookPhrase": "Are We Home?",
+      "stylePrompt": "70s Piano Pop Ballad, 66 BPM, grand piano, 12-string electric guitar, restrained brushed drums, warm bass, I-V-vi-iii-IV-I-IV-V progression, low calm male baritone, storytelling spoken-edge delivery, warm woody midrange, sparse tape-slap ballad arrangement, singing begins immediately with no lyric intro tag, sustained first-word hook landing, one-bar rising swell into chorus, final chorus leaves an unresolved cadence, faint echo of track one small-prize glow, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copyrighted song reference, soundalike vocal, real artist or band names, existing song title, shouted high notes, belted vocal peaks, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation hiding the melody, cavernous hall reverb, gated reverb, sidechain compression, digital synth pads, autotuned vocal, trap hi-hats, lo-fi vinyl crackle effect, flat chorus, monotonous melody contour, generic demo-band sound, glossy karaoke backing track, muddy low-end mix, thin placeholder hook, overlarge wedding spectacle, comic tailor effects, syrupy sentiment, abrupt ending slam",
+      "lyrics": "[Verse 1]\nHe stands where the mirror doubles his shoulders\nThe tailor circles, pins tucked near his cuff\nThe room smells of wool and winter soap\nOutside, cousins rehearse their congratulations softly\nWhite chalk brightens the dark jacket cloth\nHis collar feels higher than yesterday\nA cousin waits outside with the flowers\nBut he keeps both hands at his sides\n\n[Chorus]\nAre We Home?\nLet the chalk mark find his courage\nLet the glass return a kinder face\nHe is nearly ready to be seen\n\n[Verse 2]\nThe tailor asks him to turn slowly\nThe measuring cord rests against his sleeve\nThe tailor smiles as if he knows\nA silver pin catches like a small prize\nHe smiles at the boy inside the suit\nAnd lets his back grow straight\n\n[Chorus]\nLet the chalk mark find his courage\nAre We Home?\nLet the glass return a kinder face\nHe is nearly ready to be seen\n\n[Instrumental Break]\n\n[Final Chorus]\nAre We Home?\nLet the chalk mark find his courage\nLet the glass return a kinder face\nThe small mark shines beside his button\nLike the little prize from years ago\nThe doorbell trembles once behind him\nSomewhere, a familiar laugh begins\nAre We Home?",
+      "youtube": {
+        "title": "Chalk On Cloth - Gentle 70s Piano Pop Closer",
+        "description": "A comforting closer about a wedding jacket fitting, dignity, and the small unfinished question that sends the playlist back around.",
+        "tags": [
+          "70s piano ballad",
+          "wedding song",
+          "nostalgic pop",
+          "아침 음악",
+          "추억 팝송",
+          "커피 음악",
+          "soft oldies"
+        ]
+      },
+      "genreId": "oldpop-piano-ballad-70s",
+      "genreText": "1970s piano-led pop ballad, grand piano, string section entering at the chorus",
+      "lyricTheme": "senioroldpop-tailor-wedding-jacket",
+      "lyricThemeText": "standing still while a tailor measures a wedding jacket and chalks bright marks on dark cloth",
+      "lyricThemeArc": "self-conscious nerves straightening into dignity",
+      "pov": "thirdPerson",
+      "verseStyle": "dialogue",
+      "verseStyleText": "verse lines use direct address or short conversational fragments without becoming spoken-word",
+      "chorusStyle": "hookRepeat",
+      "chorusStyleText": "chorus lines use compact repeated hook callbacks and simple answer phrases",
+      "effectiveVocalPresetId": "low-calm-male",
+      "vocalPresetSource": "plan",
+      "qualityScore": 0,
+      "warnings": []
+    }
+  ]
+}

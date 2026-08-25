@@ -1,0 +1,384 @@
+import type { WorkspaceId } from '../types';
+import type { RatingRecord } from './ratingLedger';
+import { currentWorkspaceId, DEFAULT_WORKSPACE_ID, scopeFilter } from './workspaceScope';
+import { SEED_VERIFIED_COMBOS, type VerifiedCombo } from '../data/verifiedCombos';
+import { listComboVariationRecords, mergeTriedVariationsIntoCombos } from './comboVariationLedger';
+
+/**
+ * v3.82 (TASK A) — IndexedDB-backed store for user-APPROVED verified combos
+ * (never auto-registered — see suggestCombosFromRatings's own doc comment),
+ * mirrors core/ratingLedger.ts's own openDb/withStore shape exactly. A
+ * separate database from suno-weaver-library/suno-weaver-ratings, same
+ * reasoning as ratingLedger.ts's own doc comment: deleting a saved pack must
+ * never delete a combo the user already approved.
+ */
+
+const DB_NAME = 'suno-weaver-verified-combos';
+const DB_VERSION = 1;
+const STORE = 'approvedCombos';
+
+function openDb(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(STORE)) {
+        db.createObjectStore(STORE, { keyPath: 'id' });
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error('IndexedDB open failed.'));
+  });
+}
+
+async function withStore<T>(mode: IDBTransactionMode, fn: (store: IDBObjectStore) => IDBRequest<T>): Promise<T> {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, mode);
+    const store = tx.objectStore(STORE);
+    const request = fn(store);
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error('IndexedDB request failed.'));
+    tx.oncomplete = () => db.close();
+  });
+}
+
+/** Persists a combo the user explicitly approved from a suggestion (see suggestCombosFromRatings) — this task's own "자동 등록하지 말 것. 제안하고 하루님이 승인하게 하십시오" means this is the ONLY write path; nothing in this module calls it automatically. */
+export async function approveCombo(combo: VerifiedCombo): Promise<void> {
+  await withStore('readwrite', store => store.put({ ...combo, workspaceId: combo.workspaceId ?? currentWorkspaceId() }));
+}
+
+export async function removeApprovedCombo(id: string): Promise<void> {
+  await withStore('readwrite', store => store.delete(id));
+}
+
+export async function getApprovedCombos(workspaceId?: WorkspaceId): Promise<VerifiedCombo[]> {
+  const all = await withStore<VerifiedCombo[]>('readonly', store => store.getAll());
+  return scopeFilter(all, workspaceId ?? currentWorkspaceId());
+}
+
+// ---------------------------------------------------------------------------
+// Pure logic — no IndexedDB below this line, so it's fully unit-testable
+// (mirrors core/ratingAnalysis.ts's own "pure analysis, storage stays at the
+// edge" split).
+// ---------------------------------------------------------------------------
+
+/** Seed combos (src/data/verifiedCombos.ts) + whatever the user has approved, scoped to one workspace. Seed entries win ties (checked first) since they're the ones this task's own §0 measurement directly backs. */
+export function effectiveVerifiedCombos(workspaceId: WorkspaceId, approved: readonly VerifiedCombo[]): VerifiedCombo[] {
+  const seedIds = new Set(SEED_VERIFIED_COMBOS.map(combo => combo.id));
+  return [
+    ...SEED_VERIFIED_COMBOS.filter(combo => combo.workspaceId === workspaceId),
+    ...approved.filter(combo => combo.workspaceId === workspaceId && !seedIds.has(combo.id))
+  ];
+}
+
+/**
+ * v5.23 (TASK D gap 3) — the one real entry point a generation-time caller
+ * should use instead of manually orchestrating getApprovedCombos +
+ * effectiveVerifiedCombos + listComboVariationRecords itself: folds
+ * core/comboVariationLedger.ts's own recorded tries into each combo's
+ * triedVariations (mergeTriedVariationsIntoCombos) so
+ * comboVariations.ts's generateUntriedVariations/nextComboVariation see
+ * the real, persistent "what's already been tried" history — not just
+ * whatever a combo's own seed/approved data happened to carry — the next
+ * time a flagship-variation track is planned. Three IndexedDB reads
+ * (approved combos, variation records) behind one call; every existing
+ * caller of getApprovedCombos+effectiveVerifiedCombos is unaffected since
+ * this is a new, additive function, not a change to either of those.
+ */
+export async function effectiveVerifiedCombosWithTriedVariations(workspaceId: WorkspaceId): Promise<VerifiedCombo[]> {
+  const [approved, records] = await Promise.all([getApprovedCombos(workspaceId), listComboVariationRecords(workspaceId)]);
+  const effective = effectiveVerifiedCombos(workspaceId, approved);
+  return mergeTriedVariationsIntoCombos(effective, records);
+}
+
+const FLAGSHIP_MIN_SAMPLE_SIZE = 3;
+
+/**
+ * TASK A (1-3) — "대표곡(2~3번) 배정 시 verdict==='good' 이고 sampleSize>=3인
+ * 조합을 우선 배정." Picks the single best candidate (highest sampleSize,
+ * `verdict:'bad'` entries never considered) whose genreId is actually
+ * available in this channel's own genre pool — a combo can't be assigned if
+ * the channel doesn't carry that genre at all. Returns undefined when
+ * nothing qualifies (e.g. a workspace with no verified-good combo yet, or
+ * none of its genreIds match this channel).
+ */
+export function resolveFlagshipCombo(effectiveCombos: readonly VerifiedCombo[], availableGenreIds: readonly string[]): VerifiedCombo | undefined {
+  const availableSet = new Set(availableGenreIds);
+  return effectiveCombos
+    .filter(combo => combo.verdict === 'good' && combo.sampleSize >= FLAGSHIP_MIN_SAMPLE_SIZE && availableSet.has(combo.genreId))
+    .sort((a, b) => b.sampleSize - a.sampleSize)[0];
+}
+
+/**
+ * TASK v4.6 (TASK B) — "대표곡(2~3번) 중 최소 1곡에 배정, 세트 전체에서 최소
+ * 2곡, 최대 5곡." Real cause of a real 8/3 pack's 0 philly-soul-sweet songs
+ * traced to two separate things: (1) that pack's own genre selection simply
+ * didn't include oldpop-philly-soul-sweet at all (resolveFlagshipCombo's own
+ * availableGenreIds gate correctly returns undefined in that case — not a
+ * bug, the combo genuinely doesn't apply to a set built from a different
+ * genre mix, per this task's own "컨셉의 시대·장르와 맞을 때만 적용"); (2) even
+ * when the combo's genre WAS selected, v3.82's own override only ever
+ * touched a single track (idx 1 / track 2) — this task's own §2-1 doc
+ * comment even says so explicitly ("a second approved combo would naturally
+ * have room to also fill track 3 later — never invents a second one").
+ * This function is the fix for (2): still guarantees the flagship slot
+ * (track 2) carries the combo's genre (same swap-preserving-counts logic as
+ * before), then tops up / trims the WHOLE pack's occurrence count of that
+ * genre into [FLAGSHIP_COMBO_MIN_SONGS, FLAGSHIP_COMBO_MAX_SONGS] — mutates
+ * genrePlan in place, mirroring the call sites' own existing mutation style.
+ */
+const FLAGSHIP_COMBO_MIN_SONGS = 2;
+const FLAGSHIP_COMBO_MAX_SONGS = 5;
+
+export function applyVerifiedComboToGenrePlan(genrePlan: string[], combo: VerifiedCombo | undefined): void {
+  if (!combo || genrePlan.length < 2) return;
+  if (genrePlan[1] !== combo.genreId) {
+    const swapIndex = genrePlan.findIndex((id, i) => i >= 3 && id === combo.genreId);
+    if (swapIndex !== -1) {
+      const tmp = genrePlan[1];
+      genrePlan[1] = genrePlan[swapIndex];
+      genrePlan[swapIndex] = tmp;
+    } else {
+      genrePlan[1] = combo.genreId;
+    }
+  }
+
+  let occurrences = genrePlan.filter(id => id === combo.genreId).length;
+  // Top up toward the floor, latest-index-first so early flagship/narrative
+  // tracks beyond the slot above are disturbed as little as possible.
+  for (let i = genrePlan.length - 1; i >= 2 && occurrences < FLAGSHIP_COMBO_MIN_SONGS; i--) {
+    if (genrePlan[i] === combo.genreId) continue;
+    genrePlan[i] = combo.genreId;
+    occurrences++;
+  }
+  // Trim toward the ceiling if the natural rotation already over-represented
+  // this genre — reassigns the excess back to a neighboring track's own
+  // genre (a real swap, never invents a genre outside this pack's pool).
+  if (occurrences > FLAGSHIP_COMBO_MAX_SONGS) {
+    const fallbackGenreId = genrePlan.find(id => id !== combo.genreId);
+    for (let i = genrePlan.length - 1; i >= 3 && occurrences > FLAGSHIP_COMBO_MAX_SONGS; i--) {
+      if (genrePlan[i] !== combo.genreId) continue;
+      if (fallbackGenreId) genrePlan[i] = fallbackGenreId;
+      occurrences--;
+    }
+  }
+}
+
+export interface ComboSuggestion {
+  genreId: string;
+  bpmRange: [number, number];
+  sampleSize: number;
+  goodShare: number;
+  suggestedVerdict: 'good' | 'bad';
+  reasonKo: string;
+}
+
+const SUGGESTION_MIN_SAMPLE = 5;
+const SUGGESTION_GOOD_THRESHOLD = 0.7;
+const SUGGESTION_BAD_THRESHOLD = 0.3;
+/** Matches this file's own bpmRange granularity (senior-philly-81 spans 8) — wide enough that a real pack's per-genre BPM spread (v3.77+ targets stddev >= 8) still lands multiple ratings in the same bucket, narrow enough to stay a meaningful "combo", not "this genre at any tempo". */
+const BPM_BUCKET_WIDTH = 8;
+
+function bpmBucket(bpm: number): [number, number] {
+  const low = Math.floor(bpm / BPM_BUCKET_WIDTH) * BPM_BUCKET_WIDTH;
+  return [low, low + BPM_BUCKET_WIDTH - 1];
+}
+
+/**
+ * TASK A (1-4) — "sampleSize >= 5 이고 좋음 비율 >= 70% → good 후보로 제안,
+ * <= 30% → bad 후보로 제안. 자동 등록하지 마십시오." Groups already-recorded
+ * ratings (core/ratingLedger.ts) by (genreId, 8-BPM-wide bucket) — vocal
+ * type deliberately excluded from the grouping key, since this task's own
+ * §0-1 finding is that vocal gender was a confound, not a real axis (T7).
+ * Never returns a suggestion for a (genreId, bpmRange) pair that's already
+ * in `existingCombos` (seeded or previously approved) — nothing to suggest
+ * twice. Pure — the caller loads ratings via core/ratingLedger.ts's
+ * getRatings/listAllRatingsForWorkspace.
+ */
+function bpmRangesOverlap(a: readonly [number, number], b: readonly [number, number]): boolean {
+  return a[0] <= b[1] && b[0] <= a[1];
+}
+
+export function suggestCombosFromRatings(
+  ratings: readonly RatingRecord[],
+  workspaceId: WorkspaceId,
+  existingCombos: readonly VerifiedCombo[]
+): ComboSuggestion[] {
+  const scoped = ratings.filter(record => (record.workspaceId ?? DEFAULT_WORKSPACE_ID) === workspaceId && record.attributes.genreId && record.attributes.bpm);
+
+  const groups = new Map<string, { genreId: string; bpmRange: [number, number]; records: RatingRecord[] }>();
+  for (const record of scoped) {
+    const bucket = bpmBucket(record.attributes.bpm);
+    const key = `${record.attributes.genreId}|${bucket[0]}`;
+    const group = groups.get(key) ?? { genreId: record.attributes.genreId, bpmRange: bucket, records: [] };
+    group.records.push(record);
+    groups.set(key, group);
+  }
+
+  const suggestions: ComboSuggestion[] = [];
+  for (const group of groups.values()) {
+    // A group already covered by an existing (seed or approved) combo for
+    // the SAME genre with an OVERLAPPING bpm range is skipped — seed combos
+    // don't necessarily align to this function's own 8-BPM bucket grid (e.g.
+    // senior-philly-81 spans 78-86), so an exact bucket-start match would
+    // miss real overlaps; range overlap is the correct test.
+    if (existingCombos.some(combo => combo.genreId === group.genreId && bpmRangesOverlap(combo.bpmRange, group.bpmRange))) continue;
+    const sampleSize = group.records.length;
+    if (sampleSize < SUGGESTION_MIN_SAMPLE) continue;
+    const goodCount = group.records.filter(r => r.rating === 'good').length;
+    const goodShare = goodCount / sampleSize;
+    if (goodShare >= SUGGESTION_GOOD_THRESHOLD) {
+      suggestions.push({
+        genreId: group.genreId,
+        bpmRange: group.bpmRange,
+        sampleSize,
+        goodShare,
+        suggestedVerdict: 'good',
+        reasonKo: `${sampleSize}곡 중 ${goodCount}곡(${Math.round(goodShare * 100)}%) 좋음 — 검증된 조합으로 등록을 제안합니다.`
+      });
+    } else if (goodShare <= SUGGESTION_BAD_THRESHOLD) {
+      suggestions.push({
+        genreId: group.genreId,
+        bpmRange: group.bpmRange,
+        sampleSize,
+        goodShare,
+        suggestedVerdict: 'bad',
+        reasonKo: `${sampleSize}곡 중 좋음 ${Math.round(goodShare * 100)}%뿐 — 피해야 할 조합으로 등록을 제안합니다.`
+      });
+    }
+  }
+  return suggestions.sort((a, b) => b.sampleSize - a.sampleSize);
+}
+
+/** Turns an approved-or-seeded ComboSuggestion into a real VerifiedCombo record — the one conversion step approveCombo's caller (the suggestion-approval UI) needs. */
+export function verifiedComboFromSuggestion(suggestion: ComboSuggestion, workspaceId: WorkspaceId): VerifiedCombo {
+  const [low, high] = suggestion.bpmRange;
+  return {
+    id: `${workspaceId}-${suggestion.genreId}-${low}-${suggestion.suggestedVerdict}`,
+    workspaceId,
+    genreId: suggestion.genreId,
+    bpmRange: suggestion.bpmRange,
+    verdict: suggestion.suggestedVerdict,
+    sampleSize: suggestion.sampleSize,
+    sampleTracks: [],
+    verifiedAt: new Date().toISOString().slice(0, 10),
+    noteKo: `평가 데이터 기반 자동 제안 (${low}~${high} BPM, 좋음 비율 ${Math.round(suggestion.goodShare * 100)}%) — 하루님 승인으로 등록됨.`,
+    cautionsKo: []
+  };
+}
+
+// ---------------------------------------------------------------------------
+// codex 지시문 06 (TASK G) — "안전한 학습": real staged lifecycle layered
+// ALONGSIDE this file's own existing suggestCombosFromRatings (unchanged,
+// still real, still used) rather than replacing it. Investigation confirmed
+// this file already has almost the exact rule this task asks for — sample
+// >= 5, goodShare >= 70%, never auto-registered (approveCombo is the only
+// write path, called exclusively from a real UI click) — but was missing
+// two of this task's own explicit gates (bad <= 15%, spread across >= 2
+// distinct sets) and had no staged lifecycle (only a flat verdict).
+// ---------------------------------------------------------------------------
+
+export type ComboLearningStage = 'observed' | 'suggested' | 'approved' | 'verified' | 'revalidated';
+
+/** Same real "group by packId, count distinct" technique core/promptFingerprintLedger.ts's own recentFingerprints already uses for its "N most-recent SETS" window — reused here for the "spread across >= 2 sets" gate rather than a second implementation. */
+export function distinctPackIdCount(records: readonly Pick<RatingRecord, 'packId'>[]): number {
+  return new Set(records.map(record => record.packId)).size;
+}
+
+const LEARNING_BAD_SHARE_MAX = 0.15;
+const LEARNING_MIN_DISTINCT_SETS = 2;
+/** A combo already promoted to 'approved' needs roughly double the original suggestion sample, still clearing every gate, before it's real-verified — not just "still equally thin evidence, now with a human's blessing on top". */
+const VERIFIED_SAMPLE_MULTIPLIER = 2;
+
+export interface ComboLearningEvaluation {
+  genreId: string;
+  bpmRange: [number, number];
+  sampleSize: number;
+  goodShare: number;
+  badShare: number;
+  distinctSetCount: number;
+  /** Only ever 'observed' or 'suggested' — a pure ratings-analysis function structurally cannot produce 'approved'/'verified'/'revalidated' (those require a real external event: an explicit user approval, or a later re-evaluation call — see nextComboLearningStage below). */
+  stage: 'observed' | 'suggested';
+  reasonKo: string;
+}
+
+/**
+ * The real, full 4-gate "suggested" evaluation this task's own §추천 조건
+ * literally lists (동일 조합 최소 5개 테이크 / good >= 70% / bad <= 15% / 2개
+ * 이상 세트) — same (genreId, 8-BPM-bucket) grouping as suggestCombosFromRatings,
+ * with the two additional real gates that function doesn't check. Kept as
+ * its own function (not a rewrite of suggestCombosFromRatings) since that
+ * function's own real callers/tests pin its existing narrower behavior —
+ * this is the one a NEW "safe learning" UI should call.
+ */
+export function evaluateCombosForLearning(
+  ratings: readonly RatingRecord[],
+  workspaceId: WorkspaceId,
+  existingCombos: readonly VerifiedCombo[]
+): ComboLearningEvaluation[] {
+  const scoped = ratings.filter(record => (record.workspaceId ?? DEFAULT_WORKSPACE_ID) === workspaceId && record.attributes.genreId && record.attributes.bpm);
+
+  const groups = new Map<string, { genreId: string; bpmRange: [number, number]; records: RatingRecord[] }>();
+  for (const record of scoped) {
+    const bucket = bpmBucket(record.attributes.bpm);
+    const key = `${record.attributes.genreId}|${bucket[0]}`;
+    const group = groups.get(key) ?? { genreId: record.attributes.genreId, bpmRange: bucket, records: [] };
+    group.records.push(record);
+    groups.set(key, group);
+  }
+
+  const evaluations: ComboLearningEvaluation[] = [];
+  for (const group of groups.values()) {
+    if (existingCombos.some(combo => combo.genreId === group.genreId && bpmRangesOverlap(combo.bpmRange, group.bpmRange))) continue;
+    const sampleSize = group.records.length;
+    const goodShare = group.records.filter(r => r.rating === 'good').length / sampleSize;
+    const badShare = group.records.filter(r => r.rating === 'bad').length / sampleSize;
+    const distinctSetCount = distinctPackIdCount(group.records);
+
+    const passesGates = sampleSize >= SUGGESTION_MIN_SAMPLE && goodShare >= SUGGESTION_GOOD_THRESHOLD && badShare <= LEARNING_BAD_SHARE_MAX && distinctSetCount >= LEARNING_MIN_DISTINCT_SETS;
+    const stage: ComboLearningEvaluation['stage'] = passesGates ? 'suggested' : 'observed';
+    const reasonKo = passesGates
+      ? `${sampleSize}개 테이크 / ${distinctSetCount}개 세트, 좋음 ${Math.round(goodShare * 100)}%, 별로 ${Math.round(badShare * 100)}% — 승인 대기 제안 상태입니다.`
+      : `${sampleSize}개 테이크 / ${distinctSetCount}개 세트 관찰됨 — 아직 제안 기준(테이크 ≥5, 좋음 ≥70%, 별로 ≤15%, 세트 ≥2) 미달.`;
+
+    evaluations.push({ genreId: group.genreId, bpmRange: group.bpmRange, sampleSize, goodShare, badShare, distinctSetCount, stage, reasonKo });
+  }
+  return evaluations.sort((a, b) => b.sampleSize - a.sampleSize);
+}
+
+/**
+ * The real, structural "자동 승격 금지" guarantee: a pure state-transition
+ * function that can NEVER produce 'approved' on its own — the only way
+ * `currentStage` is ever 'approved' (or later) in the first place is a real
+ * prior call to approveCombo() (a human click), external to this function
+ * entirely. Called again later, with a FRESH (larger) rating sample, to
+ * progress an already-approved combo toward 'verified' then 'revalidated' —
+ * still never downgrading automatically past what a human already approved
+ * (a combo that stops clearing the bar simply stays at its current stage,
+ * surfaced to the user for their own manual review rather than silently
+ * demoted).
+ */
+export function nextComboLearningStage(
+  currentStage: ComboLearningStage,
+  sampleSize: number,
+  goodShare: number,
+  badShare: number,
+  distinctSetCount: number
+): ComboLearningStage {
+  const passesGates = sampleSize >= SUGGESTION_MIN_SAMPLE && goodShare >= SUGGESTION_GOOD_THRESHOLD && badShare <= LEARNING_BAD_SHARE_MAX && distinctSetCount >= LEARNING_MIN_DISTINCT_SETS;
+
+  if (currentStage === 'observed') return passesGates ? 'suggested' : 'observed';
+  if (currentStage === 'suggested') return 'suggested'; // never self-promotes past here — approveCombo() is the only real path to 'approved'.
+  if (currentStage === 'approved') {
+    const passesVerifiedGates = sampleSize >= SUGGESTION_MIN_SAMPLE * VERIFIED_SAMPLE_MULTIPLIER && passesGates;
+    return passesVerifiedGates ? 'verified' : 'approved';
+  }
+  if (currentStage === 'verified') {
+    return passesGates ? 'revalidated' : 'verified';
+  }
+  return passesGates ? 'revalidated' : currentStage; // already 'revalidated': stays there while still real-passing, otherwise reported unchanged for manual review (never auto-demoted).
+}
+
+export { SEED_VERIFIED_COMBOS };
+export type { VerifiedCombo };

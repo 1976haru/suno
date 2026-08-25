@@ -1,0 +1,144 @@
+import type { GenerationOptions, PlaylistBlueprint, SongIdea } from '../types';
+import { AI_DISCLOSURE_LINE } from './exportCompliance';
+import { safeConceptSummaryForDisplay } from './conceptDiversity';
+
+/**
+ * TASK v3.39.1 Part B1/C2 — same estimate for both the tracklist timestamps
+ * and the ffmpeg script's per-segment duration; Suno's actual render length
+ * isn't controlled precisely by text (durationTarget is a request, not a
+ * guarantee), so this is a starting point to correct after listening/
+ * rendering, never presented as exact.
+ */
+export function estimateSongDurationSeconds(durationTarget: GenerationOptions['durationTarget']): number {
+  if (durationTarget === 'under3m30') return 200;
+  if (durationTarget === 'under4m') return 220;
+  return 185; // playlistShort
+}
+
+function formatTimestamp(totalSeconds: number): string {
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = Math.floor(totalSeconds % 60);
+  const mm = String(m).padStart(2, '0');
+  const ss = String(s).padStart(2, '0');
+  return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
+}
+
+export interface PackVideoTrack {
+  trackNo: number;
+  title: string;
+  startSeconds: number;
+  timestamp: string;
+  durationSeconds: number;
+}
+
+export function buildPackTracklist(
+  songs: Pick<SongIdea, 'trackNo' | 'title'>[],
+  durationTarget: GenerationOptions['durationTarget']
+): PackVideoTrack[] {
+  const perSong = estimateSongDurationSeconds(durationTarget);
+  let cursor = 0;
+  return songs.map(song => {
+    const track: PackVideoTrack = {
+      trackNo: song.trackNo,
+      title: song.title,
+      startSeconds: cursor,
+      timestamp: formatTimestamp(cursor),
+      durationSeconds: perSong
+    };
+    cursor += perSong;
+    return track;
+  });
+}
+
+/**
+ * TASK v3.39.1 Part C2 — the per-song YouTube description
+ * (core/localGenerator.ts's buildYoutubeMetadata) fits the "each song is its
+ * own upload" model. This is the other real operating model the strategy
+ * review flagged — a whole pack compiled into ONE long video (the sleep/
+ * lofi/cinematic-visuals style that actually survives the "inauthentic
+ * content" enforcement wave) — which needs a single description with a
+ * timestamped tracklist instead, not N separate per-song descriptions.
+ */
+export function buildPackVideoDescription(blueprint: PlaylistBlueprint, opts: GenerationOptions): string {
+  const tracklist = buildPackTracklist(blueprint.songs, opts.durationTarget);
+  // TASK v3.59 (TASK B-1) — same raw-customConcept-echo issue as
+  // localGenerator.ts's buildYoutubeMetadata; this is a genuinely public
+  // description field (the compiled whole-pack video's YouTube copy).
+  const intro = safeConceptSummaryForDisplay(opts.customConcept, opts.channel.promise);
+  // TASK v3.59 — projectTitle is just as much a free-text field as
+  // customConcept (Step2Concept.tsx's plain <input>); same guard.
+  return [
+    `${safeConceptSummaryForDisplay(blueprint.projectTitle, opts.channel.name)} — ${opts.channel.name}`,
+    '',
+    intro,
+    '',
+    'Tracklist:',
+    ...tracklist.map(t => `${t.timestamp} ${String(t.trackNo).padStart(2, '0')}. ${t.title}`),
+    '',
+    "(Timestamps above are estimated from each song's target length — replace with the actual render's timestamps before publishing.)",
+    '',
+    AI_DISCLOSURE_LINE,
+    '',
+    `Subscribe to ${opts.channel.englishName || opts.channel.name} for more, and tell us your favorite track in the comments.`
+  ].join('\n');
+}
+
+/**
+ * TASK v3.39.1 Part B1 (minimal viable scope, per explicit product decision)
+ * — this app has no audio/video rendering pipeline at all (see
+ * core/videoLedger.ts's own "no OAuth, nothing past the planning stage"
+ * note), and a real ffmpeg-invoking renderer is a substantially larger
+ * project than the rest of this pass. This exports a runnable local script
+ * instead — the spec's own explicit fallback ("로컬 ffmpeg 스크립트
+ * 내보내기라도") — that turns Suno-exported audio plus one background image
+ * per song into a compiled video with slow Ken Burns motion AND a burned-in
+ * title caption per song: never a single static image for the whole
+ * runtime, which is exactly the pattern the 2026 "inauthentic content"
+ * enforcement wave is described as targeting. Distinct per-song images
+ * double as scene changes between tracks.
+ *
+ * Expects the user to place files at audio/NN.mp3 and images/NN.png (NN =
+ * zero-padded trackNo) before running. Requires ffmpeg on PATH.
+ */
+export function buildFfmpegPackVideoScript(blueprint: PlaylistBlueprint, opts: GenerationOptions): string {
+  const tracklist = buildPackTracklist(blueprint.songs, opts.durationTarget);
+  const outputName = `${blueprint.projectTitle.replace(/[^a-zA-Z0-9]+/g, '_') || 'output'}.mp4`;
+
+  const lines: string[] = [
+    '#!/usr/bin/env bash',
+    'set -euo pipefail',
+    '',
+    `# Auto-generated by Haru Studio for: ${blueprint.projectTitle}`,
+    "# Before running: export each song's audio from Suno into audio/NN.mp3,",
+    '# and place a background image per song at images/NN.png (NN = 2-digit track number).',
+    '# Requires ffmpeg on PATH.',
+    '',
+    'mkdir -p segments',
+    ''
+  ];
+
+  for (const track of tracklist) {
+    const nn = String(track.trackNo).padStart(2, '0');
+    const safeTitle = track.title.replace(/'/g, "'\\''").replace(/:/g, '\\:');
+    const frames = Math.max(1, Math.round(track.durationSeconds * 25));
+    lines.push(
+      `# Track ${nn}: ${track.title}`,
+      `ffmpeg -y -loop 1 -i "images/${nn}.png" -i "audio/${nn}.mp3" \\`,
+      `  -filter_complex "[0:v]scale=1920:1080,zoompan=z='min(zoom+0.0007,1.15)':d=${frames}:s=1920x1080:fps=25,drawtext=text='${safeTitle}':fontcolor=white:fontsize=48:x=(w-text_w)/2:y=h-140:box=1:boxcolor=black@0.45:boxborderw=12[v]" \\`,
+      `  -map "[v]" -map 1:a -t ${track.durationSeconds} -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest "segments/${nn}.mp4"`,
+      ''
+    );
+  }
+
+  const concatEntries = tracklist.map(t => `"file 'segments/${String(t.trackNo).padStart(2, '0')}.mp4'"`).join(' ');
+  lines.push(
+    '# Concatenate every segment into the final compiled video',
+    `printf "%s\\n" ${concatEntries} > segments/concat_list.txt`,
+    `ffmpeg -y -f concat -safe 0 -i segments/concat_list.txt -c copy "${outputName}"`,
+    '',
+    `echo "Done: ${outputName}"`
+  );
+
+  return lines.join('\n');
+}

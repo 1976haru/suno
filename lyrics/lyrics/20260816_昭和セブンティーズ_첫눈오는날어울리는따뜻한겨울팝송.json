@@ -1,0 +1,690 @@
+﻿{
+    "meta":  {
+                 "setName":  "20260816_昭和セブンティーズ_첫눈오는날어울리는따뜻한겨울팝송",
+                 "generatedAt":  "2026-08-16T11:15:10.800Z",
+                 "channelId":  "showa-seventies",
+                 "channelLabel":  "昭和セブンティーズ",
+                 "conceptLabel":  "첫눈 오는 날 어울리는 따뜻한 겨울 팝송",
+                 "songCount":  15,
+                 "lyricLanguage":  "japanese",
+                 "bridgeVersion":  "0.21.0"
+             },
+    "songs":  [
+                  {
+                      "trackNo":  1,
+                      "title":  "Warm It Gently",
+                      "titleLocalized":  "湯気の手紙",
+                      "seasonMoment":  "First-snow morning in an early-winter kissaten.",
+                      "listenerSituation":  "A woman sits at a small kissaten table on the first-snow morning, warming a cup while folding an unsent letter.",
+                      "emotionArc":  "held-back words opening into honest tenderness",
+                      "distinctChoice":  {
+                                             "ruleId":  "no_intro_immediate_vocal",
+                                             "descriptionKo":  "인트로 태그 없이 첫 문장부터 노래가 시작되고, 마지막에 빈자리를 그대로 남긴다."
+                                         },
+                      "hookPhrase":  "茶碗をそっと温めて",
+                      "stylePrompt":  "1970s Japanese kayokyoku, 69 BPM, electric piano, live strings, brushed drums, round electric bass, restrained kayokyoku ballad pulse, Verse: IVmaj7-iii7-vi7 movement, Chorus: IV-V-iii-vi royal road progression, mature elegant female mezzo-soprano, light rhythmic phrasing, clear glassy brightness, half-time chorus weight, simple stepwise melody with a gentle falling answer, warm natural room, medium arrangement, no intro tag, singing starts immediately, full level from first bar, one short wordless break before final chorus, first-snow kissaten tenderness, short intro, 3:10-3:35, full arrangement, not a short cut",
+                      "excludePrompt":  "famous artist imitation, soundalike vocals, real artist or band names, existing song titles, copied melodies, copyrighted song references, shouted high notes, belted high notes, harsh bright top end, excessive reverb washing out the vocal, rapid syllable-dense phrasing, dense syncopation obscuring melody, heavy sub bass, modern wide stereo production, autotuned vocal, generic demo-band sound, overly glossy karaoke backing track, flat chorus with no lift, monotonous melody contour, childish lyrics, too old-fashioned trot mood, melodramatic enka sobbing, hard brass blasts, syrupy string overload, cocktail-lounge parody, brittle brushed snare, muddy electric piano, abrupt lounge ending",
+                      "lyrics":  "[Verse 1]\n白い息より先に戸が鳴り、古いベルが冬を呼ぶ\n喫茶の隅へ腰をおろすと、椅子の布まで温かい\n出せない便りを二つに折れば、指先だけが正直になる\n窓の外では初めての白が降り、町の音を丸くする\nあなたの席だけ日なたを残し、砂糖壺の影も長い\n笑って済ませた昨日の言葉を、今日は胸で読み返す\n[Pre-Chorus]\n言えなかった名をそっと呼べば、湯気が返事のようにほどける\n小さな嘘も角砂糖の底で、ゆっくり甘く沈んでゆく\n口に出せないやさしさほど、手のひらに熱を残すから\nこのまま少し黙っていても、冬は私を責めない\n[Chorus]\n茶碗をそっと温めて\n空いた向かいを責めないで、今日の午後を置いておく\n冷めない言葉をひとつ残し、雪の匂いを吸い込んだ\n今日の私で待っている\n[Verse 2]\n便せんの角は何度もやわらぎ、インクの青も淡くなる\n雪の匂いが袖口に来て、閉じた心をほどいてゆく\nさよならより近い線を選び、封をしないまま鞄へしまう\n帰りの靴音だけ数えながら、戸口の白へ立ち上がる\nあなたがもしも遅れて来ても、席のぬくみは消さない\n小さな窓へ映る私が、少しだけ素直に見えた\n[Instrumental Break]\n[Final Chorus]\n茶碗をそっと温めて\n春を待たずに書けるように、鞄の中で便りが鳴る\n小さな窓へ白が降り、帰らぬ日までやわらかい\n茶碗をそっと温めて",
+                      "youtube":  {
+                                      "title":  "Warm It Gently - 昭和セブンティーズ",
+                                      "description":  "初雪の喫茶店で、出せない手紙と温かい茶碗を見つめる1970年代歌謡ポップ。静かな冬の朝に合う日本語曲です。",
+                                      "tags":  [
+                                                   "昭和歌謡",
+                                                   "70年代 日本の歌",
+                                                   "初雪",
+                                                   "喫茶店",
+                                                   "懐かしい日本語曲",
+                                                   "冬の歌",
+                                                   "昭和プレイリスト"
+                                               ]
+                                  },
+                      "genreId":  "kayokyoku-70s",
+                      "genreText":  "1970s Japanese kayokyoku, electric piano, live brass section",
+                      "lyricTheme":  "showa70s-kissaten-letter",
+                      "lyricThemeText":  "folding a handwritten letter at a small kissaten table while the last cup cools beside it",
+                      "lyricThemeArc":  "held-back words opening into honest tenderness",
+                      "pov":  "firstPerson",
+                      "verseStyle":  "dialogue",
+                      "verseStyleText":  "verse lines use direct address or short conversational fragments without becoming spoken-word",
+                      "chorusStyle":  "hookRepeat",
+                      "chorusStyleText":  "chorus lines use compact repeated hook callbacks and simple answer phrases",
+                      "effectiveVocalPresetId":  "mature-female",
+                      "vocalPresetSource":  "plan",
+                      "qualityScore":  0,
+                      "warnings":  [
+
+                                   ]
+                  },
+                  {
+                      "trackNo":  2,
+                      "title":  "Rewind The Morning",
+                      "titleLocalized":  "駅の朝",
+                      "seasonMoment":  "First snow at a tiled station platform just after sunrise.",
+                      "listenerSituation":  "A man stands on a tiled station platform after first snow, watching a shared umbrella drip near his shoes as the farewell train arrives.",
+                      "emotionArc":  "lonely memory to warm acceptance",
+                      "distinctChoice":  {
+                                             "ruleId":  "held_note_final_entry",
+                                             "descriptionKo":  "마지막 후렴 직전 한 음을 길게 붙잡아 이별 장면을 따뜻하게 끌어올린다."
+                                         },
+                      "hookPhrase":  "朝を今も巻き戻す",
+                      "stylePrompt":  "1970s Showa Groove, 80 BPM, clavinet, live bass, brass stabs, soft slide guitar swell intro color, tight drum kit, Verse: IV-V-iii-vi royal road progression, Chorus: IVmaj7-iii7-vi7 movement, Bridge: IVM7-III7-vi-I7 marusa progression, low calm male baritone, earnest forward delivery, worn weathered edge, narrow repeated motif with plain cadence, sparse arrangement, instrumental intro with no sung line, no quiet fade-in, sustained lead note into the final chorus, station farewell under first snow, short intro, 3:10-3:35, full arrangement, not a short cut",
+                      "excludePrompt":  "famous artist imitation, soundalike vocals, real artist or band names, existing song titles, copied melodies, copyrighted song references, shouted high notes, belted high notes, harsh bright top end, excessive reverb washing out the vocal, rapid syllable-dense phrasing, dense syncopation obscuring melody, heavy sub bass, modern wide stereo production, autotuned vocal, generic demo-band sound, overly glossy karaoke backing track, flat chorus with no lift, monotonous melody contour, childish lyrics, too old-fashioned trot mood, mechanical funk loop, slap-bass showoff fills, sharp wah chatter, busy clavinet comping, aggressive drum accents, nightclub shouting, rushed farewell drama",
+                      "lyrics":  "[Intro]\n[Verse 1]\n改札の灯がまだ眠たげで、濡れた傘から白い粒が落ちる\n君は切符を胸にしまい、僕は言葉を靴先へ逃がした\n列車の窓に二人が薄く並び、笑う真似だけ上手になった\nタイルの目地に水が光り、朝の寒さを細く映す\n貸した傘の柄を握る君の指に、別れの時間が少し震える\n発車案内の札が揺れるたび、胸の奥で古い日が戻る\n[Chorus]\n朝を今も巻き戻す\n発車のベルに背を向けても、君の手の熱だけ残り\n言えなかった一言までも、白いホームで息をする\n僕の冬は少し進む\n[Verse 2]\nタイルの線を数えて待てば、ホームの端で雲がほどける\n返す約束のない傘なのに、名前より深く胸をあたためた\n最後の白が肩にとまって、君の町まで道を作る\n朝刊を抱えた人の波が、二人の間を静かに通る\n僕は強がる顔を直せず、君は窓越しに小さくうなずく\n動き出す車輪の音の中で、遅い礼だけ喉に残った\n[Chorus]\nポケットの中の小さな切符、息を合わせて歩いた跡\n朝を今も巻き戻す\n別れの顔がやわらぐほどに、昨日の雨も遠くなる\n白い線路へ声を預けた\n[Final Chorus]\n朝を今も巻き戻す\n長く伸ばした声の先で、見送る人も見送られる人も\n同じ白さに包まれながら、別々の町へ歩き出す\n君の傘から落ちるしずくを、まだ靴先で覚えている\n朝を今も巻き戻す",
+                      "youtube":  {
+                                      "title":  "Rewind The Morning - 昭和セブンティーズ",
+                                      "description":  "初雪の駅ホーム、傘のしずくと切符の記憶を描く1970年代ショウワ・グルーヴ。別れの朝に寄り添う一曲です。",
+                                      "tags":  [
+                                                   "昭和歌謡",
+                                                   "Showa groove",
+                                                   "駅",
+                                                   "初雪",
+                                                   "70年代 日本の歌",
+                                                   "懐かしい日本語曲",
+                                                   "冬の朝"
+                                               ]
+                                  },
+                      "genreId":  "showa-groove-70s",
+                      "genreText":  "1970s funk and soul influenced Japanese kayokyoku, clavinet, wah electric guitar, spring reverb",
+                      "lyricTheme":  "showa70s-station-farewell",
+                      "lyricThemeText":  "saying goodbye at a tiled station platform with a shared umbrella dripping near the shoes",
+                      "lyricThemeArc":  "farewell ache turning into a graceful chorus lift",
+                      "pov":  "firstPerson",
+                      "verseStyle":  "dialogue",
+                      "verseStyleText":  "verse lines use direct address or short conversational fragments without becoming spoken-word",
+                      "chorusStyle":  "narrative",
+                      "chorusStyleText":  "chorus lines unfold as plain scene narration with concrete actions and time movement",
+                      "effectiveVocalPresetId":  "low-calm-male",
+                      "vocalPresetSource":  "plan",
+                      "qualityScore":  0,
+                      "warnings":  [
+
+                                   ]
+                  },
+                  {
+                      "trackNo":  3,
+                      "title":  "Receiver",
+                      "titleLocalized":  "赤い受話器",
+                      "seasonMoment":  "First snow outside a public phone booth after a winter shower.",
+                      "listenerSituation":  "A man and woman remember the same public phone booth where an old receiver stayed in hand after first snow, before the final number was dialed.",
+                      "emotionArc":  "soft nostalgia to renewed hope",
+                      "distinctChoice":  {
+                                             "ruleId":  "duet_delayed_answer",
+                                             "descriptionKo":  "남자가 1절에서 묻고 여자가 2절에서 뒤늦게 대답해 고백이 늦게 열린다."
+                                         },
+                      "hookPhrase":  "朝をまだ描いている",
+                      "stylePrompt":  "1970s Japanese Folk, 76 BPM, fingerpicked acoustic guitar, light upright piano, soft hand percussion, simple bass, plain acoustic folk pulse, Verse: IVmaj7-iii7-vi7 movement, Chorus: IVM7-III7-vi-I7 marusa progression, male and female duet, unison splitting to thirds, soft plate ambience, symmetric four-bar phrases with a tender answering cadence, sparse arrangement, instrumental intro with no sung line, full playback level from the first bar, three-part harmony on the last chorus, public phone booth after first snow, short intro, 3:10-3:35, full arrangement, not a short cut",
+                      "excludePrompt":  "famous artist imitation, soundalike vocals, real artist or band names, existing song titles, copied melodies, copyrighted song references, shouted high notes, belted high notes, harsh bright top end, excessive reverb washing out the vocal, rapid syllable-dense phrasing, dense syncopation obscuring melody, heavy sub bass, modern wide stereo production, autotuned vocal, generic demo-band sound, overly glossy karaoke backing track, flat chorus with no lift, monotonous melody contour, childish lyrics, too old-fashioned trot mood, stadium folk-rock strumming, modern bedroom haze, campfire chant, novelty duet banter, rushed spoken verse, thin acoustic-only demo, strained harmony vowels",
+                      "lyrics":  "[Intro: Instrumental]\n[Verse 1: Male Vocal]\n赤い受話器を耳に当てたまま、最後の数字だけ指が止まる\n雨上がりの箱は少し曇り、外の舗道へ白い粒が来た\n君の町まで声は近いのに、僕は息だけ置いてしまった\n硬貨の冷たさを握りしめ、呼び出す前の沈黙を聞く\nガラスの隅に映る肩が、若い日の僕より頼りない\nそれでも名前の一文字だけは、胸の中で鳴り続けた\n[Chorus: Male and Female Duet]\n濡れた硝子に町が滲み、遠い靴音が胸をたたく\n朝をまだ描いている\n名を呼ぶ前の白い余白に、二人の息が残っている\n戻せない指先まで温かい\n[Verse 2: Female Vocal]\nあなたのためらいを知っていたわ、鳴らないベルにも耳を澄ませた\n手袋の中で硬貨を握り、同じ白さを私も見てた\n言えなかった夜を責めずに、今なら返事を置けるから\n窓の曇りを丸く拭いて、あなたの町の灯を探した\n受話器を戻す小さな音も、胸の奥では手紙に変わる\n遅れて届く勇気のほうが、冬には似合うと知ったの\n[Chorus: Male and Female Duet]\n曇る小窓を指でぬぐい、二人の影がやっと重なる\n朝をまだ描いている\n古い番号の先の町へ、雪の匂いが橋をかける\n言葉になる前から届いていた\n[Final Chorus: Male and Female Duet Harmony]\n朝をまだ描いている\n三つの声が細く重なり、受話器を戻すその音まで\n始まりのように響くから、遠い電話箱にも春が灯る\n呼ばなかった名を抱いたまま\n朝をまだ描いている",
+                      "youtube":  {
+                                      "title":  "Receiver - 昭和セブンティーズ",
+                                      "description":  "公衆電話の受話器、言えなかった番号、初雪の白さ。1970年代フォーク調の男女デュエットで描く冬の告白です。",
+                                      "tags":  [
+                                                   "昭和フォーク",
+                                                   "男女デュエット",
+                                                   "公衆電話",
+                                                   "初雪",
+                                                   "70年代 日本の歌",
+                                                   "ニューミュージック",
+                                                   "懐かしい日本語曲"
+                                               ]
+                                  },
+                      "genreId":  "japanese-folk-70s",
+                      "genreText":  "1970s Japanese folk, fingerpicked acoustic guitar, light upright piano",
+                      "lyricTheme":  "showa70s-phone-booth-rain",
+                      "lyricThemeText":  "holding a public phone receiver after rain without dialing the final number",
+                      "lyricThemeArc":  "hesitation rising into a confession",
+                      "pov":  "secondPerson",
+                      "verseStyle":  "dialogue",
+                      "verseStyleText":  "verse lines use direct address or short conversational fragments without becoming spoken-word",
+                      "chorusStyle":  "image",
+                      "chorusStyleText":  "chorus lines focus on sensory images, objects, light, weather, and small gestures",
+                      "effectiveVocalPresetId":  "male-female-duet",
+                      "vocalPresetSource":  "plan",
+                      "qualityScore":  0,
+                      "warnings":  [
+
+                                   ]
+                  },
+                  {
+                      "trackNo":  4,
+                      "title":  "Stay Near, Morning",
+                      "titleLocalized":  "港の白",
+                      "seasonMoment":  "Before dawn at a ferry terminal as first snow reaches the harbor.",
+                      "listenerSituation":  "A man waits before dawn at a ferry terminal, keeping one small bag by his feet while first snow settles on the harbor rail.",
+                      "emotionArc":  "small sadness to steady comfort",
+                      "distinctChoice":  {
+                                             "ruleId":  "single_prechorus_only",
+                                             "descriptionKo":  "프리코러스는 한 번만 쓰고 마지막 후렴에서는 바로 더 넓은 음역으로 열린다."
+                                         },
+                      "hookPhrase":  "あの頃にいて、朝よ",
+                      "stylePrompt":  "1970s Japanese New Music, 98 BPM, acoustic guitar, upright piano, clean electric guitar, live drums, warm bass, Verse: IVM7-III7-vi-I7 marusa progression, Chorus: vi-IV-I-V movement, maj7 color, low calm male baritone, gentle swung phrasing, airy breath-forward tone, call-and-response hook contour with modest range, medium arrangement, instrumental intro with no sung line, light pizzicato string opening color, lead jumps an octave into the final chorus within a comfortable register, ferry terminal before first-snow dawn, short intro, 3:10-3:35, full arrangement, not a short cut",
+                      "excludePrompt":  "famous artist imitation, soundalike vocals, real artist or band names, existing song titles, copied melodies, copyrighted song references, shouted high notes, belted high notes, harsh bright top end, excessive reverb washing out the vocal, rapid syllable-dense phrasing, dense syncopation obscuring melody, heavy sub bass, modern wide stereo production, autotuned vocal, generic demo-band sound, overly glossy karaoke backing track, flat chorus with no lift, monotonous melody contour, childish lyrics, too old-fashioned trot mood, smooth 1980s gloss, yacht-rock polish, jazz-fusion solo excess, sterile session-band sheen, overbusy add9 voicings, forced bright singalong, brittle snare snap",
+                      "lyrics":  "[Intro]\n[Verse 1]\nまだ眠らない港の椅子に、小さな鞄を足もとへ置く\n塩の匂いが袖へ入り込み、白い粒だけ先に旅をする\n切符売り場の窓は閉じたまま、遠い汽笛を胸で数えた\n待合室の時計は遅く、夜を少しだけ引き延ばす\n眠れなかった手の甲に、海から来る冷たさが触れる\n[Pre-Chorus]\n夜を越えた顔を洗うように、海の端から色がほどける\n行けなかった日も抱いたままで、手すりの冷たさを離す\n昨日の影を責めないように、息を深く胸へ入れた\n船の灯りがにじむころ、迷いは少し白くなる\n[Chorus]\nあの頃にいて、朝よ\n僕の肩を軽くして、古い約束を責めないで\n水平線へ返してくれ、戻れぬ夜も連れて行け\n小さな鞄が揺れている\n[Verse 2]\n売店の札が風に揺れて、誰かの靴跡が白く続く\n戻るつもりの旅ではなくて、持って来た名だけ胸へしまう\n船の灯りが少し近づき、息の中にも色が差した\n見送る人のいない港でも、朝は平等に戸を開ける\n鴎の声が低く渡り、胸の荷物を軽くする\n[Chorus]\n濡れた桟橋を渡る前に、昨日の影へ帽子を振る\nあの頃にいて、朝よ\nもう一度だけ背を押して、冬の海にも道を見せて\n僕は僕のまま歩き出す\n[Key-Lift Final Chorus]\nあの頃にいて、朝よ\n高い白さへ声をかける、鞄ひとつで歩き出せば\n冬の港もあたたかい、夜明けの船が胸に入る\n戻らない日を抱いたまま\nあの頃にいて、朝よ",
+                      "youtube":  {
+                                      "title":  "Stay Near, Morning - 昭和セブンティーズ",
+                                      "description":  "初雪の港、夜明け前のフェリー乗り場、手すりの冷たさ。1970年代ニューミュージック感のある明るい冬の曲です。",
+                                      "tags":  [
+                                                   "ニューミュージック",
+                                                   "昭和歌謡",
+                                                   "港",
+                                                   "初雪",
+                                                   "70年代 日本の歌",
+                                                   "冬の朝",
+                                                   "昭和プレイリスト"
+                                               ]
+                                  },
+                      "genreId":  "new-music-70s",
+                      "genreText":  "1970s Japanese new music, acoustic guitar, upright piano, live band warmth",
+                      "lyricTheme":  "showa70s-ferry-terminal",
+                      "lyricThemeText":  "waiting at a ferry terminal before dawn with salt wind on the sleeves and a small bag at the feet",
+                      "lyricThemeArc":  "nightlong ache resolving into a clean horizon",
+                      "pov":  "firstPerson",
+                      "verseStyle":  "image",
+                      "verseStyleText":  "verse lines focus on sensory images, objects, light, weather, and small gestures",
+                      "chorusStyle":  "hookRepeat",
+                      "chorusStyleText":  "chorus lines use compact repeated hook callbacks and simple answer phrases",
+                      "effectiveVocalPresetId":  "low-calm-male",
+                      "vocalPresetSource":  "plan",
+                      "qualityScore":  0,
+                      "warnings":  [
+
+                                   ]
+                  },
+                  {
+                      "trackNo":  5,
+                      "title":  "Snow Road",
+                      "titleLocalized":  "屋上の雪",
+                      "seasonMoment":  "Sunset on a department-store rooftop as first snow collects on coin rides.",
+                      "listenerSituation":  "A man watches the first snow from a department-store rooftop at sunset, with silent coin rides behind the railing and shopping bags by his feet.",
+                      "emotionArc":  "bittersweet reflection to gentle lift",
+                      "distinctChoice":  {
+                                             "ruleId":  "bridge_memory_inventory",
+                                             "descriptionKo":  "브릿지는 말보다 작은 사물들의 목록으로 피로와 따뜻함을 보여 준다."
+                                         },
+                      "hookPhrase":  "雪道を今も巻き戻す",
+                      "stylePrompt":  "1970s Japanese kayokyoku, 78 BPM, electric piano, brushed drums, live strings, round electric bass, short melodic string counterline, Verse: IVmaj7-iii7-vi7 movement, Chorus: IVM7-III7-vi-I7 marusa progression, mature soulful male tenor, storytelling spoken-edge delivery, clean rounded tone, rising sequence into each chorus, sparse arrangement, instrumental intro with no sung line, exploration harmony kept gentle, tambourine break cuts through the bridge, department-store rooftop first snow, short intro, 3:10-3:35, full arrangement, not a short cut",
+                      "excludePrompt":  "famous artist imitation, soundalike vocals, real artist or band names, existing song titles, copied melodies, copyrighted song references, shouted high notes, belted high notes, harsh bright top end, excessive reverb washing out the vocal, rapid syllable-dense phrasing, dense syncopation obscuring melody, heavy sub bass, modern wide stereo production, autotuned vocal, generic demo-band sound, overly glossy karaoke backing track, flat chorus with no lift, monotonous melody contour, childish lyrics, too old-fashioned trot mood, melodramatic enka sobbing, oversized string syrup, hard brass fanfare, fake cabaret swing, busy brushed fills, sentimental spoken monologue, rooftop novelty mood",
+                      "lyrics":  "[Intro]\n[Verse 1]\n百貨店の屋上に風が来て、買物袋が足もとで揺れる\n動かない乗り物の馬の背に、夕方の白がそっと積もった\n街の疲れを上から眺め、僕は手袋の片方を探す\n売り場の灯りは下でにぎわい、ここだけ時間が少し遅い\n硬貨一枚の丸い冷たさが、若い日の声を連れてくる\n柵にもたれて息を吐けば、遠い家々が近く見えた\n[Chorus]\n赤い空から粉が降りて、家路の角を丸くする\n雪道を今も巻き戻す\n小さな灯りへ帰るため、疲れた肩をほどきながら\n屋上の風が背を押した\n[Verse 2]\n硬貨の傷を指でなぞれば、若い日の声が柵を越えた\nあの日もこんな寒さだったと、誰にも言わずに笑ってみる\n売店の紙袋はあたたかく、胸の奥まで湯気を運ぶ\n閉まる売場の鐘が聞こえ、町は家族の匂いへ戻る\n遠くの窓に灯が並んで、ひとつずつ名前を持ち始める\n帰り道なら長くてもいい、白い足跡が消えないうちは\n[Bridge]\n券の半券、手袋の糸、古い包み紙、白い靴跡\n残るものほど軽く光り、今日の疲れを笑わせる\n胸の引き出しを閉める前に、夕焼けだけをもう一度見る\n[Final Chorus]\n雪道を今も巻き戻す\n屋上の風を背中に受け、疲れた町もやさしく見える\n帰る場所まで遠回りして、明日の自分へ手を振ろう\n夕方の白が靴に触れる\n雪道を今も巻き戻す",
+                      "youtube":  {
+                                      "title":  "Snow Road - 昭和セブンティーズ",
+                                      "description":  "夕暮れの百貨店屋上、止まったコイン遊具、初雪の帰り道。温かい昭和歌謡として聴ける冬の一曲です。",
+                                      "tags":  [
+                                                   "昭和歌謡",
+                                                   "百貨店",
+                                                   "屋上",
+                                                   "初雪",
+                                                   "70年代 日本の歌",
+                                                   "冬の歌",
+                                                   "懐かしい日本語曲"
+                                               ]
+                                  },
+                      "genreId":  "kayokyoku-70s",
+                      "genreText":  "1970s Japanese kayokyoku, electric piano, live brass section",
+                      "lyricTheme":  "showa70s-department-rooftop",
+                      "lyricThemeText":  "watching the sunset from a department store rooftop while coin rides sit silent behind the railing",
+                      "lyricThemeArc":  "ordinary city fatigue turning into a warm refrain",
+                      "pov":  "firstPerson",
+                      "verseStyle":  "dialogue",
+                      "verseStyleText":  "verse lines use direct address or short conversational fragments without becoming spoken-word",
+                      "chorusStyle":  "narrative",
+                      "chorusStyleText":  "chorus lines unfold as plain scene narration with concrete actions and time movement",
+                      "effectiveVocalPresetId":  "warm-mature-male",
+                      "vocalPresetSource":  "plan",
+                      "qualityScore":  0,
+                      "warnings":  [
+
+                                   ]
+                  },
+                  {
+                      "trackNo":  6,
+                      "title":  "Joined Hands",
+                      "titleLocalized":  "手袋の約束",
+                      "seasonMoment":  "First snow in a crowded covered shopping arcade.",
+                      "listenerSituation":  "A mixed pair walks through a crowded Showa shopping arcade during first snow, sharing roasted chestnuts as their sleeves brush in the crowd.",
+                      "emotionArc":  "lonely memory to warm acceptance",
+                      "distinctChoice":  {
+                                             "ruleId":  "final_chord_harmony_stack",
+                                             "descriptionKo":  "마지막 음 아래에 가까운 화음을 층층이 쌓아 군중 속의 손잡음을 크게 들리게 한다."
+                                         },
+                      "hookPhrase":  "朝を今も思い出す",
+                      "stylePrompt":  "1970s Showa Groove, 80 BPM, clavinet, live bass, wah electric guitar, brass stabs, tight drum kit, Verse: IV-V-iii-vi royal road progression, Chorus: vi-IV-V-I komuro-cycle progression, small mixed vocal group, alternating verses into joined chorus, tight unison with light detune, two-note pickup phrase design, medium arrangement, instrumental intro with no sung line, soft brass-stab opening color, four-part close harmony stacks under the final note, shopping arcade first snow, short intro, 3:10-3:35, full arrangement, not a short cut",
+                      "excludePrompt":  "famous artist imitation, soundalike vocals, real artist or band names, existing song titles, copied melodies, copyrighted song references, shouted high notes, belted high notes, harsh bright top end, excessive reverb washing out the vocal, rapid syllable-dense phrasing, dense syncopation obscuring melody, heavy sub bass, modern wide stereo production, autotuned vocal, generic demo-band sound, overly glossy karaoke backing track, flat chorus with no lift, monotonous melody contour, childish lyrics, too old-fashioned trot mood, mechanical funk loop, slap-bass showoff fills, sharp wah chatter, brass overplaying, crowded call-and-response noise, aggressive drum accents, forced party mood",
+                      "lyrics":  "[Intro: Instrumental]\n[Verse 1: Male Vocal]\nアーケードの屋根を白がたたき、焼き栗の袋を二人で抱く\n人波の中で袖が触れても、知らない顔で少し近づく\n古い時計が六時を指して、湯気だけが先に笑っていた\n八百屋の声も遠く丸まり、冬の入口で肩が並ぶ\n君の手袋は片方だけで、僕の指まで半分包む\n買わずに眺めた赤い林檎が、若い日の頬を思わせた\n[Chorus: Male and Female Duet]\n朝を今も思い出す\nにぎわう通りを抜けながら、ひとつの袋に手を入れて\n冬の音まで甘くなる、言わない約束も温かい\n白い屋根の下で笑う\n[Verse 2: Female Vocal]\nあなたの手袋は片方だけで、私の指を半分包む\n店先の硝子に並んだ影は、若い頃より素直に見えた\n白い粒が肩で消えるたび、胸の遠回りも近道になる\n魚屋の札が風に揺れて、帰りの時間を少し忘れる\n同じ袋の底を探せば、最後の栗まで甘く残った\n人の声の波の中でも、あなたの息だけ近く聞こえる\n[Chorus: Male and Female Duet]\n見上げた屋根に雪は淡く、人の声さえ丸くなる\n朝を今も思い出す\n帰る約束を言わずに、握ったままの紙袋へ\n冬の町が灯ってゆく\n[Final Chorus: Male and Female Duet Harmony]\n朝を今も思い出す\n四つの息が下で重なり、握った手の中のぬくもりを\n通りの灯まで覚えている、胸の奥まで甘く響く\n離れたあとも袋は温かい\n朝を今も思い出す",
+                      "youtube":  {
+                                      "title":  "Joined Hands - 昭和セブンティーズ",
+                                      "description":  "初雪の商店街、焼き栗の袋、そっと触れる袖。1970年代ショウワ・グルーヴで描く、にぎわいの中の温かさです。",
+                                      "tags":  [
+                                                   "昭和歌謡",
+                                                   "Showa groove",
+                                                   "商店街",
+                                                   "初雪",
+                                                   "男女デュエット",
+                                                   "70年代 日本の歌",
+                                                   "冬の歌"
+                                               ]
+                                  },
+                      "genreId":  "showa-groove-70s",
+                      "genreText":  "1970s funk and soul influenced Japanese kayokyoku, clavinet, wah electric guitar, confident Japanese pop vocal",
+                      "lyricTheme":  "showa70s-matsuri-fireworks-riverside",
+                      "lyricThemeText":  "watching summer fireworks bloom over the river in a borrowed yukata sleeve brushing against a sleeve nearby",
+                      "lyricThemeArc":  "crowded noise narrowing into one quiet held hand",
+                      "pov":  "secondPerson",
+                      "verseStyle":  "dialogue",
+                      "verseStyleText":  "verse lines use direct address or short conversational fragments without becoming spoken-word",
+                      "chorusStyle":  "image",
+                      "chorusStyleText":  "chorus lines focus on sensory images, objects, light, weather, and small gestures",
+                      "effectiveVocalPresetId":  "mixed-harmony-group",
+                      "vocalPresetSource":  "plan",
+                      "qualityScore":  0,
+                      "warnings":  [
+
+                                   ]
+                  },
+                  {
+                      "trackNo":  7,
+                      "title":  "Stay In This Hour",
+                      "titleLocalized":  "白い録音",
+                      "seasonMoment":  "First snow outside a small room while a handmade cassette is prepared.",
+                      "listenerSituation":  "A woman rewinds a homemade cassette at her desk with a pencil while first snow touches the window and the fresh label ink dries.",
+                      "emotionArc":  "soft nostalgia to renewed hope",
+                      "distinctChoice":  {
+                                             "ruleId":  "gift_not_confession",
+                                             "descriptionKo":  "사랑 고백이 아니라 친구에게 건네는 선물처럼 마음을 마무리한다."
+                                         },
+                      "hookPhrase":  "この時間にいて、友よ",
+                      "stylePrompt":  "1970s Japanese Folk, 88 BPM, fingerpicked acoustic guitar, light upright piano, soft hand percussion, simple bass, small brass fall-off intro color, Verse: IVmaj7-iii7-vi7 movement, Chorus: IV-V-iii-vi royal road progression, Bridge: IVM7-III7-vi-I7 marusa progression, mature elegant female mezzo-soprano, tender confiding delivery, warm rounded midrange, hook built on upper scale tones, full but gentle arrangement, instrumental intro with no sung line, exploration harmony in folk setting, lead lifts into falsetto on the final chorus, cassette gift under first snow, short intro, 3:10-3:35, full arrangement, not a short cut",
+                      "excludePrompt":  "famous artist imitation, soundalike vocals, real artist or band names, existing song titles, copied melodies, copyrighted song references, shouted high notes, belted high notes, harsh bright top end, excessive reverb washing out the vocal, rapid syllable-dense phrasing, dense syncopation obscuring melody, heavy sub bass, modern wide stereo production, autotuned vocal, generic demo-band sound, overly glossy karaoke backing track, flat chorus with no lift, monotonous melody contour, childish lyrics, too old-fashioned trot mood, stadium folk-rock strumming, modern bedroom haze, campfire chant, nasal novelty chorus, rushed spoken verse, overly precious diary tone, brittle falsetto strain",
+                      "lyrics":  "[Intro]\n[Verse 1]\n鉛筆を軸にして巻き戻す、手作りのラベルはまだ匂う\n窓の外では白が肩を寄せ、机の傷まで古く光った\n選んだ順番を何度も替えて、君の帰り道を思い浮かべる\n紙の箱には小さな癖字で、日付と短い励ましを書いた\n消しゴムの屑を払うたび、言えない気持ちが整ってゆく\n[Pre-Chorus]\n言いそびれた励ましを、紙の端へ小さく書いた\n照れた字でも届くなら、冬は少し短くなる\n贈るために選んだ時間が、私自身を支えてくれる\n窓辺の白も味方のように、机の上へ明るく落ちる\n[Chorus]\nこの時間にいて、友よ\n片面だけの便りでも、明日の扉をあける時\n胸で小さく回っていて、寒い朝にもほどけるように\n私の声を少し残す\n[Verse 2]\n封筒に入れる前の沈黙が、部屋の灯りを丸くする\nあなたの好きな順に並べたら、自分の寂しさも笑えた\n白い粒が硝子に消えて、渡す朝まで眠れそうだ\n返事を求めない贈り物ほど、手のひらで長く温まる\n古い机の引き出しから、借りた勇気をそっと出す\n[Chorus]\n古い机の引き出しから、借りた勇気をそっと出す\nこの時間にいて、友よ\n言葉より長く残るように、白い窓辺で息を合わせ\n小さな箱を胸へ抱いた\n[Key-Lift Final Chorus]\nこの時間にいて、友よ\n高い息へふわりと乗せて、贈るだけで救われる夜を\n白い窓辺に置いてゆく、君の明日が寒くないように\n小さな箱を胸へ抱いた\nこの時間にいて、友よ",
+                      "youtube":  {
+                                      "title":  "Stay In This Hour - 昭和セブンティーズ",
+                                      "description":  "手作りカセット、鉛筆での巻き戻し、初雪の窓。昭和フォークの手触りで、友へ贈る冬の時間を歌います。",
+                                      "tags":  [
+                                                   "昭和フォーク",
+                                                   "カセット",
+                                                   "初雪",
+                                                   "70年代 日本の歌",
+                                                   "懐かしい日本語曲",
+                                                   "冬の歌",
+                                                   "昭和プレイリスト"
+                                               ]
+                                  },
+                      "genreId":  "japanese-folk-70s",
+                      "genreText":  "1970s Japanese folk, fingerpicked acoustic guitar, light upright piano",
+                      "lyricTheme":  "showa70s-cassette-mixtape-desk",
+                      "lyricThemeText":  "rewinding a homemade cassette mixtape with a pencil while the label ink still smells fresh",
+                      "lyricThemeArc":  "private effort becoming a hopeful gift",
+                      "pov":  "firstPerson",
+                      "verseStyle":  "image",
+                      "verseStyleText":  "verse lines focus on sensory images, objects, light, weather, and small gestures",
+                      "chorusStyle":  "hookRepeat",
+                      "chorusStyleText":  "chorus lines use compact repeated hook callbacks and simple answer phrases",
+                      "effectiveVocalPresetId":  "mature-female",
+                      "vocalPresetSource":  "plan",
+                      "qualityScore":  0,
+                      "warnings":  [
+
+                                   ]
+                  },
+                  {
+                      "trackNo":  8,
+                      "title":  "Steam Signal",
+                      "titleLocalized":  "湯気の冬",
+                      "seasonMoment":  "Late afternoon beside a sento chimney when first snow mixes with steam.",
+                      "listenerSituation":  "A man pauses near a bathhouse alley in late afternoon, watching sento steam meet the first snow above low lantern light.",
+                      "emotionArc":  "held-back yearning bursting into radiant relief",
+                      "distinctChoice":  {
+                                             "ruleId":  "instrument_answers_vocal",
+                                             "descriptionKo":  "중간 악기 응답이 보컬 선율의 빈자리를 대신해 가장 특이한 화성 실험을 만든다."
+                                         },
+                      "hookPhrase":  "煙の中で待って、冬よ",
+                      "stylePrompt":  "1970s Japanese New Music, 82 BPM, acoustic guitar, upright piano, clean electric guitar, live drums, warm bass, Verse: IVM7-III7-vi-I7 marusa progression, Chorus: vi-IV-V-I komuro-cycle progression, mature soulful male tenor, conversational unhurried phrasing, smoky low resonance, descending final-hook resolution, medium arrangement, instrumental intro with acoustic harmonics and no sung line, half-time chorus weight, clean electric guitar answers the vocal line in the mid-instrumental feel, sento steam and first snow, short intro, 3:10-3:35, full arrangement, not a short cut",
+                      "excludePrompt":  "famous artist imitation, soundalike vocals, real artist or band names, existing song titles, copied melodies, copyrighted song references, shouted high notes, belted high notes, harsh bright top end, excessive reverb washing out the vocal, rapid syllable-dense phrasing, dense syncopation obscuring melody, heavy sub bass, modern wide stereo production, autotuned vocal, generic demo-band sound, overly glossy karaoke backing track, flat chorus with no lift, monotonous melody contour, childish lyrics, too old-fashioned trot mood, smooth 1980s gloss, yacht-rock polish, jazz-fusion solo excess, sterile session-band sheen, overbusy add9 voicings, smoky lounge parody, overlong instrumental detour",
+                      "lyrics":  "[Intro]\n[Verse 1]\n銭湯の煙突が午後をほどき、路地の低い灯が早くもにじむ\n肩に置いた手ぬぐいはまだ乾かず、石けんの匂いを少し残した\n空から来た白と湯気がまざり、誰かの帰る声が丸くなる\n下駄箱の前で足を止め、濡れた髪から冬を聞いた\n古い看板の赤い文字まで、湯気の向こうでやさしく揺れる\n胸の奥で固まった願いが、息をするたび形を変えた\n[Chorus]\n煙の中で待って、冬よ\n胸の奥まで湯が届く、言えない願いを曇らせて\n見えないままでもあたたかい、路地の灯りが肩を抱く\n白い午後が近づいてくる\n[Verse 2]\n番台の暖簾が背中で揺れ、下駄箱の札を指で戻す\n若い日の傷を数えるより、今日の足もとを拭いて歩こう\n雪は舗道で水に変わり、古い町をゆっくり磨いた\n湯冷めを気にする声がして、見知らぬ人まで家族に見える\n煙突の上で白さがほどけ、空の低さもやわらかい\n帰る角まで遠回りして、冷えた名前を胸で呼んだ\n[Chorus]\n灯りの輪郭が少し広がり、遠い人まで近く見える\n煙の中で待って、冬よ\n冷えた名前を抱いてくれ、戻れない日も湯気へ隠して\nこの町の午後に溶けてゆく\n[Final Chorus]\n煙の中で待って、冬よ\nあふれる湯気の向こう側へ、戻れない日も白くほどけ\nこの路地だけが輝いている、胸の芯までほどけてゆく\n帰る背中をそっと押して\n煙の中で待って、冬よ",
+                      "youtube":  {
+                                      "title":  "Steam Signal - 昭和セブンティーズ",
+                                      "description":  "銭湯帰りの路地、煙突の湯気、初雪。1970年代ニューミュージックの温かい高揚感で描く冬の午後です。",
+                                      "tags":  [
+                                                   "ニューミュージック",
+                                                   "銭湯",
+                                                   "初雪",
+                                                   "昭和歌謡",
+                                                   "70年代 日本の歌",
+                                                   "懐かしい日本語曲",
+                                                   "冬の午後"
+                                               ]
+                                  },
+                      "genreId":  "new-music-70s",
+                      "genreText":  "1970s Japanese new music, acoustic guitar, upright piano, live band warmth",
+                      "lyricTheme":  "showa70s-rooftop-laundry-line",
+                      "lyricThemeText":  "pinning damp laundry to a rooftop rope while the whole neighborhood hums below in the afternoon heat",
+                      "lyricThemeArc":  "ordinary chore opening into a wide unexpected view",
+                      "pov":  "firstPerson",
+                      "verseStyle":  "dialogue",
+                      "verseStyleText":  "verse lines use direct address or short conversational fragments without becoming spoken-word",
+                      "chorusStyle":  "narrative",
+                      "chorusStyleText":  "chorus lines unfold as plain scene narration with concrete actions and time movement",
+                      "effectiveVocalPresetId":  "warm-mature-male",
+                      "vocalPresetSource":  "plan",
+                      "qualityScore":  0,
+                      "warnings":  [
+
+                                   ]
+                  },
+                  {
+                      "trackNo":  9,
+                      "title":  "Sepia Town",
+                      "titleLocalized":  "配達の朝",
+                      "seasonMoment":  "Still-dark newspaper route turning pale under first snow.",
+                      "listenerSituation":  "A delivery bicycle moves through a still-dark street at dawn, tossing the last folded newspaper as first snow brightens the steps.",
+                      "emotionArc":  "quiet longing swelling into overwhelming feeling",
+                      "distinctChoice":  {
+                                             "ruleId":  "low_hook_drop",
+                                             "descriptionKo":  "마지막 후렴의 훅을 고음이 아니라 낮은 음역으로 떨어뜨려 낭만을 과장하지 않는다."
+                                         },
+                      "hookPhrase":  "セピア色にいて、冬よ",
+                      "stylePrompt":  "1970s Japanese kayokyoku, 100 BPM, electric piano, live strings, clean jazz guitar comping, brushed drums, round electric bass, Verse: I-vi-IV-V doo-wop progression, Chorus: I-V-vi-iii-IV-I-IV-V progression, Bridge: IV-I-V-vi warm cycle progression, male and female duet, trading lines mid-phrase, close third harmony, paired antecedent-consequent melody, full arrangement, no intro tag, singing starts immediately, bridge strips down then returns, lead drops low into the hook, newspaper route at first-snow dawn, short intro, 3:10-3:35, full arrangement, not a short cut",
+                      "excludePrompt":  "famous artist imitation, soundalike vocals, real artist or band names, existing song titles, copied melodies, copyrighted song references, shouted high notes, belted high notes, harsh bright top end, excessive reverb washing out the vocal, rapid syllable-dense phrasing, dense syncopation obscuring melody, heavy sub bass, modern wide stereo production, autotuned vocal, generic demo-band sound, overly glossy karaoke backing track, flat chorus with no lift, monotonous melody contour, childish lyrics, too old-fashioned trot mood, melodramatic enka sobbing, oversized string syrup, hard brass fanfare, fake doo-wop parody, rushed delivery-song novelty, brittle duet blend, overbusy jazz comping",
+                      "lyrics":  "[Verse 1: Male Vocal]\n暗い坂道を自転車で下り、最後の束だけ籠に残った\n新聞の角は指に冷たく、門灯の下へ白が降り始める\n眠る町へおはようも言わず、息の線だけ先に置いた\n折り目のそろった紙の重さが、今日の始まりを胸へ伝える\n[Pre-Chorus: Female Vocal]\n窓の内側で湯を沸かしながら、車輪の音を覚えていた\n投げ入れられた朝の紙から、あなたの手の冷たさが来る\n白い階段へ届いた紙を、両手でそっと受け止める\n[Chorus: Male and Female Duet]\nセピア色にいて、冬よ\nまだ青くない空の下、折り目のついた小さな便りが\n今日をそっと開いてゆく、眠る町まで息をする\n会わない二人を近づける\n[Verse 2: Female Vocal]\nあなたは角を曲がるたびに、遠い家ほど近く感じた\n私は窓辺で白を見つけ、名前のない礼を胸に置く\n階段の石へ新聞が届き、薄い朝が町をほどいた\nあなたの背中は見えないけれど、紙の冷たさに手を添える\n二つの吐息は別々でも、同じ白さを吸い込んだ\n[Chorus: Male and Female Duet]\n二つの影は会わないまま、同じ白さを見上げている\nセピア色にいて、冬よ\n古い通りを抱いていて、紙の匂いが朝を連れて\n小さな礼を残してゆく\n[Instrumental Break: Instrumental]\n[Key-Lift Final Chorus: Male and Female Duet Harmony]\nセピア色にいて、冬よ\n低い声から胸へ落ちる、配り終えた手の痛みまで\nやさしい朝に変わるから、まだ暗い坂も怖くない\n折り目の奥で灯がともる\nセピア色にいて、冬よ",
+                      "youtube":  {
+                                      "title":  "Sepia Town - 昭和セブンティーズ",
+                                      "description":  "まだ暗い新聞配達の道、折り目のある朝刊、初雪。1970年代歌謡の男女デュエットで描く淡い冬のロマンスです。",
+                                      "tags":  [
+                                                   "昭和歌謡",
+                                                   "新聞配達",
+                                                   "初雪",
+                                                   "男女デュエット",
+                                                   "70年代 日本の歌",
+                                                   "冬の朝",
+                                                   "懐かしい日本語曲"
+                                               ]
+                                  },
+                      "genreId":  "kayokyoku-70s",
+                      "genreText":  "1970s Japanese kayokyoku, electric piano, live brass section",
+                      "lyricTheme":  "showa70s-newspaper-delivery-dawn",
+                      "lyricThemeText":  "pedaling a delivery bicycle through a still-dark street and tossing the last folded newspaper onto a step",
+                      "lyricThemeArc":  "solitary dark labor meeting the first pale light",
+                      "pov":  "secondPerson",
+                      "verseStyle":  "image",
+                      "verseStyleText":  "verse lines focus on sensory images, objects, light, weather, and small gestures",
+                      "chorusStyle":  "image",
+                      "chorusStyleText":  "chorus lines focus on sensory images, objects, light, weather, and small gestures",
+                      "effectiveVocalPresetId":  "male-female-duet",
+                      "vocalPresetSource":  "plan",
+                      "qualityScore":  0,
+                      "warnings":  [
+
+                                   ]
+                  },
+                  {
+                      "trackNo":  10,
+                      "title":  "Beloved",
+                      "titleLocalized":  "川灯り",
+                      "seasonMoment":  "Dusk on a riverside bench as paper lanterns pass through first snow.",
+                      "listenerSituation":  "A man sits on a riverside bench at dusk, watching paper lanterns drift past while first snow loosens a long silence with someone dear.",
+                      "emotionArc":  "warm reunion feeling lifting into brighter delight",
+                      "distinctChoice":  {
+                                             "ruleId":  "two_bar_silence",
+                                             "descriptionKo":  "마지막 후렴 전에 두 마디를 무반주로 비워 대화가 다시 시작되는 순간을 만든다."
+                                         },
+                      "hookPhrase":  "私と消えて、愛しい人",
+                      "stylePrompt":  "1970s Showa Groove, 96 BPM, clavinet, wah electric guitar, live bass, brass stabs, tight drum kit, I-V-vi-IV verses, vi-IV-I-V chorus lift, low calm male baritone, legato sustained lines, soft husky grain, sustained first-word hook landing, full arrangement, short sung intro line, clean electric guitar arpeggio opening color, stop-time accent entering chorus, two unaccompanied bars before the last chorus, riverside lanterns under first snow, exploration harmony with relaxed dynamics, short intro, 3:10-3:35, full arrangement, not a short cut",
+                      "excludePrompt":  "famous artist imitation, soundalike vocals, real artist or band names, existing song titles, copied melodies, copyrighted song references, shouted high notes, belted high notes, harsh bright top end, excessive reverb washing out the vocal, rapid syllable-dense phrasing, dense syncopation obscuring melody, heavy sub bass, modern wide stereo production, autotuned vocal, generic demo-band sound, overly glossy karaoke backing track, flat chorus with no lift, monotonous melody contour, childish lyrics, too old-fashioned trot mood, mechanical funk loop, slap-bass showoff fills, sharp wah chatter, aggressive drum accents, overdramatic lover address, harsh stop-time hit, nightclub shouting",
+                      "lyrics":  "[Intro]\n私と消えて、愛しい人\n[Verse 1]\n川べりのベンチは少し湿り、紙の灯籠が流れに乗る\n君は黙って手すりを見つめ、僕も黙って白い息を数えた\n言い争った日の角だけが、ポケットの中でまだ尖る\n川面の黒さに町の灯が落ち、戻れない時間を薄く照らす\n肩に触れた雪を払う口実を、僕は何度も胸で探した\n遠い船から笑い声が来て、沈黙の重さが少し浮く\n[Chorus]\n私と消えて、愛しい人\nこの川の灯が遠ざかるまで、古い沈黙をほどきながら\n肩の雪を払わせてくれ、言えなかった日を責めないで\n今ここから息を合わせる\n[Verse 2]\n船の影から声が届いて、君の横顔が少しゆるむ\n謝る順番を探すより、手の甲の冷たさを先に知る\n流れる灯は戻らないけれど、同じ岸には立っていられる\n古い欄干に指を置けば、二人の影が水へ伸びる\n君の小さなうなずきだけで、長い冬道が短く見えた\n言葉の前に手を差し出して、白い肩へそっと触れる\n[Chorus]\n紙の灯りが水面で揺れ、言葉の重さを連れてゆく\n私と消えて、愛しい人\n今夜ではなく今ここで、凍えた胸を少しほどこう\n川の流れは急がない\n[Breakdown]\n[Final Chorus]\n私と消えて、愛しい人\n二つの息だけ先に戻り、川の向こうへ影がほどける\n残った手の熱を信じたい、消える灯籠に礼を言いながら\n並んだ肩が冬を越える\n私と消えて、愛しい人",
+                      "youtube":  {
+                                      "title":  "Beloved - 昭和セブンティーズ",
+                                      "description":  "川辺のベンチ、流れる紙灯籠、初雪の沈黙。1970年代ショウワ・グルーヴで、重い空気が会話へほどける瞬間を歌います。",
+                                      "tags":  [
+                                                   "Showa groove",
+                                                   "昭和歌謡",
+                                                   "川辺",
+                                                   "紙灯籠",
+                                                   "初雪",
+                                                   "70年代 日本の歌",
+                                                   "冬の夕暮れ"
+                                               ]
+                                  },
+                      "genreId":  "showa-groove-70s",
+                      "genreText":  "1970s funk and soul influenced Japanese kayokyoku, clavinet, wah electric guitar, soulful rasp on emotional phrase peaks",
+                      "lyricTheme":  "showa70s-riverside-bench-evening",
+                      "lyricThemeText":  "sitting on a riverside bench as paper lanterns from a distant boat drift past in the current",
+                      "lyricThemeArc":  "heavy silence loosening into gentle conversation",
+                      "pov":  "firstPerson",
+                      "verseStyle":  "dialogue",
+                      "verseStyleText":  "verse lines use direct address or short conversational fragments without becoming spoken-word",
+                      "chorusStyle":  "hookRepeat",
+                      "chorusStyleText":  "chorus lines use compact repeated hook callbacks and simple answer phrases",
+                      "effectiveVocalPresetId":  "low-calm-male",
+                      "vocalPresetSource":  "plan",
+                      "qualityScore":  0,
+                      "warnings":  [
+
+                                   ]
+                  },
+                  {
+                      "trackNo":  11,
+                      "title":  "One Bell",
+                      "titleLocalized":  "鐘の列",
+                      "seasonMoment":  "Cold late-night temple courtyard with first snow before the New Year bell.",
+                      "listenerSituation":  "A man waits in a temple courtyard queue to ring the year-end bell once while first snow gathers on his folded scarf.",
+                      "emotionArc":  "quiet longing to calm gratitude",
+                      "distinctChoice":  {
+                                             "ruleId":  "solo_after_second_chorus",
+                                             "descriptionKo":  "두 번째 후렴 뒤 여덟 마디 솔로가 말을 줄이고 감사의 숨을 정리한다."
+                                         },
+                      "hookPhrase":  "雪道を今も思い出す",
+                      "stylePrompt":  "1970s Japanese Folk, 88 BPM, fingerpicked acoustic guitar, light upright piano, soft hand percussion, simple bass, warm Rhodes riff opening color, Verse: IVmaj7-iii7-vi7 movement, Chorus: IVM7-III7-vi-I7 marusa progression, mature soulful male tenor, clipped rhythmic phrasing, slight nasal brightness, stepwise melody with clipped pickup answers, medium arrangement, short sung intro line, eight-bar instrumental solo after the second chorus, temple bell queue under first snow, short intro, 3:10-3:35, full arrangement, not a short cut",
+                      "excludePrompt":  "famous artist imitation, soundalike vocals, real artist or band names, existing song titles, copied melodies, copyrighted song references, shouted high notes, belted high notes, harsh bright top end, excessive reverb washing out the vocal, rapid syllable-dense phrasing, dense syncopation obscuring melody, heavy sub bass, modern wide stereo production, autotuned vocal, generic demo-band sound, overly glossy karaoke backing track, flat chorus with no lift, monotonous melody contour, childish lyrics, too old-fashioned trot mood, stadium folk-rock strumming, modern bedroom haze, campfire chant, rushed spoken verse, solemn funeral heaviness, novelty temple sound effect, wandering solo with no cadence",
+                      "lyrics":  "[Intro]\n白い息をひとつ数える\n[Verse 1]\n境内の列は少しずつ進み、折った襟巻に雪が眠る\n古い年の荷を掌で包み、鈴の緒を見る目だけ幼い\n誰かの咳が石畳に落ち、月のない空が深く澄む\n足もとの砂利は冷たいけれど、並ぶ背中に熱がある\n袖口に入る白い粒まで、今年の名残のように思えた\n[Pre-Chorus]\n願いを大きく言うよりも、無事に来られたことを思う\n冷えた足先を動かせば、隣の人も小さく笑う\n古い悔いをほどくには、鐘ひとつで十分だろう\n吐く息の白い短さが、明日の長さを教えてくれる\n[Chorus]\n石段の白を踏みしめて、今年の影を置いてゆく\n雪道を今も思い出す\n帰る家まで鐘が届く、眠る町にもやわらかく\n胸の荷物が軽くなる\n[Verse 2]\n一度だけ撞く番が近づき、胸の奥まで袖を正す\n若い日の悔いは消えないが、吐く息の端で丸くなる\n手水の水に星が揺れ、明日の名をまだ呼ばない\n掌を合わせるその前に、ありがとうだけ先に浮かぶ\n[Chorus]\n並んだ背中が少し温かく、遠い町まで同じ夜\n雪道を今も思い出す\nありがたいほど寒いまま、白い袖口を握りしめ\n古い年へ頭を下げる\n[Instrumental Solo]\n[Key-Lift Final Chorus]\n雪道を今も思い出す\nひとつの鐘が胸をほどき、白い石段を振り向けば\n古い年さえ手を振るようだ、帰りの道に灯が増えて\n明日の朝を急がず待てる\n雪道を今も思い出す",
+                      "youtube":  {
+                                      "title":  "One Bell - 昭和セブンティーズ",
+                                      "description":  "除夜の鐘を待つ境内、襟巻に積もる初雪。昭和フォークの近さで、古い年から新しい朝へ向かう静かな曲です。",
+                                      "tags":  [
+                                                   "昭和フォーク",
+                                                   "除夜の鐘",
+                                                   "初雪",
+                                                   "70年代 日本の歌",
+                                                   "冬の夜",
+                                                   "懐かしい日本語曲",
+                                                   "昭和プレイリスト"
+                                               ]
+                                  },
+                      "genreId":  "japanese-folk-70s",
+                      "genreText":  "1970s Japanese folk, fingerpicked acoustic guitar, light upright piano",
+                      "lyricTheme":  "showa70s-temple-bell-new-year",
+                      "lyricThemeText":  "standing in a temple courtyard queue to ring the New Year bell once under a cold clear sky",
+                      "lyricThemeArc":  "weary old year lifting into quiet renewed hope",
+                      "pov":  "firstPerson",
+                      "verseStyle":  "image",
+                      "verseStyleText":  "verse lines focus on sensory images, objects, light, weather, and small gestures",
+                      "chorusStyle":  "narrative",
+                      "chorusStyleText":  "chorus lines unfold as plain scene narration with concrete actions and time movement",
+                      "effectiveVocalPresetId":  "warm-mature-male",
+                      "vocalPresetSource":  "plan",
+                      "qualityScore":  0,
+                      "warnings":  [
+
+                                   ]
+                  },
+                  {
+                      "trackNo":  12,
+                      "title":  "Beyond The Steam",
+                      "titleLocalized":  "湯帰り雪",
+                      "seasonMoment":  "First snow outside a sento hallway under low lanterns.",
+                      "listenerSituation":  "A woman carries a small folded towel down a tiled sento hallway as steam curls beneath low lanterns and first snow waits outside.",
+                      "emotionArc":  "soft nostalgia to renewed hope",
+                      "distinctChoice":  {
+                                             "ruleId":  "third_person_memory",
+                                             "descriptionKo":  "3인칭으로 한 인물의 몸이 풀리는 장면만 따라가며 회상을 직접 설명하지 않는다."
+                                         },
+                      "hookPhrase":  "茶碗をそっとつけて",
+                      "stylePrompt":  "1970s Japanese New Music, 94 BPM, acoustic guitar, clean electric guitar, upright piano, live drums, warm bass, Verse: IV-V-iii-vi royal road progression, Chorus: vi-IV-V-I komuro-cycle progression, soulful female voice, bright forward delivery, faint vibrato shimmer, repeated rhythmic figure in a narrow range, medium arrangement, vintage electric piano tremolo intro with no sung line, exploration harmony kept warm, one-bar lift into chorus, strings build steadily under the final chorus, sento hallway first snow, short intro, 3:10-3:35, full arrangement, not a short cut",
+                      "excludePrompt":  "famous artist imitation, soundalike vocals, real artist or band names, existing song titles, copied melodies, copyrighted song references, shouted high notes, belted high notes, harsh bright top end, excessive reverb washing out the vocal, rapid syllable-dense phrasing, dense syncopation obscuring melody, heavy sub bass, modern wide stereo production, autotuned vocal, generic demo-band sound, overly glossy karaoke backing track, flat chorus with no lift, monotonous melody contour, childish lyrics, too old-fashioned trot mood, smooth 1980s gloss, sterile session-band sheen, overbusy add9 voicings, harsh female top notes, bathhouse novelty lyrics, watery mix blur, sentimental overexplaining",
+                      "lyrics":  "[Intro]\n[Verse 1]\n彼女は小さく手ぬぐいを畳み、湯上がりの廊下をゆっくり行く\n低い灯籠の下で湯気がほどけ、濡れた髪から冬の匂いがした\n下駄箱の札を指で探し、外の白さに少し驚く\n鏡の前で結び直した髪が、肩の力をやっと逃がす\n湯気で曇った硝子の向こうに、町の寒さが淡く待っている\n急ぐ理由は何もないのに、帰る道だけ胸を温めた\n[Chorus]\n茶碗をそっとつけて\n冷えた指先を休ませる、家までの道が短いように\n胸の奥から湯気が立つ、折った手ぬぐいもまだ柔らかい\n冬の戸口へ歩いてゆく\n[Verse 2]\n古い暖簾を背にくぐる時、肩の力がやっと落ちた\n誰かを待たせているわけでなく、帰る場所だけ灯っている\n初雪は袖で水に変わり、彼女の歩幅を丸くした\n路地の石には足跡が増え、湯帰りの声が遠く続く\n小銭入れの金具を閉じて、今日の疲れを鞄へしまう\n低い屋根から落ちる滴が、明日の寒さを笑わせた\n[Chorus]\n白い路地には足音ひとつ、低い屋根から滴が落ちる\n茶碗をそっとつけて\n明日の寒さも怖くない、湯気の向こうに家が見える\nほどけた体で戸を開ける\n[Final Chorus]\n茶碗をそっとつけて\n糸のように張った日々をほどき、湯気の向こうで笑う顔へ\n帰る手順を思い出す、白い路地から灯を拾って\n彼女は少し早く歩いた\n茶碗をそっとつけて",
+                      "youtube":  {
+                                      "title":  "Beyond The Steam - 昭和セブンティーズ",
+                                      "description":  "銭湯の廊下、畳んだ手ぬぐい、外で待つ初雪。1970年代ニューミュージックの温度で描く、冬の帰り道です。",
+                                      "tags":  [
+                                                   "ニューミュージック",
+                                                   "銭湯",
+                                                   "初雪",
+                                                   "昭和歌謡",
+                                                   "70年代 日本の歌",
+                                                   "冬の歌",
+                                                   "懐かしい日本語曲"
+                                               ]
+                                  },
+                      "genreId":  "new-music-70s",
+                      "genreText":  "1970s Japanese new music, acoustic guitar, upright piano, lyrical adult pop",
+                      "lyricTheme":  "showa70s-bathhouse-sento-towel",
+                      "lyricThemeText":  "carrying a small folded towel down a tiled sento hallway as steam curls beneath low lanterns",
+                      "lyricThemeArc":  "weary body loosening into simple comfort",
+                      "pov":  "thirdPerson",
+                      "verseStyle":  "dialogue",
+                      "verseStyleText":  "verse lines use direct address or short conversational fragments without becoming spoken-word",
+                      "chorusStyle":  "image",
+                      "chorusStyleText":  "chorus lines focus on sensory images, objects, light, weather, and small gestures",
+                      "effectiveVocalPresetId":  "soulful-female",
+                      "vocalPresetSource":  "plan",
+                      "qualityScore":  0,
+                      "warnings":  [
+
+                                   ]
+                  },
+                  {
+                      "trackNo":  13,
+                      "title":  "Streetlamp",
+                      "titleLocalized":  "街灯",
+                      "seasonMoment":  "First snow on a park bench under bare cherry branches.",
+                      "listenerSituation":  "A man sits on a park bench under bare cherry branches as first snow gathers on a shared bag where spring petals once fell.",
+                      "emotionArc":  "joyful moment fading into tender wistfulness",
+                      "distinctChoice":  {
+                                             "ruleId":  "sax_break_before_final",
+                                             "descriptionKo":  "마지막 후렴 전 색소폰 휴식구가 봄의 기억을 겨울의 벤치로 옮긴다."
+                                         },
+                      "hookPhrase":  "街灯をそっとつけて",
+                      "stylePrompt":  "1970s Japanese kayokyoku, 69 BPM, electric piano, brushed drums, live strings, round electric bass, warm string pad swell, IVM7-III7-vi-I7 marusa progression, low calm male baritone, restrained understated reading, warm woody midrange, symmetric four-bar phrases with predictable cadence, sparse arrangement, no intro tag, singing starts immediately, eight-bar saxophone solo break before final chorus, almost a cappella final hook feel without an outro tag, park bench first snow, short intro, 3:10-3:35, full arrangement, not a short cut",
+                      "excludePrompt":  "famous artist imitation, soundalike vocals, real artist or band names, existing song titles, copied melodies, copyrighted song references, shouted high notes, belted high notes, harsh bright top end, excessive reverb washing out the vocal, rapid syllable-dense phrasing, dense syncopation obscuring melody, heavy sub bass, modern wide stereo production, autotuned vocal, generic demo-band sound, overly glossy karaoke backing track, flat chorus with no lift, monotonous melody contour, childish lyrics, too old-fashioned trot mood, melodramatic enka sobbing, syrupy string overload, hard brass blasts, smoky bar cliché, overlong sax wandering, dry vocal dullness, park-scene sentimentality",
+                      "lyrics":  "[Verse 1]\n枝だけの桜が空を抱き、ベンチの鞄に白が集まる\n春に座った同じ場所だと、声に出さずに膝を寄せた\n笑いすぎた日の紙袋まで、まだ心の底で鳴っている\n花の季節に交わした冗談が、冬の息で少し滲む\n隣の人は何も言わず、鞄の端をこちらへ寄せる\n手を伸ばすには遅すぎても、同じ白さは見つめられる\n[Chorus]\n街灯をそっとつけて\n帰る道だけ見えるように、過ぎた季節を追わないで\n今の白さを並べよう、古い笑いを膝に置いて\n胸の奥まで照らしてくれ\n[Verse 2]\n花びらの代わりに雪が来て、あなたの肩へ静かに残る\n手を伸ばすには遅すぎるから、鞄の端だけこちらへ寄せる\n風の少ない夕方ほど、言葉は胸で長くなる\n売店の閉まる音がして、公園の道は白く細い\n春の匂いはもう遠いのに、紙袋だけが覚えている\nふたりで黙るこの時間にも、やさしい名前はまだある\n[Chorus]\nベンチの下に白い影、古い笑いが息をする\n街灯をそっとつけて\n帰らぬ春もここにいる、肩の雪を払うかわりに\n同じ鞄を少し寄せる\n[Instrumental Break]\n[Final Chorus]\n街灯をそっとつけて\n小さな灯の輪の内側で、言えないままのやさしさを\n雪の鞄に預けよう、帰りの道が見えるだけで\n過ぎた春まで温かい\n街灯をそっとつけて",
+                      "youtube":  {
+                                      "title":  "Streetlamp - 昭和セブンティーズ",
+                                      "description":  "桜の季節を覚えたベンチに、今は初雪が降る。昭和歌謡の落ち着いた声で、過ぎた春と冬の灯りを歌います。",
+                                      "tags":  [
+                                                   "昭和歌謡",
+                                                   "公園",
+                                                   "街灯",
+                                                   "初雪",
+                                                   "70年代 日本の歌",
+                                                   "冬の夕方",
+                                                   "懐かしい日本語曲"
+                                               ]
+                                  },
+                      "genreId":  "kayokyoku-70s",
+                      "genreText":  "1970s Japanese kayokyoku, electric piano, live brass section",
+                      "lyricTheme":  "showa70s-cherry-blossom-bench",
+                      "lyricThemeText":  "sitting under falling cherry blossoms on a park bench while petals gather quietly on a shared bag",
+                      "lyricThemeArc":  "fleeting bloom softening into unspoken affection",
+                      "pov":  "firstPerson",
+                      "verseStyle":  "dialogue",
+                      "verseStyleText":  "verse lines use direct address or short conversational fragments without becoming spoken-word",
+                      "chorusStyle":  "hookRepeat",
+                      "chorusStyleText":  "chorus lines use compact repeated hook callbacks and simple answer phrases",
+                      "effectiveVocalPresetId":  "low-calm-male",
+                      "vocalPresetSource":  "plan",
+                      "qualityScore":  0,
+                      "warnings":  [
+
+                                   ]
+                  },
+                  {
+                      "trackNo":  14,
+                      "title":  "Gramophone Glow",
+                      "titleLocalized":  "電蓄の灯",
+                      "seasonMoment":  "First snow outside a neighborhood hall as an old gramophone is warmed for farewell listening.",
+                      "listenerSituation":  "A male-female pair prepares an old gramophone in a neighborhood hall while first snow falls outside and neighbors quietly gather to say farewell.",
+                      "emotionArc":  "quiet contentment resting undisturbed throughout",
+                      "distinctChoice":  {
+                                             "ruleId":  "full_stop_return",
+                                             "descriptionKo":  "훅 직전 완전 정지 후 밴드가 다시 들어오며 평화로운 작별을 크게 만든다."
+                                         },
+                      "hookPhrase":  "電蓄の灯",
+                      "stylePrompt":  "1970s Showa Groove, 86 BPM, clavinet, live bass, wah electric guitar, brass stabs, tight drum kit, muted trumpet answering phrase, I-vi-IV-V doo-wop progression, small mixed vocal group, male lead with female harmony, wide octave harmony, call-and-response hook shape, medium arrangement, short sung cold-hook intro, octave lift in final chorus kept relaxed, full stop before the band crashes back on the hook, neighborhood hall farewell under first snow, short intro, 3:10-3:35, full arrangement, not a short cut",
+                      "excludePrompt":  "famous artist imitation, soundalike vocals, real artist or band names, existing song titles, copied melodies, copyrighted song references, shouted high notes, belted high notes, harsh bright top end, excessive reverb washing out the vocal, rapid syllable-dense phrasing, dense syncopation obscuring melody, heavy sub bass, modern wide stereo production, autotuned vocal, generic demo-band sound, overly glossy karaoke backing track, flat chorus with no lift, monotonous melody contour, childish lyrics, too old-fashioned trot mood, mechanical funk loop, slap-bass showoff fills, sharp wah chatter, aggressive drum accents, brassy showbiz ending, harsh full-stop impact, parody old-record crackle, forced farewell tears",
+                      "lyrics":  "[Intro: Male and Female Duet]\n電蓄の灯\n[Verse 1: Male Vocal]\n町内会館の畳の上で、古い箱を二人で拭いた\n外の硝子には白が降り、集まる足音がやわらかい\n別れの言葉を急がぬように、針を置く前の息を合わせる\n湯のみの数を机に並べ、名残の席を丸く作る\n旅立つ人は帽子を脱いで、照れた笑いを袖で隠した\n町の古い時間がここだけ、ゆっくり回り始める\n[Chorus: Male and Female Duet]\n電蓄の灯\n丸い影まで温めて、旅立つ人の帽子の雪を\nみんなの掌で払おう、さよならの前に笑えるように\n畳の目まで明るくなる\n[Verse 2: Female Vocal]\nあなたは名簿を胸へしまい、私は湯のみを数えて置く\n誰かが笑えば畳が鳴って、寂しさまでも席を持つ\n戸口の白は静かに増え、帰り道を明るくした\n古い写真を回して見れば、知らない若さも近くなる\n言葉少ない人の礼ほど、湯のみの底で深く光る\n外套についた白い粒を、ひとつずつ指で払った\n[Chorus: Male and Female Duet]\n古い円盤が回り出せば、声にならない礼が満ちる\n電蓄の灯\nさよならよりも長くいて、部屋の隅まで冬を包み\n旅立つ背中を照らしてくれ\n[Breakdown: Instrumental]\n[Final Chorus: Male and Female Duet Harmony]\n電蓄の灯\n止まった間の向こうから、肩を並べた冬の顔が\nもう一度だけ笑っている、白い戸口へ歩く人へ\n町のぬくみを持たせよう\n電蓄の灯",
+                      "youtube":  {
+                                      "title":  "Gramophone Glow - 昭和セブンティーズ",
+                                      "description":  "町内会館、古い電蓄、初雪の別れ。1970年代ショウワ・グルーヴの男女ハーモニーで、静かな送別の温度を描きます。",
+                                      "tags":  [
+                                                   "Showa groove",
+                                                   "昭和歌謡",
+                                                   "電蓄",
+                                                   "初雪",
+                                                   "男女デュエット",
+                                                   "70年代 日本の歌",
+                                                   "昭和プレイリスト"
+                                               ]
+                                  },
+                      "genreId":  "showa-groove-70s",
+                      "genreText":  "1970s funk and soul influenced Japanese kayokyoku, clavinet, wah electric guitar, clavinet comping driving the groove",
+                      "lyricTheme":  "showa70s-lantern-paper-boat-river",
+                      "lyricThemeText":  "setting a small paper lantern boat onto a dark river and watching it drift with dozens of others",
+                      "lyricThemeArc":  "quiet grief releasing into gentle collective hope",
+                      "pov":  "secondPerson",
+                      "verseStyle":  "image",
+                      "verseStyleText":  "verse lines focus on sensory images, objects, light, weather, and small gestures",
+                      "chorusStyle":  "narrative",
+                      "chorusStyleText":  "chorus lines unfold as plain scene narration with concrete actions and time movement",
+                      "effectiveVocalPresetId":  "mixed-harmony-group",
+                      "vocalPresetSource":  "plan",
+                      "qualityScore":  0,
+                      "warnings":  [
+
+                                   ]
+                  },
+                  {
+                      "trackNo":  15,
+                      "title":  "Carry The Lamp",
+                      "titleLocalized":  "灯を持って",
+                      "seasonMoment":  "Dusk along a harvested rice-field path as first snow starts again.",
+                      "listenerSituation":  "A man walks home along a harvested rice-field path at dusk, carrying a small lamp and an unfinished reply as first snow begins again.",
+                      "emotionArc":  "lonely memory to warm acceptance",
+                      "distinctChoice":  {
+                                             "ruleId":  "unresolved_last_image",
+                                             "descriptionKo":  "마지막 줄을 결론 대신 돌아오는 불빛의 이미지로 남겨 1번 트랙으로 이어지게 한다."
+                                         },
+                      "hookPhrase":  "灯を持って",
+                      "stylePrompt":  "1970s Japanese Folk, 68 BPM, fingerpicked acoustic guitar, light upright piano, soft hand percussion, simple bass, rounded trombone swell intro color, I-V-vi-IV verses, vi-IV-I-V chorus lift, mature soulful male tenor, gentle swung phrasing, soft husky grain, rising melodic sequence into the chorus, sparse arrangement, instrumental intro with no sung line, half-time chorus feel, single-note answer after each hook, closer echoes the first song\u0027s cup and letter motif, rice-field dusk first snow, short intro, 3:10-3:35, full arrangement, not a short cut",
+                      "excludePrompt":  "famous artist imitation, soundalike vocals, real artist or band names, existing song titles, copied melodies, copyrighted song references, shouted high notes, belted high notes, harsh bright top end, excessive reverb washing out the vocal, rapid syllable-dense phrasing, dense syncopation obscuring melody, heavy sub bass, modern wide stereo production, autotuned vocal, generic demo-band sound, overly glossy karaoke backing track, flat chorus with no lift, monotonous melody contour, childish lyrics, too old-fashioned trot mood, stadium folk-rock strumming, modern bedroom haze, campfire chant, rushed spoken verse, overfinalized ending, bleak rural loneliness, novelty harvest song, thin closing hook",
+                      "lyrics":  "[Intro]\n[Verse 1]\n刈り終えた田の道は低く光り、夕暮れの空に白が戻る\n小さな灯を片手にかばい、もう片方で封のない返事を持つ\n遠い家々の窓が順に開き、湯の匂いまで風に乗った\n畦の土は靴の底で鳴り、今日の疲れを確かめさせる\n首に巻いた古い布から、喫茶の湯気を少し思い出す\n書きかけの紙は鞄の中で、まだ誰の名も急がせない\n[Chorus]\n灯を持って\n土の匂いを越えて行こう、疲れた肩の雪を払い\n帰る声だけ先に灯る、曲がり角まで急がずに\n白い田の面を渡ってゆく\n[Verse 2]\n茶碗を包んだ布のぬくもりが、鞄の底でまだ残っている\n言えなかった名を書き足すには、暗い道ほど都合がいい\n畦の向こうで犬が吠えて、一番星が水に映った\n遠い踏切の音を聞けば、若い日の帰り道が重なる\n返事を急がない人の顔が、冬の風より近くなる\n小さな灯を胸へ寄せると、白い粒まで道を知っていた\n[Chorus]\n灯を持って\n曲がり角まで急がずに、古い手紙を胸へ寄せ\n明日の戸口を思い出す、冷えた指先を隠しながら\n遠い町の窓を数える\n[Final Chorus]\n灯を持って\n白い田の面をゆっくり渡る、返事はまだ封をしない\n遠い喫茶の窓が見える、誰かの席が温かいまま\n道の先でまた白が降る\n灯を持って",
+                      "youtube":  {
+                                      "title":  "Carry The Lamp - 昭和セブンティーズ",
+                                      "description":  "刈り田の帰り道、小さな灯、封をしない返事。初雪の夕暮れに、1曲目の喫茶店へそっと戻る昭和フォークのクローザーです。",
+                                      "tags":  [
+                                                   "昭和フォーク",
+                                                   "初雪",
+                                                   "田んぼ道",
+                                                   "70年代 日本の歌",
+                                                   "冬の夕暮れ",
+                                                   "懐かしい日本語曲",
+                                                   "昭和プレイリスト"
+                                               ]
+                                  },
+                      "genreId":  "japanese-folk-70s",
+                      "genreText":  "1970s Japanese folk, fingerpicked acoustic guitar, light upright piano",
+                      "lyricTheme":  "showa70s-rice-field-harvest-dusk",
+                      "lyricThemeText":  "walking home along a rice field path at dusk while cut stalks lean in gold evening light",
+                      "lyricThemeArc":  "tired labor settling into grounded satisfaction",
+                      "pov":  "thirdPerson",
+                      "verseStyle":  "dialogue",
+                      "verseStyleText":  "verse lines use direct address or short conversational fragments without becoming spoken-word",
+                      "chorusStyle":  "image",
+                      "chorusStyleText":  "chorus lines focus on sensory images, objects, light, weather, and small gestures",
+                      "effectiveVocalPresetId":  "warm-mature-male",
+                      "vocalPresetSource":  "plan",
+                      "qualityScore":  0,
+                      "warnings":  [
+
+                                   ]
+                  }
+              ]
+}
+

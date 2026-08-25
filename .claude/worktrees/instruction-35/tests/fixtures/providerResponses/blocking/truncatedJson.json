@@ -1,0 +1,24 @@
+{
+  "songs": [
+    {
+      "trackNo": 1,
+      "title": "Stay",
+      "hookPhrase": "Stay Here With Me",
+      "stylePrompt": "warm acoustic pop, I-V-vi-IV progression, gentle stop-time break before the final chorus, 92 BPM, tender intimate mood",
+      "lyrics": "[Verse 1]\nSunlight falls across the old back porch\nThe kettle hums a slow familiar song\nI trace the grain of wood beneath my hand\nAnother quiet afternoon rolls on\n\n[Chorus]\nStay Here With Me\nThe evening always finds its own slow pace\nThe garden light still warm against the wall\nStay Here With Me\n\n[Verse 2]\nThe garden gate creaks open in the breeze\nA paper note still folded on the shelf\nI keep the porch light burning after dark\nWaiting for the sound of your own step\n\n[Chorus]\nStay Here With Me\nDon't let the evening pull you far away\nStay Here With Me\nThe porch light waits until you're home to stay\n\n[Bridge]\nMaybe the years will soften every mile\nMaybe the road will finally bring you back\n\n[Chorus]\nStay Here With Me\nDon't let the evening pull you far away\nStay Here With Me\nThe porch light waits until you're home to stay",
+      "youtube": { "title": "Stay", "description": "A heartfelt addition to your listening pack.", "tags": ["playlist", "evening", "acoustic"] }
+    },
+    {
+      "trackNo": 2,
+      "title": "Carry Home",
+      "hookPhrase": "Carry Me Home",
+      "stylePrompt": "soft mid-tempo pop, ii-V-I progression, subtle key change lifting the last chorus, 100 BPM, warm nostalgic mood",
+      "lyrics": "[Verse 1]\nThe last bus rolls down an empty avenue\nStreetlights blink awake one by one\nI count the stops until the road turns familiar\nEvery mile a little closer to done\n\n[Chorus]\nThe fields blur past in gentle shapes tonight\nCarry Me Home\nThe radio hums a tune I half recall\nCarry Me Home\n\n[Verse 2]\nThe radio hums an old forgotten tune\nWindow cracked to let the night air in\nI watch the fields blur into gentle shapes\nAnd feel the weight of the day begin to thin\n\n[Chorus]\nCarry Me Home\nThrough every turn I know so well\nCarry Me Home\nWhere the porch steps still remember my name\n\n[Bridge]\nEvery road I've taken led me back again\nEvery light still burning just the same\n\n[Chorus]\nCarry Me Home\nThrough every turn I know so well\nCarry Me Home\nWhere the porch steps still remember my name",
+      "youtube": { "title": "Carry Home", "description": "A heartfelt addition to your listening pack.", "tags": ["playlist", "evening", "acoustic"] }
+    },
+    {
+      "trackNo": 3,
+      "title": "Hold On Until Tonight",
+      "hookPhrase": "Hold On Tonight",
+      "stylePrompt": "gentle piano pop, I-vi-IV-V progression, quiet breakdown before the chorus returns, 88 BPM, reflective evening mood",
+      "lyrics": "[Verse 1]\nThe kitchen clock ti

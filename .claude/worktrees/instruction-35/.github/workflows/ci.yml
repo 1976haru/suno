@@ -1,0 +1,389 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+# TASK (CI test-tier split) — was a single `test` job (checkout -> setup-node
+# -> npm ci -> typecheck -> test -> build), all sequential steps in one job.
+# GitHub Actions stops a job at its first failing step by default, so when
+# `npm run test` (plain `vitest run`, the whole tests/**/*.test.ts glob
+# including slow files like tests/promptLength.test.ts and
+# tests/stress-production.test.ts) genuinely timed out, `npm run build`
+# never ran at all — a real compile error could sit undetected. Split into 5
+# independent jobs so `build` (and every other job) runs regardless of
+# `unit`'s outcome; each job does its own checkout + npm ci rather than
+# sharing a setup job, since these are small/fast (`npm ci` is already
+# cached via setup-node's own `cache: npm`) and simple parallel jobs are
+# easier to reason about than an artifact-passing setup step for a suite
+# this size. No `needs:` between any of them — that's the whole point of
+# separating them; a slow/failing `unit` or `stress` run no longer hides a
+# `build` failure or blocks `matrix`/`isolation` from reporting.
+jobs:
+  # codex 지시문 07 (TASK A) — split out of `unit` (which used to run
+  # typecheck as its own first step): a failing typecheck no longer hides
+  # behind — or blocks — `unit`'s own (much longer) test run finishing.
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run typecheck
+
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          # TASK (CI test-tier split) — Node 20 hit LTS end-of-life; Node 24
+          # is current Active LTS and matches actions/checkout@v7 /
+          # actions/setup-node@v7's own now-node24 action runtime (see this
+          # workflow's Node-version-warning note below) as well as this
+          # repo's local dev Node version. No project code required this
+          # bump (typecheck/test/build all verified green under it) — it's
+          # a currency fix, not a compatibility fix.
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run test
+
+  # 지시문 09 (§0/TASK D-2) — the real blocker documented here (TypeScript
+  # 7.0.2 newer than any released @typescript-eslint peer range supports)
+  # is gone: package.json's typescript is now pinned to 5.9.3 (verified —
+  # no @typescript-eslint/eslint-plugin release, stable or prerelease,
+  # supports TS 7.x; 5.9.3 is the real, tested fix, not --force/
+  # --legacy-peer-deps). `npm run lint` now genuinely runs to completion
+  # instead of crashing at import time — real measurement found 133
+  # pre-existing errors / 66 warnings that were silently invisible while
+  # this job could never actually execute. continue-on-error removed, so
+  # this is now a real gate; those 133 errors are a genuine, separate
+  # backlog this directive does not fix (지시문 09 is a measurement-recovery
+  # task, not a quality-fix task — see this repo's own "하지 말 것" section).
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run lint
+
+  matrix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run test:matrix
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run build
+
+  isolation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run audit:isolation
+
+  # 지시문 08 (TASK B) — the 48-item concept audit (scripts/audit.ts) had no
+  # CI coverage at all; it silently crashed under tsx/node from feed5a6
+  # (v5.17) through this branch's own start point (TASK A of this same
+  # directive fixed the underlying `?worker` static-import leak). `npm run
+  # audit` never passes `--save-baseline` (opt-in CLI flag only, see
+  # scripts/audit.ts's own usage comment) — baseline updates stay a human,
+  # explicit-commit action, never automatic in CI.
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run audit
+
+  # 정합성 점검 §4/결함7 fix — `--pack` mode (real bridgeImport-scored
+  # release packs, not the deterministic local template `audit` above)
+  # never ran anywhere: no CI job, and audit-baseline.pack.json didn't even
+  # exist, so a run always reported "기준선 없음" and could never detect a
+  # regression. audit-baseline.pack.json now committed (npm run audit:pack
+  # --save-baseline, run once by hand); this job compares future runs
+  # against it and never passes --save-baseline itself, same
+  # human-explicit-commit-only baseline policy as the `audit` job above.
+  audit-pack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run audit:pack
+
+  # 지시문 08 (TASK A-2/B) — regression guard for the exact class of bug TASK
+  # A of this directive fixed: a node/tsx-unreachable Vite-only import
+  # (`?worker`/`?url`) or a top-level browser global creeping back into
+  # anything scripts/audit.ts statically imports.
+  check-node:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run check:node
+
+  # 지시문 08 (TASK C) — regression guard against modules existing but never
+  # being called from the app's own 3 real entry points (src/main.tsx,
+  # src/App.tsx, src/workers/localGenerationWorker.ts) — the exact failure
+  # mode TASK C found 43 instances of (a new module built, tested, but never
+  # wired into a real call site anything in the app actually reaches).
+  check-reachability:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run check:reachability
+
+  # 지시문 12 (TASK B) — 관문이 존재하지 않는/부족한 데이터를 검사하는 재발
+  # 유형을 잡는다. 25개 프리셋 채널 × 워크스페이스별 대표 컨셉 3개를 실제
+  # 배포 경로(preallocateSongSlots)로 배정하고 evaluateDesignGate를 실행,
+  # blocking 이슈가 나올 때마다 그 관문의 GateDataContract.requires로
+  # "이 채널 데이터로 애초에 통과 가능한가"를 판정한다. CONTRACT VIOLATION이
+  # 있으면 실패한다 — 첫 실행에서 senior-oldpop 워크스페이스의 비-senior-morning
+  # 아키타입(showa-cafe/showa-70s/j2000s/modern-chill/city-night/kids)에
+  # era-bucket 장르가 전혀 없어 시대 컨셉이 영원히 막히는 실제 결함을 잡았다
+  # — TASK A(eraBuckets 전수 재부여)가 이 결함을 해소할 때까지는 이 잡이
+  # 의도적으로 빨간불이다.
+  check-gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run check:gates
+
+  # 지시문 12 (TASK C) — 검증된 품질 설정(오디언스 프로파일/이중언어 제목/
+  # 킬링포인트 집합/사운드 바닥 등)이 channel.audience·market 같은 개별
+  # 채널 필드가 아니라 archetype/workspace에 묶여 있는지 검사한다. 첫
+  # 실행에서 kr-2030/jp-2030/kr-idol-male/kr-idol-female의 killingPointSetId가
+  # 문서화만 되고 실제로 다른 집합을 선택하지 않는 것, senior-oldpop의
+  # 비-시니어 아키타입(j2000s/modern-chill/city-night/kids)에
+  # ChannelSoundFloor가 없는 것을 실제로 잡았다 — 둘 다 새 기능을 추가하지
+  # 않고 있는 그대로 보고한 것이며, SETTING LOST가 있으면 실패한다.
+  check-settings:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run check:settings
+
+  # 지시문 24 TASK C(13축) + 지시문 30 TASK D(20축+강등추적+listeningIntent) —
+  # UserExplicitChoices/GenerationChoiceProvenance 축 전수 감사표를 CI에
+  # 처음으로 배선한다(scripts/checkChoiceContract.ts는 지시문 24부터
+  # 존재했지만 여기 없었다 — 아무도 그 결과를 보지 못했다, 지시문 30 TASK
+  # A-6 실측). 대부분의 CONTRACT VIOLATION은 이 지시문 범위 밖의 기존
+  # 아키텍처 사실이라 실패 사유가 아니다 — 이 job은 감사표 자체가 실제
+  # 소스/export와 어긋나는 AUDIT TABLE DRIFT만 실패시킨다(스크립트 자신의
+  # 콘솔 출력 설명 참고).
+  check-choices:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run check:choices
+
+  # 지시문 15 (TASK D) — 아키타입 하드코딩(archetype === '리터럴') 재발
+  # 방지. 어댑터(워크스페이스 정책 registry)를 만들어도 옛 분기를 지우지
+  # 않으면 새 기능이 시니어에만 붙는다(§0-3 실측: 13파일 59곳). 이
+  # allowlist는 늘어날 수 없고 줄어드는 것만 허용된다 — 이 지시문이 만든
+  # 신규 코드(distinctChoiceGate.ts 등)의 하드코딩은 등록 자체가 거부된다.
+  check-archetype:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run check:archetype
+
+  # 지시문 18 (TASK B-3) — package.json version이 유일한 진실인지 검사.
+  # docs/CHANGELOG.md 최상단 항목과 어긋나면 실패한다 — "package.json
+  # 5.14.0 / 실제 작업 v5.24 ← 불일치"(인수인계 문서 §3-1)가 다시 조용히
+  # 벌어지는 것을 CI에서 잡는다.
+  check-version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run check:version
+
+  # 지시문 28 (TASK A) — check:archetype(하드코딩이 있는 곳을 센다)의 반대
+  # 방향으로, 13개 정본 아키타입 × 21개 축(장르 풀·머니코드 회전 풀·
+  # 인트로 텍스처·오디언스 프로필·BPM 대역·워크스페이스 정책 등)에 정의가
+  # 빠진 곳을 센다. 이 잡은 의도적으로 빨간불이다 — CONTRACT VIOLATION 3건이
+  # 남아 있고, 둘 다 데이터 배선으로 채울 수 없는 진짜 제품 결정 공백이다:
+  # lofi-study는 프리셋 채널 자체가 없고(장르 풀을 지어낼 근거가 없음),
+  # kr-idol-male/kr-idol-female은 introTextures 24종 전부가 어쿠스틱·빈티지
+  # 성격이라 아이돌의 펀치감 있는 퍼포먼스 사운드에 맞는 항목이 하나도
+  # 없다(§하지 말 것 "빈칸을 임의값으로 채워 ✗를 없애지 말 것"). check-gates
+  # job의 기존 선례(§주석)와 같은 성격 — 실제 제품 결정이 나기 전까지는
+  # 빨간불로 남겨 눈에 보이게 하는 것이 목적이다.
+  check-coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run check:coverage
+
+  build-single:
+    # TASK v5.18 (TASK E) — dist-single/ (the standalone, dependency-free
+    # single-file build) had no CI coverage at all; only `build`'s regular
+    # multi-file `vite build` output was checked. A break specific to the
+    # singlefile plugin path (see core/sunoViewerExport.ts's own v5.20 fix
+    # for exactly this class of bug) could ship undetected.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run build:single
+
+  stress:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run test:stress
+
+  # codex 지시문 07 (TASK D) — mock-contract API integration tests
+  # (providers/proxyFetch.ts's real header-building/redaction contract,
+  # image route, batch/poll/cancel shapes) — no real external API calls, no
+  # real cost, safe to run on every push/PR.
+  api-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run test:api-integration
+
+  # codex 지시문 07 (TASK E) — dependency audit + real, repo-local secret/
+  # exposure checks (grep-based; see scripts/securityAudit.ts's own doc
+  # comment for the full real list). `npm audit` itself can't be
+  # `continue-on-error: false`'d blindly — see that script for the real
+  # high/critical policy this job enforces.
+  security-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run security:audit
+
+  # codex 지시문 07 (TASK C) — real Playwright browser E2E scenarios
+  # (workspace select -> channel -> options -> contract -> preflight ->
+  # bridge instruction -> import variants -> retry/rewrite -> export ->
+  # workspace-switch invariance) plus a 7-workspace smoke sweep, now
+  # extended to all 7 workspaces for import/rewrite/export (지시문 11 TASK G).
+  #
+  # 지시문 11 (TASK J) — continue-on-error 제거. 원래 이유("이 세션은 브라우저를
+  # 실제로 실행해 볼 수 없다")가 더 이상 사실이 아니다 — TASK G에서 실제로
+  # `npx playwright install`로 chromium을 설치하고 51개 시나리오 전부를 이
+  # 로컬 환경에서 직접 실행해 직렬 실행 51/51 통과를 확인했다(12-worker 병렬
+  # 실행에서 1건의 flaky 타임아웃을 재현했지만, 단독 재실행 시 즉시 통과 —
+  # 실제 앱 결함이 아니라 리소스 경합으로 실측 판단, WORKSPACE_ACCEPTANCE_REPORT.md
+  # 참고). `ubuntu-latest` + `playwright install --with-deps chromium`은
+  # Playwright 공식 CI 권장 구성 그대로다.
+  playwright:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+
+# TASK (CI test-tier split) — the "Node 20 기반 액션이 Node 24 에서 강제
+# 실행된다" (Node-20-based actions force-run on Node 24) warning is NOT
+# about the `node-version:` input above (that only controls which Node
+# runs THIS repo's own npm scripts). It's about the actions' own execution
+# runtime: actions/checkout@v4 and actions/setup-node@v4's action.yml both
+# declare `runs.using: node20` (verified via
+# raw.githubusercontent.com/actions/checkout/v4/action.yml and .../setup-
+# node/v4/action.yml). GitHub Actions runners are retiring the Node 20
+# runtime used to execute JS actions, so a `using: node20` action still
+# gets force-run under the runner's Node 24 interpreter with a deprecation
+# warning — bumping `node-version` would not touch this at all. The real
+# fix is the actions/checkout@v7 and actions/setup-node@v7 bump above:
+# both v7 releases declare `runs.using: node24` (verified the same way
+# against .../v7.0.1/action.yml and .../v7.0.0/action.yml), so the
+# declared and actual runtime now match and the warning is gone.

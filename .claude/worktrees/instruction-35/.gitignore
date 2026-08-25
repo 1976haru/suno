@@ -1,0 +1,23 @@
+node_modules
+dist
+dist-single
+dist-viewer
+test-results
+playwright-report
+blob-report
+.env
+.env.*
+*.local
+.DS_Store
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+private_import/
+pirvate_import/
+suno-helper/.profile/
+
+# TASK v3.37 — local API key files written by start-studio*.bat launchers
+# (Claude + Gemini). Never commit these; each is a plaintext key on disk.
+.anthropic_key
+.gemini_key
+.qwen_key

@@ -1,0 +1,53 @@
+제목: Wait by the Window
+트랙 번호: T1 (원본 팩 기준)
+장르: oldpop-warm-morning-glow
+버전: long (원본 팩 값 그대로, 변경 없음)
+
+[가사] (버전 간 동일 — 변경 없음)
+[Verse 1]
+The cup is warm between my hands
+The kettle rests after its song
+Gold moves slowly on the table
+Finding crumbs I missed at dawn
+I sit inside my heavy shoulders
+Let the window teach me calm
+
+[Pre-Chorus]
+Sleep keeps tugging at my sleeve
+But the day comes patient now
+
+[Chorus]
+Across the cup and open sill
+Wait by the Window
+The hour steadies where I sit
+And softens what I know
+
+[Verse 2]
+A folded letter waits unopened
+Beside the spoon and sugar jar
+Some old names can keep their distance
+Some love can glow from far
+I watch the first bright line grow wider
+Till my breathing joins its pace
+
+[Chorus]
+The room is plain, the chair is ready
+Wait by the Window
+I take the comfort as it comes
+And let it find my face
+
+[Instrumental Break]
+
+[Final Chorus]
+Wait by the Window
+Across the cup and open sill
+The day begins with kinder hands
+Than I had hoped to know
+I rise but leave one place of light
+Wait by the Window
+
+[stylePrompt] (버전 간 동일 — 변경 없음)
+timeless warm morning pop, early-1960s old-pop gentleness, acoustic guitar arpeggio, warm electric piano, minimal light percussion, soft bass, 65 BPM, female clear mezzo lead, restrained understated reading, warm rounded midrange, tape slap echo, gentle unhurried phrasing throughout, vi-IV-I-V to I-V-vi-IV, final chorus key-up, muted acoustic first-bar color, full playback level from the opening word, medium arrangement, two-note pickup into short phrases, hook double-tracked with a soft third above, steady chorus lift, analog tape warmth, close morning-room sound, no intro tag, short instrumental breath before final chorus, short intro, 3:10-3:35, full arrangement, not a short cut
+
+[excludePrompt] (이 버전만 다름 — 실측 892자)
+famous artist imitation, copied melodies, copyrighted song references, soundalike vocals, real artist or band names, existing song titles, imitating a specific singer voice or style, shouted or belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation that obscures the melody, abrupt dynamic jumps, cavernous hall reverb, gated reverb, sidechain compression, modern wide stereo production, digital synth pads, autotuned vocal, trap hi-hats, lo-fi vinyl crackle effect, flat chorus with no lift, monotonous melody contour, generic AI demo-band sound, overly glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement with no song development, too old-fashioned trot mood, childish lyrics, dramatic power ballad shouting, overlong intro

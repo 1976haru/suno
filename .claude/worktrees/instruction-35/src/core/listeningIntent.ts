@@ -1,0 +1,384 @@
+import type { GenerationOptions, GenrePack, ListeningIntent, PerceivedEnergy } from '../types';
+import { computePerceivedEnergy } from './perceivedEnergy';
+import type { PerceivedEnergyPolicy } from '../data/perceivedEnergyPolicy';
+import type { ListeningIntentPolicy } from '../data/listeningIntentPolicy';
+import { MAX_SELECTED_GENRES, normalizeGenreSelection } from './genreSelection';
+import { eraBucketForGenreId, type EraBucket } from '../data/eraExclusions';
+import { getGenreById } from '../data/genreLibrary';
+import { allocationForAxis, replaceAxisAllocation } from './diversityAllocation';
+
+/**
+ * "시대색이 뚜렷한" 장르 — §0-1 "60~70년대의 따뜻한 기억"의 실제 기준.
+ * eraTag 자유 문자열(§A-2가 경고하는 바로 그 문제 유형)을 다시 파싱하지
+ * 않는다 — 지시문 12가 이미 만든 구조화된 EraBucket(core/eraExclusions.ts)을
+ * 그대로 읽는다. 1950s-60s/1970s만 "시대색"으로 센다 — 1980s는 §0-1이
+ * 명시한 "60~70년대"보다 늦고, 'timeless'/null(jazz-lounge류·adult
+ * contemporary 등)은 애초에 시대를 특정하지 않는 장르다.
+ */
+const ERA_COLOR_BUCKETS: readonly EraBucket[] = ['1950s-60s', '1970s'];
+
+export function isEraColorGenreId(genreId: string | undefined): boolean {
+  const bucket = eraBucketForGenreId(genreId);
+  return bucket !== null && ERA_COLOR_BUCKETS.includes(bucket);
+}
+
+/**
+ * 지시문 23 (TASK B) — "청취 목적" preset을 실제 장르 배분(genreIds +
+ * diversityAllocations의 manual 'genre' 축)으로 옮긴다. Step2Concept.tsx의
+ * "적용" 버튼이 이 함수의 결과를 handleApplyConceptRecommendation과 같은
+ * 방식으로 setOpts에 반영한다 — 그래서 이 preset의 효과는 사용자의 명시적
+ * 클릭 행동으로만 일어나고(§B-5), 그 뒤 genreIds/diversityAllocations를
+ * 손으로 다시 고치면 그 수동 선택이 그대로 남는다(diversityAllocations의
+ * manual-always-wins 보장).
+ */
+
+/** 이 장르의 "대표" 체감 에너지 — 특정 곡의 실제 tempo/density가 아니라 tempoRange 중앙값 + arrangementDensity 'medium'으로 계산한, 장르 자체의 전형적인 값. 배분 설계(사전 단계)에서만 쓰인다 — 실제 생성 시 각 곡은 core/perceivedEnergy.ts가 그 곡의 진짜 슬롯 값으로 다시 계산한다. */
+export function representativePerceivedEnergy(genre: GenrePack, policy: PerceivedEnergyPolicy): PerceivedEnergy {
+  const [low, high] = genre.tempoRange;
+  const midTempo = Math.round((low + high) / 2);
+  return computePerceivedEnergy({ tempo: midTempo, arrangementDensity: 'medium', instrumentSet: undefined, vocalText: undefined }, genre, policy).value;
+}
+
+/** songCount=18 기준 energyDistribution을 실제 songCount로 비례 스케일 — largest-remainder 방식(총합이 정확히 songCount가 되도록). */
+export function scaleEnergyDistribution(distribution: Record<PerceivedEnergy, number>, songCount: number): Record<PerceivedEnergy, number> {
+  const baseTotal = Object.values(distribution).reduce((a, b) => a + b, 0) || 1;
+  const levels: PerceivedEnergy[] = [1, 2, 3, 4, 5];
+  const raw = levels.map(level => (distribution[level] / baseTotal) * songCount);
+  const floored = raw.map(Math.floor);
+  let remainder = songCount - floored.reduce((a, b) => a + b, 0);
+  const order = levels.map((level, i) => ({ level, frac: raw[i] - floored[i], i })).sort((a, b) => b.frac - a.frac);
+  const result = [...floored];
+  for (let k = 0; k < order.length && remainder > 0; k++, remainder--) result[order[k].i]++;
+  const scaled = {} as Record<PerceivedEnergy, number>;
+  levels.forEach((level, i) => { scaled[level] = result[i]; });
+  return scaled;
+}
+
+export interface ListeningIntentAllocation {
+  /** genreIds용 — 최대 MAX_SELECTED_GENRES개. */
+  genreIds: string[];
+  /** diversityAllocations의 manual 'genre' 축 counts. */
+  counts: Record<string, number>;
+  /** 실제 배정된, 시대색(1950s-60s/1970s) 장르에 들어간 곡 수 — minEraColorTracks 하한과 비교용. */
+  eraColorTrackCount: number;
+}
+
+/**
+ * candidateGenres(보통 channel.preferredGenres를 GenrePack으로 resolve한
+ * 것) 중에서 policy.energyDistribution에 맞춰 최대 MAX_SELECTED_GENRES개
+ * 장르를 골라 곡 수를 배분한다. minEraColorTracks 하한(시대색 장르에
+ * 배정된 곡 수)을 만족시키지 못하면 마지막에 스왑해서라도 채운다 — 채널
+ * 풀에 시대색 장르가 아예 없으면 채우지 못한 채 그대로 반환한다(차단하지
+ * 않는다, §B "verified:false가 blocking 0건"과 같은 원칙 — 이 함수도
+ * 실패를 조용히 삼키지 않고 eraColorTrackCount로 실측값을 그대로 보고한다).
+ */
+export function buildGenreAllocationForListeningIntent(
+  candidateGenres: readonly GenrePack[],
+  policy: ListeningIntentPolicy,
+  songCount: number,
+  energyPolicy: PerceivedEnergyPolicy,
+  /**
+   * 지시문 33 (§2) — 같은 채널 + 같은 청취 목적을 반복 적용하면 매번 같은
+   * exact[0]이 뽑혀 항상 같은 4~5개 장르로 수렴했다(실측: pickForBucket이
+   * 동점 후보 중 배열 순서상 첫 번째만 골랐다, 배열 순서는 채널 정의상
+   * 고정이라 절대 안 바뀜). core/recentGenreStore.ts의 기존 원장(최근
+   * 사용 장르, 최근이 배열 앞쪽)을 그대로 재사용한다 — 새 원장을 만들지
+   * 않는다(§ "하지 말 것"). 목록에 없는(=최근에 안 쓴) 장르가 항상 우선,
+   * 목록에 있으면 배열에서 더 뒤쪽(=더 오래전에 씀)일수록 우선 — 동점이면
+   * 원래 배열 순서(기존 동작)로 최종 회전한다.
+   */
+  recentGenreIds: readonly string[] = []
+): ListeningIntentAllocation {
+  if (!candidateGenres.length || songCount <= 0) return { genreIds: [], counts: {}, eraColorTrackCount: 0 };
+
+  const scored = candidateGenres.map(genre => ({ genre, pe: representativePerceivedEnergy(genre, energyPolicy) }));
+  const distribution = scaleEnergyDistribution(policy.energyDistribution, songCount);
+  // core/designGate.ts's "같은 장르 최대 곡수" 관문(BREADTH_THRESHOLDS)의
+  // 실측 최솟값(variety 등급 4곡)에 맞춘 안전한 상한 — 실제 브라우저 생성으로
+  // 확인: 0.28 비율 어림값(반올림 시 6)은 이 관문을 실제로 위반했다
+  // (5종 장르·18곡에서 한 장르에 6곡 몰림, 관문 상한은 5). songCount /
+  // MAX_SELECTED_GENRES 기반이면 balanced(5)·focused(12) 등급에서도
+  // 항상 안전하다.
+  const perGenreCap = Math.max(1, Math.ceil(songCount / MAX_SELECTED_GENRES));
+
+  const counts: Record<string, number> = {};
+  const usedGenreIds = new Set<string>();
+
+  // recentGenreIds[0]가 가장 최근 — index가 클수록(또는 목록에 없으면) 더
+  // 오래전에 썼거나 아예 새로 쓰는 것이므로 우선순위가 높다(recencyRank가
+  // 작을수록 우선). 목록에 없는 장르는 recentGenreIds.length(가장 큰 값,
+  // 즉 최우선)를 받는다.
+  function recencyRank(genreId: string): number {
+    const idx = recentGenreIds.indexOf(genreId);
+    return idx === -1 ? -recentGenreIds.length : -idx;
+  }
+
+  function pickForBucket(level: PerceivedEnergy): GenrePack | undefined {
+    const exact = scored.filter(s => s.pe === level && !usedGenreIds.has(s.genre.id));
+    if (exact.length) {
+      // recencyRank가 작을수록(=더 오래 전에 썼거나 안 씀) 우선 — 동점이면
+      // Array.prototype.sort가 안정적이라 원래 배열 순서(기존 동작)를 그대로
+      // tie-break로 쓴다.
+      return exact.slice().sort((a, b) => recencyRank(a.genre.id) - recencyRank(b.genre.id))[0].genre;
+    }
+    // 정확히 일치하는 후보가 없으면 가장 가까운 레벨로, 그 안에서도 최근
+    // 사용 이력으로 tie-break한다.
+    const byDistance = scored
+      .filter(s => !usedGenreIds.has(s.genre.id))
+      .sort((a, b) => {
+        const distDiff = Math.abs(a.pe - level) - Math.abs(b.pe - level);
+        return distDiff !== 0 ? distDiff : recencyRank(a.genre.id) - recencyRank(b.genre.id);
+      });
+    return byDistance[0]?.genre;
+  }
+
+  /** 이미 고른 장르들에 나머지를 나눠 담는다 — perGenreCap을 절대 넘기지 않는다(장르 하나에 몰리면 designGate의 "같은 장르 최대 곡수" 관문을 실제로 위반한다, 실측 확인). 그래도 남으면(전 장르가 cap 도달) 어쩔 수 없이 가장 가까운 장르에 초과 배정 — MAX_SELECTED_GENRES 상한 안에서 songCount를 다 담아야 하는 마지막 안전판. */
+  function spreadRemaining(remaining: number, level: PerceivedEnergy) {
+    const byDistance = () => [...usedGenreIds]
+      .map(id => scored.find(s => s.genre.id === id)!)
+      .sort((a, b) => Math.abs(a.pe - level) - Math.abs(b.pe - level));
+    for (const entry of byDistance()) {
+      if (remaining <= 0) break;
+      const room = perGenreCap - (counts[entry.genre.id] ?? 0);
+      if (room <= 0) continue;
+      const assign = Math.min(remaining, room);
+      counts[entry.genre.id] = (counts[entry.genre.id] ?? 0) + assign;
+      remaining -= assign;
+    }
+    if (remaining > 0) {
+      const fallback = byDistance()[0];
+      if (fallback) counts[fallback.genre.id] = (counts[fallback.genre.id] ?? 0) + remaining;
+    }
+  }
+
+  const levels: PerceivedEnergy[] = [1, 2, 3, 4, 5];
+  for (const level of levels) {
+    let remaining = distribution[level];
+    while (remaining > 0 && usedGenreIds.size < MAX_SELECTED_GENRES) {
+      const genre = pickForBucket(level);
+      if (!genre) break;
+      usedGenreIds.add(genre.id);
+      const assign = Math.min(remaining, perGenreCap);
+      counts[genre.id] = (counts[genre.id] ?? 0) + assign;
+      remaining -= assign;
+    }
+    if (remaining > 0) spreadRemaining(remaining, level);
+  }
+
+  // minEraColorTracks 보정 — 시대색 장르에 배정된 곡 수가 하한 미달이면,
+  // 시대색 아닌 장르 중 배정량이 가장 큰 것부터 시대색 있는 미사용 후보로
+  // 교체(스왑)한다. 채널 풀에 시대색 장르가 없으면 그대로 둔다(§B-4는 하한을
+  // "가능하면" 채우라는 것이지, 존재하지 않는 장르를 만들어내라는 게 아니다).
+  const eraColorCount = () => Object.entries(counts).reduce((sum, [id, n]) => {
+    const g = scored.find(s => s.genre.id === id)?.genre;
+    return sum + (isEraColorGenreId(g?.id) ? n : 0);
+  }, 0);
+  const eraCandidates = scored.filter(s => isEraColorGenreId(s.genre.id) && !usedGenreIds.has(s.genre.id)).sort((a, b) => a.pe - b.pe);
+  let guard = 0;
+  while (eraColorCount() < policy.minEraColorTracks && eraCandidates.length && guard < MAX_SELECTED_GENRES) {
+    const nonEraEntries = Object.entries(counts)
+      .filter(([id]) => !isEraColorGenreId(id))
+      .sort(([, a], [, b]) => b - a);
+    const swapTarget = eraCandidates.shift();
+    if (!swapTarget) break;
+    if (nonEraEntries.length) {
+      const [outId, outCount] = nonEraEntries[0];
+      delete counts[outId];
+      usedGenreIds.delete(outId);
+      counts[swapTarget.genre.id] = outCount;
+      usedGenreIds.add(swapTarget.genre.id);
+    } else if (usedGenreIds.size < MAX_SELECTED_GENRES) {
+      // 전부 이미 era 장르뿐이면(교체 대상 없음) 여유가 있을 때만 추가.
+      counts[swapTarget.genre.id] = (counts[swapTarget.genre.id] ?? 0) + 1;
+      usedGenreIds.add(swapTarget.genre.id);
+      const anyOther = Object.keys(counts).find(id => id !== swapTarget.genre.id && counts[id] > 1);
+      if (anyOther) counts[anyOther] -= 1;
+    }
+    guard++;
+  }
+
+  return { genreIds: Object.keys(counts), counts, eraColorTrackCount: eraColorCount() };
+}
+
+export interface ListeningIntentCountsForExisting {
+  counts: Record<string, number>;
+  eraColorTrackCount: number;
+}
+
+/**
+ * 지시문 24 TASK A-6 — "청취 목적 프리셋(지시문 23)은 사용자가 이미 명시
+ * 선택한 장르가 있을 때 '몇 곡씩'만 정해야지 '어떤 장르'까지 바꾸면 안
+ * 된다." buildGenreAllocationForListeningIntent와 달리 이 함수는 후보
+ * 장르 중 일부를 고르거나(pickForBucket) 시대색 하한을 못 채우면 다른
+ * 장르로 스왑하는 로직(§137-166)을 전혀 쓰지 않는다 — existingGenres(사용자가
+ * 그대로 고른 목록, 순서·구성 불변)에만 policy.energyDistribution 비중으로
+ * 곡 수를 나눠 담는다. 에너지 분포가 한쪽으로 쏠려도(예: focused처럼 장르
+ * 수가 songCount 대비 많을 때) 사용자가 고른 장르가 0곡으로 남는 걸 막기
+ * 위해 마지막에 최다 배정 장르에서 1곡씩 빌려와 0곡짜리를 채운다 — 이
+ * 파일의 다른 어떤 재분배도 사용자 선택 장르를 완전히 지우지 않는다는
+ * 원칙(지시문 24 §A-4/A-5)과 같은 이유.
+ */
+export function buildGenreCountsForExistingSelection(
+  existingGenres: readonly GenrePack[],
+  policy: ListeningIntentPolicy,
+  songCount: number,
+  energyPolicy: PerceivedEnergyPolicy
+): ListeningIntentCountsForExisting {
+  if (!existingGenres.length || songCount <= 0) return { counts: {}, eraColorTrackCount: 0 };
+
+  const scored = existingGenres.map(genre => ({ genre, pe: representativePerceivedEnergy(genre, energyPolicy) }));
+  const distribution = scaleEnergyDistribution(policy.energyDistribution, songCount);
+  const perGenreCap = Math.max(1, Math.ceil(songCount / existingGenres.length));
+  const counts: Record<string, number> = {};
+  for (const entry of scored) counts[entry.genre.id] = 0;
+
+  const levels: PerceivedEnergy[] = [1, 2, 3, 4, 5];
+  for (const level of levels) {
+    let remaining = distribution[level];
+    if (remaining <= 0) continue;
+    const byDistance = scored.slice().sort((a, b) => Math.abs(a.pe - level) - Math.abs(b.pe - level));
+    for (const entry of byDistance) {
+      if (remaining <= 0) break;
+      const room = perGenreCap - counts[entry.genre.id];
+      if (room <= 0) continue;
+      const take = Math.min(remaining, room);
+      counts[entry.genre.id] += take;
+      remaining -= take;
+    }
+    if (remaining > 0) {
+      const fallback = byDistance[0];
+      if (fallback) counts[fallback.genre.id] += remaining;
+    }
+  }
+
+  const zeroIds = Object.keys(counts).filter(id => counts[id] === 0);
+  for (const id of zeroIds) {
+    const donorId = Object.entries(counts).filter(([donorId]) => donorId !== id).sort(([, a], [, b]) => b - a)[0]?.[0];
+    if (donorId && counts[donorId] > 1) {
+      counts[donorId] -= 1;
+      counts[id] += 1;
+    }
+  }
+
+  const eraColorTrackCount = Object.entries(counts).reduce((sum, [id, n]) => sum + (isEraColorGenreId(id) ? n : 0), 0);
+  return { counts, eraColorTrackCount };
+}
+
+function resolvedGenres(ids: readonly string[]): NonNullable<ReturnType<typeof getGenreById>>[] {
+  return ids.map(getGenreById).filter((g): g is NonNullable<typeof g> => Boolean(g));
+}
+
+/**
+ * TASK (지시문 30 TASK B-4) — Step2Concept.tsx's handleApplyListeningIntent
+ * body, moved here byte-identical (§하지 말 것 "우선순위 로직을 다시 짜지
+ * 말 것" — 지시문 24 TASK A-6이 이미 고친 hasExplicitUserGenres 분기는 손대지
+ * 않는다) so it has a call site outside the component. Two real callers
+ * today: Step2Concept.tsx's own "청취 목적" ChoiceGrid onChange (the
+ * pre-existing explicit click path) and App.tsx's onGenerate (지시문 30
+ * TASK B-2's real gap — generation never re-applied a pending/stale intent
+ * on its own; see applyListeningIntentIfPending below for that call site).
+ * Returns `opts` unchanged (same reference) when there's nothing to apply
+ * (no candidate genres resolve, or existing-selection counts come back
+ * empty) — callers can cheaply check `result === opts` to know whether
+ * anything changed.
+ */
+export function applyListeningIntentToOptions(
+  opts: GenerationOptions,
+  intent: ListeningIntent,
+  policy: ListeningIntentPolicy,
+  energyPolicy: PerceivedEnergyPolicy,
+  /** 지시문 33 (§2) — 호출자가 core/recentGenreStore.ts's readRecentGenreIds(channel.id)로 읽어 넘긴다. 순수 함수 유지를 위해 이 파일 스스로는 storage를 읽지 않는다. */
+  recentGenreIds: readonly string[] = []
+): GenerationOptions {
+  const hasExplicitUserGenres = opts.choiceProvenance?.genreIds === 'user' && opts.genreIds.length > 0;
+  if (hasExplicitUserGenres) {
+    const existingGenres = resolvedGenres(opts.genreIds);
+    const { counts } = buildGenreCountsForExistingSelection(existingGenres, policy, opts.songCount, energyPolicy);
+    if (!Object.keys(counts).length) return opts;
+    return {
+      ...opts,
+      listeningIntent: intent,
+      diversityAllocations: replaceAxisAllocation(opts.diversityAllocations, { axis: 'genre', mode: 'manual', counts })
+    };
+  }
+  const candidateGenres = resolvedGenres(opts.channel.preferredGenres);
+  const alloc = buildGenreAllocationForListeningIntent(candidateGenres, policy, opts.songCount, energyPolicy, recentGenreIds);
+  if (!alloc.genreIds.length) return opts;
+  return {
+    ...opts,
+    listeningIntent: intent,
+    genreIds: normalizeGenreSelection(alloc.genreIds),
+    diversityAllocations: replaceAxisAllocation(opts.diversityAllocations, { axis: 'genre', mode: 'manual', counts: alloc.counts }),
+    choiceProvenance: { ...opts.choiceProvenance, genreIds: 'user' as const }
+  };
+}
+
+/** TASK (지시문 30 TASK B-5) — 3단 상태 판단에 쓰는, applyListeningIntentToOptions와 정확히 같은 "지금 이 intent라면 어떤 counts가 나와야 하는가"를 재사용하는 내부 헬퍼. counts만 필요해서 opts 전체를 새로 만들지 않는다. */
+function expectedGenreCountsFor(opts: GenerationOptions, policy: ListeningIntentPolicy, energyPolicy: PerceivedEnergyPolicy): Record<string, number> {
+  const hasExplicitUserGenres = opts.choiceProvenance?.genreIds === 'user' && opts.genreIds.length > 0;
+  if (hasExplicitUserGenres) {
+    return buildGenreCountsForExistingSelection(resolvedGenres(opts.genreIds), policy, opts.songCount, energyPolicy).counts;
+  }
+  return buildGenreAllocationForListeningIntent(resolvedGenres(opts.channel.preferredGenres), policy, opts.songCount, energyPolicy).counts;
+}
+
+function genreCountsMatch(a: Record<string, number>, b: Record<string, number>): boolean {
+  const keysA = Object.keys(a).filter(id => a[id] > 0).sort();
+  const keysB = Object.keys(b).filter(id => b[id] > 0).sort();
+  if (keysA.length !== keysB.length) return false;
+  return keysA.every((id, i) => id === keysB[i] && a[id] === b[id]);
+}
+
+export type ListeningIntentApplicationStatus = 'unselected' | 'applied' | 'modified';
+
+/**
+ * TASK (지시문 30 TASK B-5) — 챗지피티 제안의 3단 상태.
+ *  - 'unselected': opts.listeningIntent 자체가 없음(한 번도 선택 안 함) —
+ *    §B-5 "판단 기준"의 세 번째 분기, 그대로 진행돼도 정상.
+ *  - 'applied': diversityAllocations의 genre 축이 이 intent가 지금 이
+ *    songCount/genreIds/channel 기준으로 만들어낼 counts와 정확히 일치.
+ *  - 'modified': listeningIntent는 선택돼 있지만 genre 축이 manual이
+ *    아니거나(한 번도 실제로 반영된 적이 없음) counts가 어긋남(적용 이후
+ *    songCount를 바꿨거나 diversityAllocations를 직접 고침) — 두 원인을
+ *    이 3단 표시 자체는 구분하지 않는다(§B-5 원문 그대로, "판단 기준"이
+ *    이 이상을 요구하지 않음).
+ */
+export function listeningIntentApplicationStatus(
+  opts: GenerationOptions,
+  policy: ListeningIntentPolicy,
+  energyPolicy: PerceivedEnergyPolicy
+): ListeningIntentApplicationStatus {
+  if (!opts.listeningIntent) return 'unselected';
+  const actual = allocationForAxis(opts.diversityAllocations, 'genre');
+  if (!actual || actual.mode !== 'manual') return 'modified';
+  const expected = expectedGenreCountsFor(opts, policy, energyPolicy);
+  return genreCountsMatch(actual.counts, expected) ? 'applied' : 'modified';
+}
+
+/**
+ * TASK (지시문 30 TASK B-2/B-4) — real gap this closes: opts.listeningIntent
+ * used to be write-once (Step2Concept.tsx's ChoiceGrid click) and never
+ * revisited — a songCount change, a channel switch, or simply generating
+ * without ever having pressed a diversity-allocation-touching control again
+ * left the genre allocation describing a stale songCount/channel. The one
+ * real call site (App.tsx's onGenerate/onGenerateMultiSet, before
+ * requestGeneration reads the same `opts`) re-applies
+ * applyListeningIntentToOptions only when listeningIntentApplicationStatus
+ * says there's real drift to fix ('modified') — 'unselected' (nothing
+ * chosen, §B-6 "기본값 유지" — never force-apply DEFAULT_LISTENING_INTENT on
+ * a user who never touched the picker) and 'applied' (already correct) are
+ * both no-ops, so a user who explicitly hand-edited diversityAllocations
+ * AFTER applying a preset only gets re-overridden if their edit happens to
+ * produce a genre-count mismatch from what the preset would compute today —
+ * the same "does the real state still match" signal §B-5's own status
+ * badge shows them.
+ */
+export function applyListeningIntentIfPending(
+  opts: GenerationOptions,
+  policy: ListeningIntentPolicy,
+  energyPolicy: PerceivedEnergyPolicy,
+  recentGenreIds: readonly string[] = []
+): GenerationOptions {
+  if (listeningIntentApplicationStatus(opts, policy, energyPolicy) !== 'modified') return opts;
+  return applyListeningIntentToOptions(opts, opts.listeningIntent as ListeningIntent, policy, energyPolicy, recentGenreIds);
+}

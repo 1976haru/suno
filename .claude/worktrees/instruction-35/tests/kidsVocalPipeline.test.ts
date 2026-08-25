@@ -1,0 +1,258 @@
+import { describe, expect, it } from 'vitest';
+import { preallocateSongSlots } from '../src/core/batchPreallocation';
+import { generateLocalBlueprint } from '../src/core/localGenerator';
+import { buildBatchSystemNote, buildAnthropicUserPayload } from '../src/core/promptComposer';
+import { buildClaudeCodeInstruction, buildMultiSetClaudeCodeInstructions } from '../src/core/claudeCodeBridge';
+import { vocalDescriptionFor, type VocalType } from '../src/core/vocalPlan';
+import { vocalPresets } from '../src/data/vocalPresets';
+import { getGenreById, getVisibleGenresForArchetype } from '../src/data/genreLibrary';
+import { makeOptions, channelPresets, genrePacks, moodPacks, seasonPacks } from './fixtures';
+import type { BatchContext } from '../src/types';
+
+// TASK v3.39 — end-to-end regression coverage for the v3.39 fixes:
+// (C) per-song vocalType/vocalText actually wired into every generation
+// path's preassignedSongs slot (previously only computed inside
+// localGenerator.ts's own synchronous path, never reaching realtime/Batch/
+// bridge); (B) kids vocal descriptions no longer read as adult voices;
+// (A) the 4 kids genre packs resolve through genreLibrary's own
+// getGenreById/getVisibleGenresForArchetype, not just presets.ts's genrePacks.
+
+const kidsChannel = channelPresets.find(c => c.archetype === 'kids')!;
+const seniorMorning = channelPresets.find(c => c.archetype === 'senior-morning')!;
+const kidsGenres = genrePacks.filter(g => kidsChannel.preferredGenres.includes(g.id));
+const kidsMoods = moodPacks.filter(m => kidsChannel.preferredMoods.includes(m.id));
+const season = seasonPacks[0];
+
+describe('[v3.39 Part C] preallocateSongSlots carries the kids vocal quota', () => {
+  it('produces exactly a 5/5/5 vocalType distribution across 15 songs', () => {
+    const opts = makeOptions({ channel: kidsChannel, songCount: 15, lyricLanguage: 'korean', seasonId: season.id });
+    const slots = preallocateSongSlots(opts, kidsGenres);
+    expect(slots).toHaveLength(15);
+    const counts = { male: 0, female: 0, mixed: 0 };
+    for (const slot of slots) {
+      expect(slot.vocalType, `trackNo ${slot.trackNo}`).toBeDefined();
+      counts[slot.vocalType!] += 1;
+    }
+    expect(counts).toEqual({ male: 5, female: 5, mixed: 5 });
+  });
+
+  it('every kids slot carries vocalText matching one of vocalDescriptionFor(vocalType, lyricLanguage)\'s rotating variants', () => {
+    // TASK v3.41 Part A2/D — vocalText now rotates through 5 variants per
+    // type (see vocalPlan.ts's buildVocalVariantPlan), so it's no longer
+    // always variant 0; membership in the possible-variants set is the
+    // correct check now (exact-value coverage lives in tests/v341.test.ts).
+    const opts = makeOptions({ channel: kidsChannel, songCount: 15, lyricLanguage: 'korean', seasonId: season.id });
+    const slots = preallocateSongSlots(opts, kidsGenres);
+    for (const slot of slots) {
+      const possibleVariants = new Set(Array.from({ length: 5 }, (_, i) => vocalDescriptionFor(slot.vocalType!, 'korean', i)));
+      expect(possibleVariants.has(slot.vocalText!), `trackNo ${slot.trackNo}: ${slot.vocalText}`).toBe(true);
+    }
+  });
+
+  // v3.77 (TASK A) supersedes TASK v3.39 Part H's original "explicit
+  // vocalTone disables the quota entirely" behavior: usesVocalQuota is now
+  // always true, and an explicit non-default vocalTone instead LEANS the
+  // quota toward that gender (majority share, real per-song vocalType/
+  // vocalText) rather than copying one fixed string onto every song — the
+  // old all-identical-string behavior was itself a real bug (zero vocal
+  // variety for a whole 15-18 song pack). See core/vocalPlan.ts's
+  // leaningAdultVocalQuota/leaningGenderFor.
+  it('an explicit non-default vocalTone leans the vocal quota toward that gender, with real per-song vocalType/vocalText (Part H, updated v3.77)', () => {
+    const seniorGenres = genrePacks.filter(g => seniorMorning.preferredGenres.includes(g.id));
+    const explicitVocalTone = 'low calm male baritone, restrained emotional delivery, warm late-night tone';
+    const opts = makeOptions({ channel: seniorMorning, songCount: 15, seasonId: season.id, vocalTone: explicitVocalTone });
+    const slots = preallocateSongSlots(opts, seniorGenres);
+    const counts = { male: 0, female: 0, mixed: 0 };
+    for (const slot of slots) {
+      expect(slot.vocalType, `trackNo ${slot.trackNo}`).toBeDefined();
+      counts[slot.vocalType!] += 1;
+    }
+    expect(counts.male).toBeGreaterThan(counts.female);
+    expect(counts.male).toBeGreaterThan(counts.mixed);
+    expect(counts.female).toBeGreaterThan(0);
+    expect(counts.mixed).toBeGreaterThan(0);
+    expect(new Set(slots.map(slot => slot.vocalText)).size).toBeGreaterThan(1);
+  });
+
+  // TASK v3.72 (TASK A) — the real regression this task fixed: a non-kids
+  // channel with vocalTone left untouched (equal to the channel's own
+  // defaultVocal, e.g. never opened the voice picker) used to get this same
+  // single fallback string on every song. It now gets the auto 6/6/6-style
+  // quota instead, with real per-song vocalType/vocalText.
+  it('a non-kids channel with an UNTOUCHED vocalTone (still equal to defaultVocal) gets the auto quota, not one fixed string for every song', () => {
+    const seniorGenres = genrePacks.filter(g => seniorMorning.preferredGenres.includes(g.id));
+    const opts = makeOptions({ channel: seniorMorning, songCount: 15, seasonId: season.id });
+    expect(opts.vocalTone).toBe(seniorMorning.defaultVocal);
+    const slots = preallocateSongSlots(opts, seniorGenres);
+    expect(slots.every(slot => slot.vocalType !== undefined)).toBe(true);
+    expect(new Set(slots.map(slot => slot.vocalText)).size).toBeGreaterThan(1);
+  });
+
+  it('agrees with the local generation path on the same opts: identical per-trackNo vocalType', () => {
+    const opts = makeOptions({ channel: kidsChannel, songCount: 15, lyricLanguage: 'korean', seasonId: season.id });
+    const bp = generateLocalBlueprint(opts, kidsGenres, kidsMoods, season);
+    const slots = preallocateSongSlots(opts, kidsGenres);
+    for (const slot of slots) {
+      const song = bp.songs.find(s => s.trackNo === slot.trackNo)!;
+      expect(song.vocalType, `trackNo ${slot.trackNo}`).toBe(slot.vocalType);
+    }
+  });
+});
+
+// v5.9 (quota/tone separation) — before this fix, isKidsArchetype(...)
+// unconditionally forced vocalLeaning to undefined (no gender-quota lean) AND
+// the kids vocalText branch ignored opts.vocalTone entirely (always the flat
+// vocalDescriptionFor rotation), so picking a specific gendered kids preset
+// (e.g. '여자아이' kid-girl) had ZERO effect on either the pack's gender split
+// or the actual generated text. Both axes are now independently honored.
+describe('[v5.9] a kids channel honors an explicit gendered vocal preset on both axes (quota lean + tone wording)', () => {
+  it('a girl-leaning pick produces a girl-majority pack (balanced ~10/4/4-of-18, mirroring leaningAdultVocalQuota) with the picked preset\'s own wording on every female-assigned track', () => {
+    const kidsChannel = channelPresets.find(c => c.archetype === 'kids')!;
+    const girlPreset = vocalPresets.find(p => p.id === 'kid-girl')!;
+    const opts = makeOptions({ channel: kidsChannel, songCount: 18, lyricLanguage: 'korean', vocalTone: girlPreset.prompt, seasonId: season.id });
+    const slots = preallocateSongSlots(opts, kidsGenres);
+    const counts = { male: 0, female: 0, mixed: 0 };
+    for (const slot of slots) counts[slot.vocalType!] += 1;
+    // Balanced lean, not extreme: female gets ~55% (leaningAdultVocalQuota's
+    // own math), the other two share the rest evenly, never starved to 0.
+    expect(counts).toEqual({ male: 4, female: 10, mixed: 4 });
+    const femaleSlots = slots.filter(slot => slot.vocalType === 'female');
+    expect(femaleSlots.length).toBeGreaterThan(0);
+    for (const slot of femaleSlots) {
+      expect(slot.vocalText).toBe(`${girlPreset.prompt}, clear Korean diction, bright and friendly`);
+    }
+    // Non-matching-gender tracks keep the existing rotating variety pool
+    // (there is no user pick for boy/mixed, so nothing to apply there).
+    const maleSlots = slots.filter(slot => slot.vocalType === 'male');
+    expect(new Set(maleSlots.map(slot => slot.vocalText)).size).toBeGreaterThan(1);
+  });
+
+  it('a boy-leaning pick mirrors the same balanced math the other direction', () => {
+    const kidsChannel = channelPresets.find(c => c.archetype === 'kids')!;
+    const boyPreset = vocalPresets.find(p => p.id === 'kid-boy')!;
+    const opts = makeOptions({ channel: kidsChannel, songCount: 18, lyricLanguage: 'korean', vocalTone: boyPreset.prompt, seasonId: season.id });
+    const slots = preallocateSongSlots(opts, kidsGenres);
+    const counts = { male: 0, female: 0, mixed: 0 };
+    for (const slot of slots) counts[slot.vocalType!] += 1;
+    expect(counts).toEqual({ male: 10, female: 4, mixed: 4 });
+    const maleSlots = slots.filter(slot => slot.vocalType === 'male');
+    for (const slot of maleSlots) {
+      expect(slot.vocalText).toBe(`${boyPreset.prompt}, clear Korean diction, bright and friendly`);
+    }
+  });
+
+  it('leaves the quota balanced (5/5/5-of-15) when vocalTone is untouched (still equal to the channel default)', () => {
+    const kidsChannel = channelPresets.find(c => c.archetype === 'kids')!;
+    const opts = makeOptions({ channel: kidsChannel, songCount: 15, lyricLanguage: 'korean', seasonId: season.id });
+    const slots = preallocateSongSlots(opts, kidsGenres);
+    const counts = { male: 0, female: 0, mixed: 0 };
+    for (const slot of slots) counts[slot.vocalType!] += 1;
+    expect(counts).toEqual({ male: 5, female: 5, mixed: 5 });
+  });
+});
+
+describe('[v3.39 Part B] no vocal description ever reads as an adult voice', () => {
+  const types: VocalType[] = ['male', 'female', 'mixed'];
+  const languages = ['korean', 'japanese', 'english'] as const;
+
+  it('vocalDescriptionFor never contains "adult" for any type/language', () => {
+    for (const type of types) {
+      for (const language of languages) {
+        expect(vocalDescriptionFor(type, language).toLowerCase()).not.toContain('adult');
+      }
+    }
+  });
+
+  it('actual preallocated slot vocalText for a 15-song kids pack never contains "adult"', () => {
+    const opts = makeOptions({ channel: kidsChannel, songCount: 15, lyricLanguage: 'korean', seasonId: season.id });
+    const slots = preallocateSongSlots(opts, kidsGenres);
+    for (const slot of slots) {
+      expect(slot.vocalText!.toLowerCase()).not.toContain('adult');
+    }
+  });
+});
+
+describe('[v3.39 Part C] promptComposer weaves vocalText into the batch instruction', () => {
+  it('buildBatchSystemNote instructs verbatim vocalText use when the kids quota is active', () => {
+    const opts = makeOptions({ channel: kidsChannel, songCount: 15, lyricLanguage: 'korean', seasonId: season.id });
+    const slots = preallocateSongSlots(opts, kidsGenres);
+    const batch: BatchContext = { trackNoOffset: 0, totalSongCount: 15, usedTitles: [], usedHooks: [], lockedIdentity: null, preassignedSongs: slots };
+    const note = buildBatchSystemNote(opts, batch);
+    expect(note).toContain('"vocalText"');
+    expect(slots.every(slot => slot.hookDeviceText)).toBe(true);
+    // TASK v3.48.1 — kids-bright-pop is a narrative genre, but it still
+    // carries an auxiliary non-overlapping hook device for a real hook moment.
+    // TASK v3.43 Part A2, Step 2 Part A3 — tempo/instrumentSet/
+    // arrangementDensity/structureTemplate joined the same always-present,
+    // always-forced set.
+    expect(note).toContain('Do NOT invent a different trackNo, emotionArc, moneyChordText, tempo, genreText, hookDeviceText, introTextureText, negativeStyleText, instrumentSet, arrangementDensity, structureTemplate, or vocalText');
+  });
+
+  it('buildBatchSystemNote also instructs verbatim vocalText use for a non-kids channel (Part H)', () => {
+    const seniorGenres = genrePacks.filter(g => seniorMorning.preferredGenres.includes(g.id));
+    const opts = makeOptions({ channel: seniorMorning, songCount: 12, seasonId: season.id });
+    const slots = preallocateSongSlots(opts, seniorGenres);
+    const batch: BatchContext = { trackNoOffset: 0, totalSongCount: 12, usedTitles: [], usedHooks: [], lockedIdentity: null, preassignedSongs: slots };
+    const note = buildBatchSystemNote(opts, batch);
+    expect(note).toContain('"vocalText"');
+  });
+
+  it('buildAnthropicUserPayload forwards the full slot (including vocalText) to the real API payload', () => {
+    const opts = makeOptions({ channel: kidsChannel, songCount: 15, lyricLanguage: 'korean', seasonId: season.id });
+    const slots = preallocateSongSlots(opts, kidsGenres);
+    const batch: BatchContext = { trackNoOffset: 0, totalSongCount: 15, usedTitles: [], usedHooks: [], lockedIdentity: null, preassignedSongs: slots };
+    const payload = buildAnthropicUserPayload(opts, batch);
+    expect(payload.preassignedSongs).toHaveLength(15);
+    expect(payload.preassignedSongs.every(slot => typeof slot.vocalText === 'string')).toBe(true);
+  });
+});
+
+describe('[v3.39 Part C] Claude Code bridge carries per-song vocal instructions', () => {
+  it('buildClaudeCodeInstruction includes a verbatim vocalText instruction and the actual per-song vocalText values', () => {
+    const opts = makeOptions({ channel: kidsChannel, songCount: 15, lyricLanguage: 'korean', seasonId: season.id });
+    const slots = preallocateSongSlots(opts, kidsGenres);
+    const instruction = buildClaudeCodeInstruction(opts, kidsGenres, kidsMoods, season, undefined, slots);
+    expect(instruction).toContain('"vocalText"');
+    expect(instruction).toContain('weave that exact phrase into that song\'s stylePrompt as the vocal description, verbatim');
+    for (const slot of slots) {
+      expect(instruction).toContain(slot.vocalText);
+    }
+  });
+
+  it('also emits a vocalText instruction for a non-kids channel bridge instruction (Part H)', () => {
+    const seniorGenres = genrePacks.filter(g => seniorMorning.preferredGenres.includes(g.id));
+    const seniorMoods = moodPacks.filter(m => seniorMorning.preferredMoods.includes(m.id));
+    const opts = makeOptions({ channel: seniorMorning, songCount: 12, seasonId: season.id });
+    const slots = preallocateSongSlots(opts, seniorGenres);
+    const instruction = buildClaudeCodeInstruction(opts, seniorGenres, seniorMoods, season, undefined, slots);
+    expect(instruction).toContain('"vocalText"');
+    expect(instruction).toContain(seniorMorning.defaultVocal);
+  });
+
+  it('the set-planning table\'s vocal quota summary always matches the real per-slot vocalType counts', () => {
+    const opts = makeOptions({ channel: kidsChannel, songCount: 15, lyricLanguage: 'korean', seasonId: season.id });
+    const [set] = buildMultiSetClaudeCodeInstructions(opts, 1, 15, kidsGenres, kidsMoods, season, undefined);
+    const counts = { male: 0, female: 0, mixed: 0 };
+    for (const slot of set.preassignedSongs) counts[slot.vocalType!] += 1;
+    expect(set.instruction).toContain(`male ${counts.male}, female ${counts.female}, mixed ${counts.mixed}`);
+  });
+});
+
+describe('[v3.39 Part A] kids genre packs resolve through genreLibrary', () => {
+  it('getGenreById resolves all 3 primary kids genre ids plus the secondary kids-march', () => {
+    for (const id of ['kids-bright-pop', 'kids-acoustic-singalong', 'kids-upbeat-pop', 'kids-march']) {
+      const genre = getGenreById(id);
+      expect(genre, id).toBeDefined();
+      expect(genre!.archetypes).toContain('kids');
+    }
+  });
+
+  it('getVisibleGenresForArchetype("kids") returns the 3 core kids chips, not an empty list', () => {
+    const visible = getVisibleGenresForArchetype('kids');
+    const visibleIds = visible.map(g => g.id);
+    expect(visibleIds).toContain('kids-bright-pop');
+    expect(visibleIds).toContain('kids-acoustic-singalong');
+    expect(visibleIds).toContain('kids-upbeat-pop');
+    expect(visible.length).toBeGreaterThan(0);
+  });
+});

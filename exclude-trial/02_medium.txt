@@ -1,0 +1,60 @@
+제목: Porch Promise
+트랙 번호: T10 (원본 팩 기준)
+장르: oldpop-piano-ballad-70s
+버전: medium (하한선 + 최대 200자 — 이 곡의 장르·시대 항목 추가)
+
+[가사] (버전 간 동일 — 변경 없음)
+[Intro]
+Maybe it comes today
+
+[Verse 1]
+The porch boards know my footsteps
+By half past three each day
+Even the railing knew my elbows
+I bring a cup I never finish
+And watch the road bend gray
+The window behind me holds the kitchen
+The gate keeps swinging wide
+
+[Chorus]
+A speck of dust, a turning wheel
+Here Comes Your Letter
+I hold my breath and smile too soon
+Then let the afternoon decide
+
+[Verse 2]
+You promised words from your new city
+Written clear in your own hand
+I folded hope beneath my apron
+Tried to look as if I planned
+I wore a path across the boards
+But every sound beyond the corner
+Made my young heart rise
+
+[Bridge]
+Waiting can make a minute heavy
+Waiting can polish faith
+Then a truck slowed by the roses
+Its white side flashed like promise
+And joy stood at the gate
+
+[Chorus]
+The envelope shines between two fingers
+Here Comes Your Letter
+All the restless porch-time opens
+Into one small cry
+
+[Final Chorus]
+Here Comes Your Letter
+A speck of dust, a turning wheel
+I hold my breath and smile for real
+With summer in my eyes
+I let the whole porch hear me
+Softly now, with both hands shaking
+Here Comes Your Letter
+
+[stylePrompt] (버전 간 동일 — 변경 없음)
+1970s piano-led pop ballad, grand piano, string section entering at the chorus, restrained brushed drums, warm bass, acoustic harmonics intro color, 98 BPM, female soft head-voice lead, tender confiding delivery, clear glassy brightness, soft plate ambience, double-tracked lead vocal, I-V-vi-IV verses, vi-IV-I-V chorus lift, full layered arrangement, rising melodic sequence into chorus, octave-bright final chorus lift, hook nearly a cappella at final close, porch-afternoon waiting mood, intimate piano-forward room widening at chorus, analog warmth, short intro, 3:10-3:35, full arrangement, not a short cut
+
+[excludePrompt] (이 버전만 다름 — 실측 557자)
+famous artist imitation, copied melodies, copyrighted song references, soundalike vocals, shouted or belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation that obscures the melody, abrupt dynamic jumps, cavernous hall reverb, gated reverb, sidechain compression, modern wide stereo production, digital synth pads, autotuned vocal, trap hi-hats, lo-fi vinyl crackle effect, overlong intro, oversized power-ballad belting, arena drums
