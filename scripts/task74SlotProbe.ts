@@ -1,9 +1,9 @@
 /**
- * 지시문 74 (TASK A) — 검증용 임시 프로브. 실제 브릿지 경로가 쓰는
+ * 지시문 74 (TASK A/B) — 검증용 프로브. 실제 브릿지 경로가 쓰는
  * preallocateSongSlots를 그대로 호출해 BPM별 sectionCountRange /
- * maxInstrumentalSections / structureTemplate을 표로 찍는다.
+ * maxInstrumentalSections / structureTemplate / eraPaletteText를 표로 찍는다.
  *
- * Usage: npx tsx scripts/task74SlotProbe.ts [channelId] [songCount]
+ * Usage: npx tsx scripts/task74SlotProbe.ts [channelId] [songCount] [--palette]
  */
 import { preallocateSongSlots } from '../src/core/batchPreallocation';
 import { channelPresets, genrePacks } from '../src/data/presets';
@@ -12,6 +12,7 @@ import type { GenerationOptions } from '../src/types';
 
 const channelId = process.argv[2] || 'after-hours-deep-house';
 const songCount = Number(process.argv[3] || 12);
+const showPalette = process.argv.includes('--palette');
 const channel = channelPresets.find(c => c.id === channelId);
 if (!channel) throw new Error(`unknown channel ${channelId}`);
 
@@ -38,11 +39,19 @@ const opts = {
 const genres = genrePacks.filter(g => channel.preferredGenres.includes(g.id));
 const slots = preallocateSongSlots(opts, genres);
 console.log(`# ${channelId} — ${slots.length} slots`);
-console.log('| # | BPM | genre | template | sectionCountRange | maxInstr | floor | instrumental ext |');
-console.log('|---|-----|-------|----------|-------------------|----------|-------|------------------|');
-for (const slot of slots) {
-  const [sMin, sMax] = slot.sectionCountRange ?? [0, 0];
-  console.log(
-    `| ${slot.trackNo} | ${slot.tempo} | ${slot.genreId ?? '-'} | ${slot.structureTemplate ?? '-'} | ${sMin}-${sMax} | ${slot.maxInstrumentalSections ?? '-'} | ${minTotalSectionsForBpm(slot.tempo) || '-'} | ${instrumentalExtensionForBpm(slot.tempo, slot.structureTemplate) || '-'} |`
-  );
+
+if (showPalette) {
+  for (const slot of slots) {
+    console.log(`#${slot.trackNo} ${slot.tempo} BPM  ${slot.genreId ?? '-'}`);
+    console.log(`    eraPaletteText: ${slot.eraPaletteText ?? '(none)'}`);
+  }
+} else {
+  console.log('| # | BPM | genre | template | sectionCountRange | maxInstr | floor | instrumental ext |');
+  console.log('|---|-----|-------|----------|-------------------|----------|-------|------------------|');
+  for (const slot of slots) {
+    const [sMin, sMax] = slot.sectionCountRange ?? [0, 0];
+    console.log(
+      `| ${slot.trackNo} | ${slot.tempo} | ${slot.genreId ?? '-'} | ${slot.structureTemplate ?? '-'} | ${sMin}-${sMax} | ${slot.maxInstrumentalSections ?? '-'} | ${minTotalSectionsForBpm(slot.tempo) || '-'} | ${instrumentalExtensionForBpm(slot.tempo, slot.structureTemplate) || '-'} |`
+    );
+  }
 }

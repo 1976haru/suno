@@ -1877,6 +1877,20 @@ export interface PreassignedSongSlot {
   /** Per-song intro-only texture phrase to weave into stylePrompt, never as whole-song instrumentation. */
   introTextureText?: string;
   /**
+   * 지시문 74 (TASK B-1) — this track's own era-canonical sound atoms
+   * (data/eraCanonPalettes.ts, drawn by core/eraCanonPalettePlan.ts's
+   * rotatingEraPaletteAtoms), comma-joined.
+   *
+   * 실측 근거(§2.3-4): 팔레트는 15종이 이미 존재했지만 그 원자를 읽는
+   * 코드가 core/localGenerator.ts(미리보기 전용 경로) 하나뿐이었다 —
+   * AGENTS.md가 "정식/운영 경로"로 규정한 브릿지 경로에는 팔레트 원자가
+   * 0개 도달하고 있었다. 그래서 일본 시니어 팩의 stylePrompt에 남은 시대
+   * 신호가 genreLibrary의 production 배열에서 온 3개뿐이었던 것이다.
+   * 이 필드가 그 도달 경로다 — 값은 참고 재료이고, 그대로 옮겨 적으라는
+   * 지시가 아니다(introTextureText/instrumentSet와 같은 취급).
+   */
+  eraPaletteText?: string;
+  /**
    * TASK v3.39 — mirrors moneyChordText's per-trackNo verbatim-instruction
    * pattern for the kids channel's male/female/mixed vocal quota (see
    * core/vocalPlan.ts's buildVocalPlan/usesVocalQuota).

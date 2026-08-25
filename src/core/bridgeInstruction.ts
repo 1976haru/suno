@@ -621,6 +621,24 @@ function introTextureInstructionLineFor(preassignedSongs: PreassignedSongSlot[])
     : '';
 }
 
+/**
+ * 지시문 74 (TASK B-1) — data/eraCanonPalettes.ts의 시대 정본 사운드 원자를
+ * 브릿지(정식) 경로로 내보내는 지시. 이 팔레트는 15종이 이미 존재했지만
+ * 그 원자를 읽는 코드가 core/localGenerator.ts(미리보기 전용) 하나뿐이라
+ * 브릿지 산출물에는 0개 도달하고 있었다 — 일본 시니어 팩의 stylePrompt
+ * 22개 절 중 시대 신호가 3개뿐이었던 실측(§2.1)의 직접 원인이다.
+ *
+ * introTextureText와 같은 취급이다: 그대로 옮겨 적으라는 지시가 아니라
+ * "이 시대의 실제 녹음은 이런 소리였다"는 참고 재료다. 다만 프로덕션 절
+ * 만큼은 개수를 명시한다 — 시대를 가르는 가장 강한 신호이고, 실측에서
+ * 모자랐던 것이 정확히 그 축이기 때문이다.
+ */
+function eraPaletteInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string {
+  return preassignedSongs.some(slot => slot.eraPaletteText)
+    ? '- Each "preassignedSongs" entry may include "eraPaletteText" — how records in THIS track\'s own era and sub-genre actually sounded: the instruments played, the harmony habits, the way the voice was recorded, and the production of the room and tape. It is reference material, not a phrase to transcribe — write your own wording for the same sound. Two things about it are not optional. (1) At least TWO of this track\'s stylePrompt clauses must be era-production clauses (how it was recorded and mixed: the room, the tape/console character, the stereo width, the compression, the noise floor) — production is what separates a modern recording of an old song from a recording of that era, and a prompt that names the genre and the instruments but not the production reads as a present-day cover. (2) Do not contradict it: if it says the stereo image is narrow, do not also ask for a wide modern mix.'
+    : '';
+}
+
 function negativeStyleInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string {
   return preassignedSongs.some(slot => slot.negativeStyleText)
     ? '- Keep "negativeStyleText" separate: do not put it in stylePrompt; the app exports it to Suno Exclude styles.'
@@ -1884,6 +1902,7 @@ export function buildClaudeCodeInstruction(
   const arrangementDensityInstructionLine = arrangementDensityInstructionLineFor(preassignedSongs);
   const structureTemplateInstructionLine = structureTemplateInstructionLineFor(preassignedSongs);
   const introTextureInstructionLine = introTextureInstructionLineFor(preassignedSongs);
+  const eraPaletteInstructionLine = eraPaletteInstructionLineFor(preassignedSongs);
   const negativeStyleInstructionLine = negativeStyleInstructionLineFor(preassignedSongs);
   const genreInstructionLine = genreInstructionLineFor(preassignedSongs);
   // codex 지시문 02 (TASK D) — resolved once here, reused for both
@@ -2011,6 +2030,7 @@ export function buildClaudeCodeInstruction(
     earwormInstructionLine,
     openingLoudnessInstructionLine,
     introTextureInstructionLine,
+    eraPaletteInstructionLine,
     negativeStyleInstructionLine,
     instrumentInstructionLine,
     // v5.23 (TASK A §1-4) — ARRANGEMENT_VOCABULARY_LYRIC_PROHIBITION_LINE
@@ -2200,6 +2220,7 @@ export function buildMultiSetClaudeCodeMasterInstruction(
   const arrangementDensityInstructionLine = arrangementDensityInstructionLineFor(allSlots);
   const structureTemplateInstructionLine = structureTemplateInstructionLineFor(allSlots);
   const introTextureInstructionLine = introTextureInstructionLineFor(allSlots);
+  const eraPaletteInstructionLine = eraPaletteInstructionLineFor(allSlots);
   const negativeStyleInstructionLine = negativeStyleInstructionLineFor(allSlots);
   const lyricThemeInstructionLine = lyricThemeInstructionLineFor(allSlots);
   const povInstructionLine = povInstructionLineFor(allSlots);
@@ -2302,6 +2323,7 @@ export function buildMultiSetClaudeCodeMasterInstruction(
     earwormInstructionLine,
     openingLoudnessInstructionLine,
     introTextureInstructionLine,
+    eraPaletteInstructionLine,
     negativeStyleInstructionLine,
     instrumentInstructionLine,
     // v5.23 (TASK A) — ARRANGEMENT_VOCABULARY_LYRIC_PROHIBITION_LINE moved

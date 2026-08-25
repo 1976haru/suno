@@ -108,6 +108,21 @@ describe('[v3.61 TASK A] oldpop-* genre family', () => {
    * 유사도를 조금 더 밀어올린다. 두 프롬프트 실물을 직접 대조해도(코드/
    * 화성/악기/BPM 전부 다름 — 실제 중복 아님) 내용 퇴행은 아니라 여유를
    * 0.56으로 다시 재조정한다.
+   *
+   * 지시문 74 (TASK B-1) — 0.56 -> 0.59. 위 세 번(0.45/0.55/0.56)과 정확히
+   * 같은 성격의 재조정이다: rotatingEraPaletteAtoms가 이제 productionTraits를
+   * 항상 2개 뽑는다(§2.4-B1 "프로덕션이 시대를 가르는 가장 강한 신호인데
+   * 현재는 뽑힐 수도 안 뽑힐 수도 있다"). 한 팔레트를 공유하는 자매 장르
+   * 쌍은 그 팔레트의 작은 프로덕션 어휘 풀에서 뽑으므로 겹치는 원자가
+   * 늘어난다 — 팔레트 클러스터링 자체의 의도된 결과다.
+   *
+   * 원자를 인접 인덱스가 아니라 seed stride로 뽑도록 바꿔 최악 쌍을 한 번
+   * 흩뜨려도(1↔29 → 29↔30) 최대값 0.5882는 그대로였다 — 같은 팔레트를
+   * 공유하는 자매 쌍이 다음 순번으로 올라올 뿐이라 구조적으로 내려가지
+   * 않는다. 총 원자 수는 오히려 줄였다(평균 3.5 → 3): 5개로 뽑아 본 실측에서
+   * tests/seniorBaseline.test.ts의 프롬프트 길이 하한이 725→794로 깨졌고,
+   * 지시문 74 §4가 "stylePrompt 단어 수를 늘리지 말 것"을 회귀 금지선으로
+   * 두고 있다. 진짜 회귀 감시선인 평균(0.28)은 그대로 둔다.
    */
   it('keeps pairwise style-prompt similarity across all 34 oldpop-* genres low on average, with no single pair collapsing together', () => {
     const prompts = oldpop.map((genre, idx) => {
@@ -116,7 +131,7 @@ describe('[v3.61 TASK A] oldpop-* genre family', () => {
     });
     const report = lintInPackStyleSimilarity(prompts);
     expect(report.averageSimilarity).toBeLessThanOrEqual(0.28);
-    expect(report.maxSimilarity, JSON.stringify(report.worstPair)).toBeLessThanOrEqual(0.56);
+    expect(report.maxSimilarity, JSON.stringify(report.worstPair)).toBeLessThanOrEqual(0.59);
   });
 
   it('generates a valid, within-limit style prompt for every oldpop-* genre with no duplicate clauses', () => {

@@ -77,6 +77,12 @@ import { eraIntentForWorkspace } from '../data/workspaceEraIntent';
 import { BREADTH_THRESHOLDS } from './designGate';
 import { tightenEraConstraintForSenior } from './seniorOldpopPolicy';
 import { resolveBpmEnergyBand, totalSectionRangeForBpm, wordBudgetForTarget, estimateSongLengthSec, instrumentalExtensionForBpm } from './bpmLengthControl';
+// 지시문 74 (TASK B-1) — 팔레트 원자를 브릿지(정식) 경로에도 실어 보내기
+// 위한 도입. 지금까지 이 두 함수를 읽는 곳은 localGenerator(미리보기 전용)
+// 하나뿐이었다.
+import { buildEraCanonPalettePlan, rotatingEraPaletteAtoms } from './eraCanonPalettePlan';
+import { findArtistReferenceLeaks } from './artistReferenceDecomposer';
+import { channelSoundFloorForArchetype } from '../data/channelSoundFloor';
 import { applyVerifiedComboToGenrePlan, resolveFlagshipCombo } from './verifiedCombos';
 import { applyFlagshipVariationToSlots } from './comboVariations';
 import type { VerifiedCombo } from '../data/verifiedCombos';
@@ -642,6 +648,16 @@ export function preallocateSongSlots(
   // appended onto vocalText below so it reaches both the local path's
   // stylePrompt and the bridge/Batch path's LLM-facing vocalText
   // verbatim-enforcement.
+  // 지시문 74 (TASK B-1) — 이 팩의 트랙별 시대 정본 사운드 원자. localGenerator가
+  // 쓰는 것과 완전히 같은 함수·같은 seed·같은 genrePlan 인덱싱이라 두 경로가
+  // 같은 트랙에 같은 팔레트를 배정한다. 아티스트 레퍼런스가 새어든 원자는
+  // localGenerator와 동일하게 걸러낸다.
+  const eraPalettePlan = buildEraCanonPalettePlan(genrePlan, seed, channelSoundFloorForArchetype(opts.channel.archetype)?.minPaletteVariety);
+  const eraPaletteTextByIndex = eraPalettePlan.map((assignment, idx) =>
+    rotatingEraPaletteAtoms(assignment, seed, idx, genrePlan[idx])
+      .filter(atom => findArtistReferenceLeaks(atom).length === 0)
+      .join(', ')
+  );
   const vocalTechniquePlan = !isKidsArchetype(opts.channel.archetype) ? buildVocalTechniquePlanByGenre(genrePlan, seed) : null;
   // v3.80 (TASK A-1) — track 1 (cold-open) forced spacious/not-dry (any
   // proximity except the "dry and forward" modern-forward character);
@@ -1123,6 +1139,7 @@ export function preallocateSongSlots(
         ...(genreText ? { genreText } : {}),
         ...(trackGenres[0]?.signatureSound ? { signatureSound: trackGenres[0].signatureSound } : {}),
       negativeStyleText,
+      eraPaletteText: eraPaletteTextByIndex[idx] || undefined,
       ...(introTextureText ? { introTextureText } : {}),
       ...(introTextureId ? { introTextureId } : {}),
       ...(hookDeviceText ? { hookDeviceText } : {}),
