@@ -1,0 +1,1024 @@
+[
+  {
+    "trackNo": 1,
+    "title": "Wait in Smoke, Old Heart",
+    "hookPhrase": "Wait in Smoke, Old Heart",
+    "songRole": "cold-open",
+    "tempo": 63,
+    "sectionCountRange": [
+      5,
+      6
+    ],
+    "wordCountRange": [
+      178,
+      203
+    ],
+    "maxInstrumentalSections": 1,
+    "estimatedLengthSec": 195,
+    "emotionArc": "small sadness to steady comfort",
+    "moneyChordText": "IVmaj7-iii7-vi7 movement",
+    "genreId": "new-music-70s",
+    "genreText": "1970s Japanese new music, acoustic guitar, upright piano",
+    "signatureSound": "acoustic guitar, upright piano, clean electric guitar, BPM 86-102; Verse stays plainspoken with acoustic guitar and piano",
+    "negativeStyleText": "famous artist imitation, copied melodies, copyrighted song references, soundalike vocals, shouted or belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation that obscures the melody, abrupt dynamic jumps, cavernous hall reverb, gated reverb, sidechain compression, modern wide stereo production, digital synth pads, autotuned vocal, trap hi-hats, lo-fi vinyl crackle effect, flat chorus with no lift, monotonous melody contour, generic AI demo-band sound, overly glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement with no song development, modern EDM synths, hard autotune, sidechain pumping, ultra-wide modern mix",
+    "eraPaletteText": "dynamics left uncompressed so the climax actually rises, light kit with soft snare, narrow stereo image",
+    "introTextureText": "muted trumpet answering phrase intro texture (INTRO ONLY)",
+    "introTextureId": "br_muted_trumpet",
+    "hookDeviceText": "final chorus vocal jumps up an octave, brighter and more open than the earlier choruses",
+    "hookDeviceId": "octave-lift",
+    "chorusContrastPlanId": "unison-doubling",
+    "chorusContrastText": "Verse: verse carried by piano and soft brushes / Chorus: chorus doubles the lead vocal in unison, adds tambourine and organ pad",
+    "chorusContrastScore": 49,
+    "moneyChordSectionMap": [
+      {
+        "section": "Verse",
+        "chordId": "showaModern"
+      },
+      {
+        "section": "Chorus",
+        "chordId": "marusa"
+      },
+      {
+        "section": "Bridge",
+        "chordId": "doowop"
+      }
+    ],
+    "moneyChordSectionText": "Verse: IVmaj7-iii7-vi7 movement / Chorus: IVM7-III7-vi-I7 marusa progression / Bridge: I-vi-IV-V doo-wop progression",
+    "openingLoudnessText": "opening is as loud and full as the chorus",
+    "arcPhase": "opening",
+    "intensity": 2,
+    "peakStrength": "none",
+    "perceivedEnergy": 2,
+    "perceivedEnergyReasonKo": "63 BPM + intimate → 낮음",
+    "moneyChordId": "showaModern",
+    "effectiveMoneyChordId": "showaModern",
+    "effectiveGenreIds": [
+      "new-music-70s",
+      "kayokyoku-70s",
+      "japanese-folk-70s"
+    ],
+    "vocalPresetSource": "auto",
+    "instrumentSet": [
+      "acoustic guitar",
+      "clean electric guitar"
+    ],
+    "arrangementDensity": "medium",
+    "structureTemplate": "T1",
+    "introMode": "vocal-immediate",
+    "lyricTheme": "kr2030-old-digital-diary-nostalgia",
+    "lyricThemeText": "opening an old personal web diary and a downloaded mp3 playlist saved from teenage years, a private photo mood board nobody else ever saw",
+    "lyricThemeArc": "surprised nostalgia softening into fond amusement",
+    "lyricFrameId": "screen-memory",
+    "lyricThemeCastKo": "혼자",
+    "vocabularyBankId": "quiet-morning",
+    "pov": "firstPerson",
+    "verseStyle": "image",
+    "verseStyleText": "verse lines focus on sensory images, objects, light, weather, and small gestures",
+    "chorusStyle": "narrative",
+    "chorusStyleText": "chorus lines unfold as plain scene narration with concrete actions and time movement",
+    "vocalText": "female narrow intimate lead, tender confiding delivery, velvety low resonance, tape slap echo, enka-inflected bend on long tones, melismatic slide into the chorus",
+    "vocalVariantText": "female narrow intimate lead, tender confiding delivery, velvety low resonance, tape slap echo, enka-inflected bend on long tones, melismatic slide into the chorus",
+    "vocalTechniqueText": "enka-inflected bend on long tones, melismatic slide into the chorus",
+    "conceptText": "old-radio warmth, tape softness, softly glowing radio, piano-led opening",
+    "conceptLyricImages": [
+      "softly glowing radio",
+      "faded photograph",
+      "familiar voice through static"
+    ],
+    "vocalGender": "female",
+    "vocalType": "female"
+  },
+  {
+    "trackNo": 2,
+    "title": "Keep the Streetlamp Tonight",
+    "hookPhrase": "Keep the Streetlamp Tonight",
+    "songRole": "flagship",
+    "tempo": 76,
+    "sectionCountRange": [
+      5,
+      6
+    ],
+    "wordCountRange": [
+      197,
+      222
+    ],
+    "maxInstrumentalSections": 1,
+    "estimatedLengthSec": 196,
+    "emotionArc": "quiet longing to calm gratitude",
+    "moneyChordText": "IV-V-iii-vi royal road progression",
+    "genreId": "japanese-folk-70s",
+    "genreText": "1970s Japanese folk, fingerpicked acoustic guitar, light upright piano, no modern polish",
+    "signatureSound": "fingerpicked acoustic guitar, light upright piano, soft hand percussion, 1970s Japanese folk",
+    "negativeStyleText": "famous artist imitation, copied melodies, copyrighted song references, soundalike vocals, shouted or belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation that obscures the melody, abrupt dynamic jumps, cavernous hall reverb, gated reverb, sidechain compression, modern wide stereo production, digital synth pads, autotuned vocal, trap hi-hats, lo-fi vinyl crackle effect, flat chorus with no lift, monotonous melody contour, generic AI demo-band sound, overly glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement with no song development, modern EDM synths, hard autotune, sidechain pumping, ultra-wide modern mix",
+    "eraPaletteText": "breaths and pick noise left in rather than edited out, close dry vocal with a short natural room tail, tape compression on the acoustic guitars",
+    "introTextureText": "rounded trombone swell intro texture (INTRO ONLY)",
+    "introTextureId": "br_trombone_swell",
+    "hookDeviceText": "chorus shifts into a half-time feel for weight, verses stay in normal time",
+    "hookDeviceId": "half-time-chorus",
+    "chorusContrastPlanId": "full-band-swell",
+    "chorusContrastText": "Verse: sparse verse — guitar and voice only / Chorus: full band enters — bass, drums, string pad, doubled vocal",
+    "chorusContrastScore": 68,
+    "moneyChordSectionMap": [
+      {
+        "section": "Verse",
+        "chordId": "royalRoad"
+      },
+      {
+        "section": "Chorus",
+        "chordId": "komuro"
+      }
+    ],
+    "moneyChordSectionText": "Verse: IV-V-iii-vi royal road progression / Chorus: vi-IV-V-I komuro-cycle progression",
+    "openingLoudnessText": "full arrangement from the first bar",
+    "killingPointText": "minor verse opening into a major final chorus",
+    "killingPointPlacement": "final-chorus",
+    "killingPointId": "KP-07",
+    "arcPhase": "opening",
+    "intensity": 2,
+    "peakStrength": "subtle",
+    "perceivedEnergy": 2,
+    "perceivedEnergyReasonKo": "76 BPM (어휘 매치 없음, 템포 중심 판정) → 낮음",
+    "moneyChordId": "royalRoad",
+    "effectiveMoneyChordId": "royalRoad",
+    "effectiveGenreIds": [
+      "japanese-folk-70s",
+      "kayokyoku-70s",
+      "new-music-70s"
+    ],
+    "vocalPresetSource": "auto",
+    "instrumentSet": [
+      "fingerpicked acoustic guitar",
+      "soft hand percussion",
+      "simple bass"
+    ],
+    "arrangementDensity": "sparse",
+    "structureTemplate": "T4",
+    "introMode": "instrumental",
+    "lyricTheme": "enchillhop-party-edge-not-dancing",
+    "lyricThemeText": "standing at the edge of a crowded party with a drink going warm, watching everyone else move",
+    "lyricThemeArc": "isolated self-consciousness easing into comfortable detachment",
+    "lyricFrameId": "crowd-alone",
+    "lyricThemeCastKo": "혼자",
+    "vocabularyBankId": "quiet-morning",
+    "pov": "firstPerson",
+    "verseStyle": "dialogue",
+    "verseStyleText": "verse lines use direct address or short conversational fragments without becoming spoken-word",
+    "chorusStyle": "image",
+    "chorusStyleText": "chorus lines focus on sensory images, objects, light, weather, and small gestures",
+    "vocalText": "call and answer, wide octave harmony, chamber ambience, male and female duet, nasal folk-toned phrasing on the hook, husky plainspoken phrasing on the verse",
+    "vocalVariantText": "call and answer, wide octave harmony, chamber ambience, male and female duet, nasal folk-toned phrasing on the hook, husky plainspoken phrasing on the verse",
+    "vocalTechniqueText": "nasal folk-toned phrasing on the hook, husky plainspoken phrasing on the verse",
+    "conceptText": "tape softness, familiar melody turns, faded photograph, guitar-led opening",
+    "conceptLyricImages": [
+      "softly glowing radio",
+      "faded photograph",
+      "familiar voice through static"
+    ],
+    "vocalGender": "duet",
+    "vocalType": "mixed"
+  },
+  {
+    "trackNo": 3,
+    "title": "Hold the Neon Sign Close",
+    "hookPhrase": "Hold the Neon Sign Close",
+    "songRole": "flagship",
+    "tempo": 82,
+    "sectionCountRange": [
+      5,
+      6
+    ],
+    "wordCountRange": [
+      199,
+      224
+    ],
+    "maxInstrumentalSections": 1,
+    "estimatedLengthSec": 195,
+    "emotionArc": "soft nostalgia to renewed hope",
+    "moneyChordText": "IVmaj7-iii7-vi7 movement",
+    "genreId": "new-music-70s",
+    "genreText": "1970s Japanese new music, acoustic guitar, upright piano",
+    "signatureSound": "acoustic guitar, upright piano, clean electric guitar, BPM 86-102; Verse stays plainspoken with acoustic guitar and piano",
+    "negativeStyleText": "famous artist imitation, copied melodies, copyrighted song references, soundalike vocals, shouted or belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation that obscures the melody, cavernous hall reverb, gated reverb, sidechain compression, modern wide stereo production, digital synth pads, autotuned vocal, trap hi-hats, lo-fi vinyl crackle effect, flat chorus with no lift, monotonous melody contour, generic AI demo-band sound, overly glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement with no song development, modern EDM synths, hard autotune, sidechain pumping, ultra-wide modern mix",
+    "eraPaletteText": "graceful minor-to-major chorus cadence, narrow stereo image, analog tape saturation, spring and plate reverb",
+    "introTextureText": "fingerpicked acoustic guitar intro texture (INTRO ONLY)",
+    "introTextureId": "ag_finger",
+    "hookDeviceText": "bridge strips down to voice and a single instrument, then the full arrangement returns for the final chorus",
+    "hookDeviceId": "bridge-breakdown",
+    "chorusContrastPlanId": "harmony-lift",
+    "chorusContrastText": "Verse: acoustic guitar + bass + light drums / Chorus: + piano + vocal harmony + firmer snare + wider stereo",
+    "chorusContrastScore": 56,
+    "moneyChordSectionMap": [
+      {
+        "section": "Verse",
+        "chordId": "showaModern"
+      },
+      {
+        "section": "Chorus",
+        "chordId": "marusa"
+      }
+    ],
+    "moneyChordSectionText": "Verse: IVmaj7-iii7-vi7 movement / Chorus: IVM7-III7-vi-I7 marusa progression",
+    "openingLoudnessText": "no quiet fade-in — already at full level from the start",
+    "killingPointText": "instruments drop out in the bridge",
+    "killingPointPlacement": "bridge",
+    "killingPointId": "KP-04",
+    "arcPhase": "rising",
+    "intensity": 3,
+    "peakStrength": "subtle",
+    "perceivedEnergy": 2,
+    "perceivedEnergyReasonKo": "82 BPM (어휘 매치 없음, 템포 중심 판정) → 낮음",
+    "moneyChordId": "showaModern",
+    "effectiveMoneyChordId": "showaModern",
+    "effectiveGenreIds": [
+      "new-music-70s",
+      "kayokyoku-70s",
+      "japanese-folk-70s"
+    ],
+    "vocalPresetSource": "auto",
+    "instrumentSet": [
+      "acoustic guitar",
+      "clean electric guitar"
+    ],
+    "arrangementDensity": "sparse",
+    "structureTemplate": "T4",
+    "introMode": "instrumental",
+    "lyricTheme": "jp2030-graduation-farewell",
+    "lyricThemeText": "standing in a school gymnasium during a graduation ceremony, classmates crying and laughing at the same time, the future suddenly feeling real",
+    "lyricThemeArc": "bittersweet farewell opening into hopeful resolve",
+    "lyricFrameId": "school-memory",
+    "lyricThemeCastKo": "여럿",
+    "vocabularyBankId": "quiet-morning",
+    "pov": "secondPerson",
+    "verseStyle": "dialogue",
+    "verseStyleText": "verse lines use direct address or short conversational fragments without becoming spoken-word",
+    "chorusStyle": "hookRepeat",
+    "chorusStyleText": "chorus lines use compact repeated hook callbacks and simple answer phrases",
+    "vocalText": "male mid baritone-tenor lead, earnest forward delivery, worn weathered edge, soft plate ambience, quivering vibrato on the sustained note, plaintive held-note vibrato on the hook",
+    "vocalVariantText": "male mid baritone-tenor lead, earnest forward delivery, worn weathered edge, soft plate ambience, quivering vibrato on the sustained note, plaintive held-note vibrato on the hook",
+    "vocalTechniqueText": "quivering vibrato on the sustained note, plaintive held-note vibrato on the hook",
+    "conceptText": "familiar melody turns, intimate room tone, familiar voice through static, bass-first verse pocket",
+    "conceptLyricImages": [
+      "softly glowing radio",
+      "faded photograph",
+      "familiar voice through static"
+    ],
+    "vocalGender": "male",
+    "vocalType": "male"
+  },
+  {
+    "trackNo": 4,
+    "title": "Where Did the Summer Go",
+    "hookPhrase": "I Keep Holding You",
+    "songRole": "seasonal detail track",
+    "tempo": 96,
+    "sectionCountRange": [
+      9,
+      11
+    ],
+    "wordCountRange": [
+      199,
+      224
+    ],
+    "maxInstrumentalSections": 3,
+    "estimatedLengthSec": 196,
+    "emotionArc": "lonely memory to warm acceptance",
+    "moneyChordText": "IVM7-III7-vi-I7 marusa progression",
+    "genreId": "showa-groove-70s",
+    "genreText": "1970s funk and soul influenced Japanese kayokyoku, clavinet, wah electric guitar, wah guitar accents on the offbeat",
+    "signatureSound": "clavinet, wah electric guitar, brass stabs, 1970s funk and soul influenced Japanese kayokyoku",
+    "negativeStyleText": "famous artist imitation, copied melodies, copyrighted song references, soundalike vocals, shouted or belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation that obscures the melody, cavernous hall reverb, gated reverb, sidechain compression, modern wide stereo production, digital synth pads, autotuned vocal, trap hi-hats, lo-fi vinyl crackle effect, flat chorus with no lift, monotonous melody contour, generic AI demo-band sound, overly glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement with no song development, modern EDM synths, hard autotune, sidechain pumping, ultra-wide modern mix",
+    "eraPaletteText": "graceful minor-to-major chorus cadence, narrow stereo image, analog tape saturation, spring and plate reverb",
+    "introTextureText": "nylon-string acoustic waltz intro texture (INTRO ONLY)",
+    "introTextureId": "ag_nylon_waltz",
+    "hookDeviceText": "stop-time accent on the first word of the chorus, band silent for one beat, then groove resumes",
+    "hookDeviceId": "stop-time",
+    "chorusContrastPlanId": "gentle-second-voice",
+    "chorusContrastText": "Verse: verse — acoustic guitar and voice / Chorus: chorus adds only a second vocal harmony line, everything else holds steady",
+    "chorusContrastScore": 46,
+    "killingPointText": "three-part harmony on the last chorus",
+    "killingPointPlacement": "final-chorus",
+    "killingPointId": "KP-02",
+    "arcPhase": "rising",
+    "intensity": 3,
+    "peakStrength": "subtle",
+    "perceivedEnergy": 3,
+    "perceivedEnergyReasonKo": "96 BPM + driving + alto → 중간",
+    "moneyChordId": "marusa",
+    "effectiveMoneyChordId": "marusa",
+    "effectiveGenreIds": [
+      "showa-groove-70s",
+      "kayokyoku-70s",
+      "japanese-folk-70s"
+    ],
+    "vocalPresetSource": "auto",
+    "instrumentSet": [
+      "clavinet",
+      "brass stabs",
+      "wah electric guitar"
+    ],
+    "arrangementDensity": "medium",
+    "structureTemplate": "T2",
+    "introMode": "vocal-after-texture",
+    "lyricTheme": "jp2030-summer-festival-crowd",
+    "lyricThemeText": "walking through a summer festival crowd in a yukata, fireworks bursting overhead, losing a friend in the crowd for just a second",
+    "lyricThemeArc": "excited anticipation building into pure joy",
+    "lyricFrameId": "festival-crowd",
+    "lyricThemeCastKo": "여럿",
+    "vocabularyBankId": "quiet-morning",
+    "pov": "firstPerson",
+    "verseStyle": "image",
+    "verseStyleText": "verse lines focus on sensory images, objects, light, weather, and small gestures",
+    "chorusStyle": "narrative",
+    "chorusStyleText": "chorus lines unfold as plain scene narration with concrete actions and time movement",
+    "vocalText": "female full chest alto, light rhythmic phrasing, faint vibrato shimmer, warm natural room, plainspoken storyteller phrasing",
+    "vocalVariantText": "female full chest alto, light rhythmic phrasing, faint vibrato shimmer, warm natural room, plainspoken storyteller phrasing",
+    "vocalTechniqueText": "plainspoken storyteller phrasing",
+    "conceptText": "intimate room tone, old-radio warmth, softly glowing radio, breathing space before the chorus",
+    "conceptLyricImages": [
+      "softly glowing radio",
+      "faded photograph",
+      "familiar voice through static"
+    ],
+    "vocalGender": "female",
+    "vocalType": "female"
+  },
+  {
+    "trackNo": 5,
+    "title": "Will You Wait for Me",
+    "hookPhrase": "I Keep Circling Us",
+    "songRole": "easy singalong verse",
+    "tempo": 76,
+    "sectionCountRange": [
+      5,
+      6
+    ],
+    "wordCountRange": [
+      197,
+      222
+    ],
+    "maxInstrumentalSections": 1,
+    "estimatedLengthSec": 196,
+    "emotionArc": "steady peace held gently, start to end",
+    "moneyChordText": "IVmaj7-iii7-vi7 movement",
+    "genreId": "japanese-folk-70s",
+    "genreText": "1970s Japanese folk, fingerpicked acoustic guitar, light upright piano",
+    "signatureSound": "fingerpicked acoustic guitar, light upright piano, soft hand percussion, 1970s Japanese folk",
+    "negativeStyleText": "famous artist imitation, copied melodies, copyrighted song references, soundalike vocals, shouted or belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation that obscures the melody, abrupt dynamic jumps, cavernous hall reverb, gated reverb, sidechain compression, modern wide stereo production, digital synth pads, autotuned vocal, trap hi-hats, lo-fi vinyl crackle effect, flat chorus with no lift, monotonous melody contour, generic AI demo-band sound, overly glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement with no song development, modern EDM synths, hard autotune, sidechain pumping, ultra-wide modern mix",
+    "eraPaletteText": "two-part close harmony sung as one blended voice, narrow warm stereo image, close dry vocal with a short natural room tail",
+    "introTextureText": "gentle tremolo electric guitar intro texture (INTRO ONLY)",
+    "introTextureId": "eg_tremolo",
+    "hookDeviceText": "hook line double-tracked with a harmony a third above, wider on every repeat",
+    "hookDeviceId": "double-hook",
+    "chorusContrastPlanId": "call-response-texture",
+    "chorusContrastText": "Verse: verse — lead vocal alone over a light rhythm section / Chorus: backing vocals answer each line, a percussion layer widens the groove",
+    "chorusContrastScore": 53,
+    "moneyChordSectionMap": [
+      {
+        "section": "Verse",
+        "chordId": "showaModern"
+      },
+      {
+        "section": "Chorus",
+        "chordId": "royalRoad"
+      }
+    ],
+    "moneyChordSectionText": "Verse: IVmaj7-iii7-vi7 movement / Chorus: IV-V-iii-vi royal road progression",
+    "killingPointText": "vocal scat trades phrases with the piano",
+    "killingPointPlacement": "bridge",
+    "killingPointId": "KP-23",
+    "arcPhase": "rising",
+    "intensity": 3,
+    "peakStrength": "subtle",
+    "perceivedEnergy": 3,
+    "perceivedEnergyReasonKo": "76 BPM + warm baritone → 중간",
+    "moneyChordId": "showaModern",
+    "effectiveMoneyChordId": "showaModern",
+    "effectiveGenreIds": [
+      "japanese-folk-70s",
+      "kayokyoku-70s",
+      "new-music-70s"
+    ],
+    "vocalPresetSource": "auto",
+    "instrumentSet": [
+      "fingerpicked acoustic guitar",
+      "light upright piano"
+    ],
+    "arrangementDensity": "full",
+    "structureTemplate": "T4",
+    "introMode": "instrumental",
+    "lyricTheme": "jp2030-autumn-leaves-solo-walk",
+    "lyricThemeText": "walking alone down a path lined with turning autumn leaves after a long week, breath visible in the cool evening air",
+    "lyricThemeArc": "tired numbness easing into calm clarity",
+    "lyricFrameId": "seasonal-marker",
+    "lyricThemeCastKo": "혼자",
+    "vocabularyBankId": "quiet-morning",
+    "pov": "firstPerson",
+    "verseStyle": "dialogue",
+    "verseStyleText": "verse lines use direct address or short conversational fragments without becoming spoken-word",
+    "chorusStyle": "image",
+    "chorusStyleText": "chorus lines focus on sensory images, objects, light, weather, and small gestures",
+    "vocalText": "male low warm baritone, clipped rhythmic phrasing, warm woody midrange, dry and forward, legato phrasing unhurried through the bridge",
+    "vocalVariantText": "male low warm baritone, clipped rhythmic phrasing, warm woody midrange, dry and forward, legato phrasing unhurried through the bridge",
+    "vocalTechniqueText": "legato phrasing unhurried through the bridge",
+    "conceptText": "old-radio warmth, tape softness, faded photograph, answering instrumental phrase",
+    "conceptLyricImages": [
+      "softly glowing radio",
+      "faded photograph",
+      "familiar voice through static"
+    ],
+    "vocalGender": "male",
+    "vocalType": "male"
+  },
+  {
+    "trackNo": 6,
+    "title": "I Still Trace Us",
+    "hookPhrase": "I Still Trace Us",
+    "songRole": "big emotional high point",
+    "tempo": 82,
+    "sectionCountRange": [
+      5,
+      6
+    ],
+    "wordCountRange": [
+      199,
+      224
+    ],
+    "maxInstrumentalSections": 1,
+    "estimatedLengthSec": 195,
+    "emotionArc": "held-back yearning bursting into radiant relief",
+    "moneyChordText": "IV-V-iii-vi royal road progression",
+    "genreId": "new-music-70s",
+    "genreText": "1970s Japanese new music, acoustic guitar, upright piano, live band warmth",
+    "signatureSound": "acoustic guitar, upright piano, clean electric guitar, BPM 86-102; Verse stays plainspoken with acoustic guitar and piano",
+    "negativeStyleText": "famous artist imitation, copied melodies, copyrighted song references, soundalike vocals, shouted or belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation that obscures the melody, cavernous hall reverb, gated reverb, sidechain compression, modern wide stereo production, digital synth pads, autotuned vocal, trap hi-hats, lo-fi vinyl crackle effect, flat chorus with no lift, monotonous melody contour, generic AI demo-band sound, overly glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement with no song development, modern EDM synths, hard autotune, sidechain pumping, ultra-wide modern mix",
+    "eraPaletteText": "sophisticated add9 and maj7 colors, narrow stereo image, light kit with soft snare",
+    "introTextureText": "soft slide-guitar swell intro texture (INTRO ONLY)",
+    "introTextureId": "eg_slide_swell",
+    "hookDeviceText": "one-bar drum fill and rising swell leading into the chorus",
+    "hookDeviceId": "build-fill",
+    "chorusContrastPlanId": "strings-swell",
+    "chorusContrastText": "Verse: verse stays intimate — guitar, upright bass, soft kick / Chorus: string section swells in, backing harmony stacks, fuller low end",
+    "chorusContrastScore": 55,
+    "moneyChordSectionMap": [
+      {
+        "section": "Verse",
+        "chordId": "royalRoad"
+      },
+      {
+        "section": "Chorus",
+        "chordId": "showaModern"
+      }
+    ],
+    "moneyChordSectionText": "Verse: IV-V-iii-vi royal road progression / Chorus: IVmaj7-iii7-vi7 movement",
+    "killingPointText": "group sings the title hook in tight unison",
+    "killingPointPlacement": "final-chorus",
+    "killingPointId": "KP-20",
+    "arcPhase": "peak",
+    "intensity": 5,
+    "peakStrength": "strong",
+    "perceivedEnergy": 2,
+    "perceivedEnergyReasonKo": "82 BPM (어휘 매치 없음, 템포 중심 판정) → 낮음",
+    "moneyChordId": "royalRoad",
+    "effectiveMoneyChordId": "royalRoad",
+    "effectiveGenreIds": [
+      "new-music-70s",
+      "kayokyoku-70s",
+      "japanese-folk-70s"
+    ],
+    "vocalPresetSource": "auto",
+    "instrumentSet": [
+      "acoustic guitar",
+      "clean electric guitar",
+      "electric piano"
+    ],
+    "arrangementDensity": "medium",
+    "structureTemplate": "T4",
+    "introMode": "instrumental",
+    "lyricTheme": "jp2030-unreachable-voice",
+    "lyricThemeText": "trying to call out to someone who is already walking away across a crowded platform, the words never quite reaching",
+    "lyricThemeArc": "helpless longing tightening into determined resolve",
+    "lyricFrameId": "parallel-world",
+    "lyricThemeCastKo": "둘",
+    "vocabularyBankId": "quiet-morning",
+    "pov": "secondPerson",
+    "verseStyle": "dialogue",
+    "verseStyleText": "verse lines use direct address or short conversational fragments without becoming spoken-word",
+    "chorusStyle": "hookRepeat",
+    "chorusStyleText": "chorus lines use compact repeated hook callbacks and simple answer phrases",
+    "vocalText": "female clear mezzo lead, bright forward delivery, clean bell tone, chamber ambience, vibrato held into the final syllable",
+    "vocalVariantText": "female clear mezzo lead, bright forward delivery, clean bell tone, chamber ambience, vibrato held into the final syllable",
+    "vocalTechniqueText": "vibrato held into the final syllable",
+    "conceptText": "tape softness, familiar melody turns, familiar voice through static, layered harmony arrival",
+    "conceptLyricImages": [
+      "softly glowing radio",
+      "faded photograph",
+      "familiar voice through static"
+    ],
+    "vocalGender": "female",
+    "vocalType": "female"
+  },
+  {
+    "trackNo": 7,
+    "title": "Film",
+    "hookPhrase": "Keep the Film Reel Close",
+    "songRole": "romantic shade without melodrama",
+    "tempo": 96,
+    "sectionCountRange": [
+      9,
+      11
+    ],
+    "wordCountRange": [
+      199,
+      224
+    ],
+    "maxInstrumentalSections": 3,
+    "estimatedLengthSec": 196,
+    "emotionArc": "joyful memory blooming into bigger joy",
+    "moneyChordText": "IVM7-III7-vi-I7 marusa progression",
+    "genreId": "showa-groove-70s",
+    "genreText": "1970s funk and soul influenced Japanese kayokyoku, clavinet, wah electric guitar",
+    "signatureSound": "clavinet, wah electric guitar, brass stabs, 1970s funk and soul influenced Japanese kayokyoku",
+    "negativeStyleText": "famous artist imitation, copied melodies, copyrighted song references, soundalike vocals, shouted or belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation that obscures the melody, cavernous hall reverb, gated reverb, sidechain compression, modern wide stereo production, digital synth pads, autotuned vocal, trap hi-hats, lo-fi vinyl crackle effect, flat chorus with no lift, monotonous melody contour, generic AI demo-band sound, overly glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement with no song development, modern EDM synths, hard autotune, sidechain pumping, ultra-wide modern mix",
+    "eraPaletteText": "sophisticated add9 and maj7 colors, narrow stereo image, light kit with soft snare",
+    "introTextureText": "soft Wurlitzer chord chop intro texture (INTRO ONLY)",
+    "introTextureId": "ep_wurli_chop",
+    "hookDeviceText": "final repeat of the hook sung almost a cappella as the outro tag",
+    "hookDeviceId": "acappella-tag",
+    "chorusContrastPlanId": "unison-doubling",
+    "chorusContrastText": "Verse: verse carried by piano and soft brushes / Chorus: chorus doubles the lead vocal in unison, adds tambourine and organ pad",
+    "chorusContrastScore": 49,
+    "moneyChordSectionMap": [
+      {
+        "section": "Verse",
+        "chordId": "marusa"
+      },
+      {
+        "section": "Chorus",
+        "chordId": "komuro"
+      }
+    ],
+    "moneyChordSectionText": "Verse: IVM7-III7-vi-I7 marusa progression / Chorus: vi-IV-V-I komuro-cycle progression",
+    "killingPointText": "nonsense-syllable vocal unison on the hook",
+    "killingPointPlacement": "pre-chorus",
+    "killingPointId": "KP-17",
+    "arcPhase": "peak",
+    "intensity": 5,
+    "peakStrength": "strong",
+    "perceivedEnergy": 4,
+    "perceivedEnergyReasonKo": "96 BPM + driving + narrow → 높음",
+    "moneyChordId": "marusa",
+    "effectiveMoneyChordId": "marusa",
+    "effectiveGenreIds": [
+      "showa-groove-70s",
+      "kayokyoku-70s",
+      "japanese-folk-70s"
+    ],
+    "vocalPresetSource": "auto",
+    "instrumentSet": [
+      "clavinet",
+      "live bass"
+    ],
+    "arrangementDensity": "full",
+    "structureTemplate": "T2",
+    "introMode": "vocal-after-texture",
+    "lyricTheme": "jp2030-confession-to-the-mirror",
+    "lyricThemeText": "standing in front of a mirror rehearsing words that need to be said to someone tomorrow, voice barely above a whisper",
+    "lyricThemeArc": "nervous hesitation firming into quiet courage",
+    "lyricFrameId": "inner-monologue",
+    "lyricThemeCastKo": "혼자",
+    "vocabularyBankId": "quiet-morning",
+    "pov": "firstPerson",
+    "verseStyle": "image",
+    "verseStyleText": "verse lines focus on sensory images, objects, light, weather, and small gestures",
+    "chorusStyle": "narrative",
+    "chorusStyleText": "chorus lines unfold as plain scene narration with concrete actions and time movement",
+    "vocalText": "unison splitting to thirds, close third harmony, warm natural room, male and female duet, soulful rasp on the emotional peak",
+    "vocalVariantText": "unison splitting to thirds, close third harmony, warm natural room, male and female duet, soulful rasp on the emotional peak",
+    "vocalTechniqueText": "soulful rasp on the emotional peak",
+    "conceptText": "familiar melody turns, intimate room tone, softly glowing radio, brushed pulse under the verse",
+    "conceptLyricImages": [
+      "softly glowing radio",
+      "faded photograph",
+      "familiar voice through static"
+    ],
+    "vocalGender": "duet",
+    "vocalType": "mixed"
+  },
+  {
+    "trackNo": 8,
+    "title": "Drift in Smoke, Winter",
+    "hookPhrase": "Drift in Smoke, Winter",
+    "songRole": "soft reset before the closing run",
+    "tempo": 88,
+    "sectionCountRange": [
+      6,
+      7
+    ],
+    "wordCountRange": [
+      199,
+      224
+    ],
+    "maxInstrumentalSections": 2,
+    "estimatedLengthSec": 196,
+    "emotionArc": "bright laughter softening into a quiet farewell",
+    "moneyChordText": "IVmaj7-iii7-vi7 movement",
+    "genreId": "japanese-folk-70s",
+    "genreText": "1970s Japanese folk, fingerpicked acoustic guitar, light upright piano, light hand percussion entering only at the chorus",
+    "signatureSound": "fingerpicked acoustic guitar, light upright piano, soft hand percussion, 1970s Japanese folk",
+    "negativeStyleText": "famous artist imitation, copied melodies, copyrighted song references, soundalike vocals, shouted or belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation that obscures the melody, abrupt dynamic jumps, cavernous hall reverb, gated reverb, sidechain compression, modern wide stereo production, digital synth pads, autotuned vocal, trap hi-hats, lo-fi vinyl crackle effect, flat chorus with no lift, monotonous melody contour, generic AI demo-band sound, overly glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement with no song development, modern EDM synths, hard autotune, sidechain pumping, ultra-wide modern mix",
+    "eraPaletteText": "clear unforced diction with no vibrato, brushed drums with soft rim work, narrow warm stereo image",
+    "introTextureText": "light pizzicato strings intro texture (INTRO ONLY)",
+    "introTextureId": "str_pizz",
+    "hookDeviceText": "final chorus vocal jumps up an octave, brighter and more open than the earlier choruses",
+    "hookDeviceId": "octave-lift",
+    "chorusContrastPlanId": "full-band-swell",
+    "chorusContrastText": "Verse: sparse verse — guitar and voice only / Chorus: full band enters — bass, drums, string pad, doubled vocal",
+    "chorusContrastScore": 68,
+    "killingPointText": "gospel-style melisma run on the final phrase",
+    "killingPointPlacement": "final-chorus",
+    "killingPointId": "KP-14",
+    "arcPhase": "easing",
+    "intensity": 3,
+    "peakStrength": "subtle",
+    "perceivedEnergy": 2,
+    "perceivedEnergyReasonKo": "88 BPM + breathy → 낮음",
+    "moneyChordId": "showaModern",
+    "effectiveMoneyChordId": "showaModern",
+    "effectiveGenreIds": [
+      "japanese-folk-70s",
+      "kayokyoku-70s",
+      "new-music-70s"
+    ],
+    "vocalPresetSource": "auto",
+    "instrumentSet": [
+      "fingerpicked acoustic guitar",
+      "soft hand percussion",
+      "light upright piano"
+    ],
+    "arrangementDensity": "medium",
+    "structureTemplate": "T3",
+    "introMode": "instrumental",
+    "lyricTheme": "jp2030-determined-stage-entrance",
+    "lyricThemeText": "standing backstage moments before stepping into the spotlight, heart pounding, deciding to give everything this one time",
+    "lyricThemeArc": "nervous fear transforming into fierce determination",
+    "lyricFrameId": "narrative-arc",
+    "lyricThemeCastKo": "혼자",
+    "vocabularyBankId": "quiet-morning",
+    "pov": "firstPerson",
+    "verseStyle": "image",
+    "verseStyleText": "verse lines focus on sensory images, objects, light, weather, and small gestures",
+    "chorusStyle": "image",
+    "chorusStyleText": "chorus lines focus on sensory images, objects, light, weather, and small gestures",
+    "vocalText": "male chest-to-falsetto shifting lead, restrained understated reading, slight nasal brightness, chamber ambience, breathy conversational delivery throughout, gentle vibrato on the sustained hook",
+    "vocalVariantText": "male chest-to-falsetto shifting lead, restrained understated reading, slight nasal brightness, chamber ambience, breathy conversational delivery throughout, gentle vibrato on the sustained hook",
+    "vocalTechniqueText": "breathy conversational delivery throughout, gentle vibrato on the sustained hook",
+    "conceptText": "intimate room tone, old-radio warmth, faded photograph, rhythmic lift after the second line",
+    "conceptLyricImages": [
+      "softly glowing radio",
+      "faded photograph",
+      "familiar voice through static"
+    ],
+    "vocalGender": "male",
+    "vocalType": "male"
+  },
+  {
+    "trackNo": 9,
+    "title": "Fade",
+    "hookPhrase": "Fade with Me, Winter",
+    "songRole": "tender reflective pause",
+    "tempo": 94,
+    "sectionCountRange": [
+      6,
+      7
+    ],
+    "wordCountRange": [
+      198,
+      223
+    ],
+    "maxInstrumentalSections": 2,
+    "estimatedLengthSec": 195,
+    "emotionArc": "joyful moment fading into tender wistfulness",
+    "moneyChordText": "IV-V-iii-vi royal road progression",
+    "genreId": "new-music-70s",
+    "genreText": "1970s Japanese new music, acoustic guitar, upright piano",
+    "signatureSound": "acoustic guitar, upright piano, clean electric guitar, BPM 86-102; Verse stays plainspoken with acoustic guitar and piano",
+    "negativeStyleText": "famous artist imitation, copied melodies, copyrighted song references, soundalike vocals, shouted or belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation that obscures the melody, cavernous hall reverb, gated reverb, sidechain compression, modern wide stereo production, digital synth pads, autotuned vocal, trap hi-hats, lo-fi vinyl crackle effect, flat chorus with no lift, monotonous melody contour, generic AI demo-band sound, overly glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement with no song development, modern EDM synths, hard autotune, sidechain pumping, ultra-wide modern mix",
+    "eraPaletteText": "graceful minor-to-major chorus cadence, narrow stereo image, analog tape saturation, spring and plate reverb",
+    "introTextureText": "gentle tremolo electric guitar intro texture (INTRO ONLY)",
+    "introTextureId": "eg_tremolo",
+    "hookDeviceText": "chorus shifts into a half-time feel for weight, verses stay in normal time",
+    "hookDeviceId": "half-time-chorus",
+    "chorusContrastPlanId": "harmony-lift",
+    "chorusContrastText": "Verse: acoustic guitar + bass + light drums / Chorus: + piano + vocal harmony + firmer snare + wider stereo",
+    "chorusContrastScore": 56,
+    "moneyChordSectionMap": [
+      {
+        "section": "Verse",
+        "chordId": "royalRoad"
+      },
+      {
+        "section": "Chorus",
+        "chordId": "komuro"
+      },
+      {
+        "section": "Bridge",
+        "chordId": "marusa"
+      }
+    ],
+    "moneyChordSectionText": "Verse: IV-V-iii-vi royal road progression / Chorus: vi-IV-V-I komuro-cycle progression / Bridge: IVM7-III7-vi-I7 marusa progression",
+    "killingPointText": "full ensemble unison on the final hook",
+    "killingPointPlacement": "final-chorus",
+    "killingPointId": "KP-11",
+    "arcPhase": "easing",
+    "intensity": 3,
+    "peakStrength": "subtle",
+    "perceivedEnergy": 3,
+    "perceivedEnergyReasonKo": "94 BPM (어휘 매치 없음, 템포 중심 판정) → 중간",
+    "moneyChordId": "royalRoad",
+    "effectiveMoneyChordId": "royalRoad",
+    "effectiveGenreIds": [
+      "new-music-70s",
+      "kayokyoku-70s",
+      "japanese-folk-70s"
+    ],
+    "vocalPresetSource": "auto",
+    "instrumentSet": [
+      "acoustic guitar",
+      "upright piano"
+    ],
+    "arrangementDensity": "medium",
+    "structureTemplate": "T2",
+    "introMode": "vocal-immediate",
+    "lyricTheme": "jp2030-okay-to-mess-up",
+    "lyricThemeText": "tripping over the words during a class presentation and laughing it off with classmates instead of shrinking away",
+    "lyricThemeArc": "embarrassed panic dissolving into shared laughter and relief",
+    "lyricFrameId": "self-affirmation",
+    "lyricThemeCastKo": "여럿",
+    "vocabularyBankId": "quiet-morning",
+    "pov": "secondPerson",
+    "verseStyle": "dialogue",
+    "verseStyleText": "verse lines use direct address or short conversational fragments without becoming spoken-word",
+    "chorusStyle": "hookRepeat",
+    "chorusStyleText": "chorus lines use compact repeated hook callbacks and simple answer phrases",
+    "vocalText": "female low warm contralto, gentle swung phrasing, warm rounded midrange, tape slap echo, legato line easing into the chorus",
+    "vocalVariantText": "female low warm contralto, gentle swung phrasing, warm rounded midrange, tape slap echo, legato line easing into the chorus",
+    "vocalTechniqueText": "legato line easing into the chorus",
+    "conceptText": "old-radio warmth, tape softness, familiar voice through static, small harmony on the final hook",
+    "conceptLyricImages": [
+      "softly glowing radio",
+      "faded photograph",
+      "familiar voice through static"
+    ],
+    "vocalGender": "female",
+    "vocalType": "female"
+  },
+  {
+    "trackNo": 10,
+    "title": "Save the Film Reel Near",
+    "hookPhrase": "Save the Film Reel Near",
+    "songRole": "memory-focused late track",
+    "tempo": 63,
+    "sectionCountRange": [
+      5,
+      6
+    ],
+    "wordCountRange": [
+      189,
+      214
+    ],
+    "maxInstrumentalSections": 1,
+    "estimatedLengthSec": 195,
+    "emotionArc": "bright laughter softening into a quiet farewell",
+    "moneyChordText": "IVM7-III7-vi-I7 marusa progression",
+    "genreId": "showa-groove-70s",
+    "genreText": "1970s funk and soul influenced Japanese kayokyoku, clavinet, wah electric guitar, live bass pocket",
+    "signatureSound": "clavinet, wah electric guitar, brass stabs, 1970s funk and soul influenced Japanese kayokyoku",
+    "negativeStyleText": "famous artist imitation, copied melodies, copyrighted song references, soundalike vocals, shouted or belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation that obscures the melody, abrupt dynamic jumps, cavernous hall reverb, gated reverb, sidechain compression, modern wide stereo production, digital synth pads, autotuned vocal, trap hi-hats, lo-fi vinyl crackle effect, flat chorus with no lift, monotonous melody contour, generic AI demo-band sound, overly glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement with no song development, modern EDM synths, hard autotune, sidechain pumping, ultra-wide modern mix",
+    "eraPaletteText": "graceful minor-to-major chorus cadence, narrow stereo image, analog tape saturation, spring and plate reverb",
+    "introTextureText": "light pizzicato strings intro texture (INTRO ONLY)",
+    "introTextureId": "str_pizz",
+    "hookDeviceText": "bridge strips down to voice and a single instrument, then the full arrangement returns for the final chorus",
+    "hookDeviceId": "bridge-breakdown",
+    "chorusContrastPlanId": "gentle-second-voice",
+    "chorusContrastText": "Verse: verse — acoustic guitar and voice / Chorus: chorus adds only a second vocal harmony line, everything else holds steady",
+    "chorusContrastScore": 46,
+    "moneyChordSectionMap": [
+      {
+        "section": "Verse",
+        "chordId": "marusa"
+      },
+      {
+        "section": "Chorus",
+        "chordId": "royalRoad"
+      }
+    ],
+    "moneyChordSectionText": "Verse: IVM7-III7-vi-I7 marusa progression / Chorus: IV-V-iii-vi royal road progression",
+    "killingPointText": "hook repeated almost a cappella as the outro",
+    "killingPointPlacement": "outro",
+    "killingPointId": "KP-08",
+    "arcPhase": "easing",
+    "intensity": 3,
+    "peakStrength": "subtle",
+    "perceivedEnergy": 2,
+    "perceivedEnergyReasonKo": "63 BPM + driving + legato sustained → 낮음",
+    "moneyChordId": "marusa",
+    "effectiveMoneyChordId": "marusa",
+    "effectiveGenreIds": [
+      "showa-groove-70s",
+      "kayokyoku-70s",
+      "japanese-folk-70s"
+    ],
+    "vocalPresetSource": "auto",
+    "instrumentSet": [
+      "clavinet",
+      "electric piano",
+      "brass stabs"
+    ],
+    "arrangementDensity": "full",
+    "structureTemplate": "T4",
+    "introMode": "vocal-after-texture",
+    "lyricTheme": "kridol-debut-day-nerves",
+    "lyricThemeText": "standing in the wings on debut night, hearing the crowd for the very first time and feeling the ground shift underfoot",
+    "lyricThemeArc": "overwhelming nerves crystallizing into pure resolve",
+    "lyricFrameId": "stage-declaration",
+    "lyricThemeCastKo": "여럿",
+    "vocabularyBankId": "quiet-morning",
+    "pov": "firstPerson",
+    "verseStyle": "dialogue",
+    "verseStyleText": "verse lines use direct address or short conversational fragments without becoming spoken-word",
+    "chorusStyle": "narrative",
+    "chorusStyleText": "chorus lines unfold as plain scene narration with concrete actions and time movement",
+    "vocalText": "male thin bright tenor, legato sustained lines, clean rounded tone, narrow mono-leaning room, kobushi-style vocal ornament on sustained notes",
+    "vocalVariantText": "male thin bright tenor, legato sustained lines, clean rounded tone, narrow mono-leaning room, kobushi-style vocal ornament on sustained notes",
+    "vocalTechniqueText": "kobushi-style vocal ornament on sustained notes",
+    "conceptText": "tape softness, familiar melody turns, softly glowing radio, acoustic texture in the middle eight",
+    "conceptLyricImages": [
+      "softly glowing radio",
+      "faded photograph",
+      "familiar voice through static"
+    ],
+    "vocalGender": "male",
+    "vocalType": "male"
+  },
+  {
+    "trackNo": 11,
+    "title": "Turn",
+    "hookPhrase": "Turn Back Time, Old Heart",
+    "songRole": "final quiet reflection",
+    "tempo": 88,
+    "sectionCountRange": [
+      6,
+      7
+    ],
+    "wordCountRange": [
+      196,
+      221
+    ],
+    "maxInstrumentalSections": 2,
+    "estimatedLengthSec": 196,
+    "emotionArc": "small sadness to steady comfort",
+    "moneyChordText": "I-vi-IV-V doo-wop progression",
+    "genreId": "japanese-folk-70s",
+    "genreText": "1970s Japanese folk, fingerpicked acoustic guitar, light upright piano",
+    "signatureSound": "fingerpicked acoustic guitar, light upright piano, soft hand percussion, 1970s Japanese folk",
+    "negativeStyleText": "famous artist imitation, copied melodies, copyrighted song references, soundalike vocals, shouted or belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation that obscures the melody, abrupt dynamic jumps, cavernous hall reverb, gated reverb, sidechain compression, modern wide stereo production, digital synth pads, autotuned vocal, trap hi-hats, lo-fi vinyl crackle effect, flat chorus with no lift, monotonous melody contour, generic AI demo-band sound, overly glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement with no song development, modern EDM synths, hard autotune, sidechain pumping, ultra-wide modern mix",
+    "eraPaletteText": "the harmony line stays above the melody, tape compression on the acoustic guitars, brushed drums with soft rim work",
+    "introTextureText": "fingerpicked acoustic guitar intro texture (INTRO ONLY)",
+    "introTextureId": "ag_finger",
+    "hookDeviceText": "stop-time accent on the first word of the chorus, band silent for one beat, then groove resumes",
+    "hookDeviceId": "stop-time",
+    "chorusContrastPlanId": "call-response-texture",
+    "chorusContrastText": "Verse: verse — lead vocal alone over a light rhythm section / Chorus: backing vocals answer each line, a percussion layer widens the groove",
+    "chorusContrastScore": 53,
+    "moneyChordSectionMap": [
+      {
+        "section": "Verse",
+        "chordId": "doowop"
+      },
+      {
+        "section": "Chorus",
+        "chordId": "default"
+      }
+    ],
+    "moneyChordSectionText": "Verse: I-vi-IV-V doo-wop progression / Chorus: I-V-vi-IV progression",
+    "killingPointText": "sustained lead note into the final chorus",
+    "killingPointPlacement": "final-chorus",
+    "killingPointId": "KP-05",
+    "arcPhase": "closing",
+    "intensity": 1,
+    "peakStrength": "subtle",
+    "perceivedEnergy": 2,
+    "perceivedEnergyReasonKo": "88 BPM + intimate → 낮음",
+    "moneyChordId": "doowop",
+    "effectiveMoneyChordId": "doowop",
+    "effectiveGenreIds": [
+      "japanese-folk-70s",
+      "kayokyoku-70s",
+      "new-music-70s"
+    ],
+    "vocalPresetSource": "auto",
+    "instrumentSet": [
+      "fingerpicked acoustic guitar",
+      "simple bass"
+    ],
+    "arrangementDensity": "sparse",
+    "structureTemplate": "T2",
+    "introMode": "vocal-after-texture",
+    "lyricTheme": "kridol-limit-break",
+    "lyricThemeText": "pushing through the final chorus of a brutal dance break, body exhausted but the voice getting louder instead of weaker",
+    "lyricThemeArc": "physical limit turning into a surge of defiant strength",
+    "lyricFrameId": "turning-point",
+    "lyricThemeCastKo": "혼자",
+    "vocabularyBankId": "quiet-morning",
+    "pov": "secondPerson",
+    "verseStyle": "narrative",
+    "verseStyleText": "verse lines unfold as plain scene narration with concrete actions and time movement",
+    "chorusStyle": "image",
+    "chorusStyleText": "chorus lines focus on sensory images, objects, light, weather, and small gestures",
+    "vocalText": "male bright tenor lead, storytelling spoken-edge delivery, soft husky grain, intimate close-mic, restrained delivery never oversung",
+    "vocalVariantText": "male bright tenor lead, storytelling spoken-edge delivery, soft husky grain, intimate close-mic, restrained delivery never oversung",
+    "vocalTechniqueText": "restrained delivery never oversung",
+    "conceptText": "familiar melody turns, intimate room tone, faded photograph, low-register opening before the lift",
+    "conceptLyricImages": [
+      "softly glowing radio",
+      "faded photograph",
+      "familiar voice through static"
+    ],
+    "vocalGender": "male",
+    "vocalType": "male"
+  },
+  {
+    "trackNo": 12,
+    "title": "Whatever Happened to Us",
+    "hookPhrase": "I Still Rewind Snow",
+    "songRole": "comforting closer",
+    "tempo": 63,
+    "sectionCountRange": [
+      5,
+      6
+    ],
+    "wordCountRange": [
+      189,
+      214
+    ],
+    "maxInstrumentalSections": 1,
+    "estimatedLengthSec": 195,
+    "emotionArc": "quiet longing to calm gratitude",
+    "moneyChordText": "I-V-vi-IV verses, vi-IV-I-V chorus lift",
+    "genreId": "new-music-70s",
+    "genreText": "1970s Japanese new music, acoustic guitar, upright piano, live band warmth",
+    "signatureSound": "acoustic guitar, upright piano, clean electric guitar, BPM 86-102; Verse stays plainspoken with acoustic guitar and piano",
+    "negativeStyleText": "famous artist imitation, copied melodies, copyrighted song references, soundalike vocals, shouted or belted high notes, aggressive distorted percussion, heavy sub bass, rapid syllable-dense phrasing, harsh bright top end, excessive reverb washing out the vocal, dense syncopation that obscures the melody, abrupt dynamic jumps, cavernous hall reverb, gated reverb, sidechain compression, modern wide stereo production, digital synth pads, autotuned vocal, trap hi-hats, lo-fi vinyl crackle effect, flat chorus with no lift, monotonous melody contour, generic AI demo-band sound, overly glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement with no song development, modern EDM synths, hard autotune, sidechain pumping, ultra-wide modern mix",
+    "eraPaletteText": "sophisticated add9 and maj7 colors, narrow stereo image, light kit with soft snare",
+    "introTextureText": "soft slide-guitar swell intro texture (INTRO ONLY)",
+    "introTextureId": "eg_slide_swell",
+    "hookDeviceText": "hook line double-tracked with a harmony a third above, wider on every repeat",
+    "hookDeviceId": "double-hook",
+    "chorusContrastPlanId": "strings-swell",
+    "chorusContrastText": "Verse: verse stays intimate — guitar, upright bass, soft kick / Chorus: string section swells in, backing harmony stacks, fuller low end",
+    "chorusContrastScore": 55,
+    "arcPhase": "closing",
+    "intensity": 1,
+    "peakStrength": "none",
+    "perceivedEnergy": 1,
+    "perceivedEnergyReasonKo": "63 BPM + alto → 낮음",
+    "moneyChordId": "emotional",
+    "effectiveMoneyChordId": "emotional",
+    "effectiveGenreIds": [
+      "new-music-70s",
+      "kayokyoku-70s",
+      "japanese-folk-70s"
+    ],
+    "vocalPresetSource": "auto",
+    "instrumentSet": [
+      "acoustic guitar",
+      "upright piano",
+      "clean electric guitar"
+    ],
+    "arrangementDensity": "sparse",
+    "structureTemplate": "T4",
+    "introMode": "vocal-immediate",
+    "lyricTheme": "kridol-our-own-path",
+    "lyricThemeText": "standing together backstage after a hard-won win, realizing no one handed this path to them, they built it themselves",
+    "lyricThemeArc": "quiet disbelief settling into shared pride",
+    "lyricFrameId": "crew-together",
+    "lyricThemeCastKo": "여럿",
+    "vocabularyBankId": "quiet-morning",
+    "pov": "thirdPerson",
+    "verseStyle": "dialogue",
+    "verseStyleText": "verse lines use direct address or short conversational fragments without becoming spoken-word",
+    "chorusStyle": "hookRepeat",
+    "chorusStyleText": "chorus lines use compact repeated hook callbacks and simple answer phrases",
+    "vocalText": "female mid clear alto, conversational unhurried phrasing, soft breathy grain, soft plate ambience, melismatic slide into the chorus",
+    "vocalVariantText": "female mid clear alto, conversational unhurried phrasing, soft breathy grain, soft plate ambience, melismatic slide into the chorus",
+    "vocalTechniqueText": "melismatic slide into the chorus",
+    "conceptText": "intimate room tone, old-radio warmth, familiar voice through static, open cymbal color at the chorus",
+    "conceptLyricImages": [
+      "softly glowing radio",
+      "faded photograph",
+      "familiar voice through static"
+    ],
+    "vocalGender": "female",
+    "vocalType": "female"
+  }
+]

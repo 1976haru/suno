@@ -1,0 +1,101 @@
+{
+  "_note": "지시문 74 §7-3 — 랩 대역(95 BPM 이하) 회귀 확인용. 실제 슬롯 계획(set3-chill-rap-slots.json)의 트랙 1·2·3. TASK A는 96 BPM 이상에만 적용되므로 이 세 곡의 섹션 구조는 지시문 74 이전과 완전히 동일하다. 기존 3:20 수준이 유지되는지 재기 위한 세트다.",
+  "songs": [
+    {
+      "trackNo": 1,
+      "title": "Back of the Room",
+      "hookPhrase": "I Stayed for This",
+      "seasonMoment": "a cold Tuesday, coat still on indoors",
+      "listenerSituation": "standing near the back of a small show with arms crossed, watching the set instead of losing yourself in it",
+      "emotionArc": "soft nostalgia to renewed hope",
+      "stylePrompt": "trap soul, narrow mono-leaning room, dark synth pad under everything, 808 slide bass, tight hi-hat rolls, sparse trap-soul pulse, muted electric piano, Verse: ii-V-I turnaround with maj7 add9 color, Chorus: vi-IV-I-V movement with maj7 color, Bridge: IV-V-iii-vi royal road progression, male falsetto-leaning tenor, storytelling spoken-edge delivery, airy head-voice glide into the chorus, nasal-edged ad-lib stack on the outro, hook once per early chorus, bookended in the last, final chorus modulates up a semitone, soft synth arpeggio in the opening bars only, singing starts immediately with no intro tag, one short instrumental break before the final chorus, 64 BPM, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copyrighted song references, soundalike vocals, specific rapper imitation, named artist flow biting, signature hook of an existing song, aggressive battle-rap delivery, gunshot or violence imagery, explicit drug-dealing narrative, vintage tape saturation, 1970s AM-radio compression, nostalgic senior-radio announcer tone, flat chorus with no lift, monotonous melody contour, generic AI demo-band sound, muddy low-end mix, excessive reverb washing out the vocal, thin placeholder hook, stock loop arrangement with no song development, aggressive drill energy, festival EDM drop, heavy club trap drop, busy rap verses, live-venue crowd noise, hi-hat rolls covering the vocal, the semitone lift landing flat",
+      "lyrics": "[verse 1]\nBack wall, arms crossed, coat still on\nI came because somebody asked me twice\nForty people, maybe less than that\nThe drummer counts it off with his mouth\nI am not going to like this, I decide\n\n[pre-chorus]\nThird song in, my arms come down\nI don't remember when that happened\n\n[chorus]\nI Stayed for This, I didn't plan to\nSomebody up there means every word\nThe room is small and that is the point\nNobody's filming, nobody's leaving\n\n[verse 2]\nThe guitar's out of tune and nobody minds\nShe says the next one is about her sister\nSomebody's beer goes over on my shoe\nI laugh out loud for the first time all week\nI put my hands in my pockets and stay\n\n[instrumental break]\n\n[final chorus]\nI Stayed for This, I didn't plan to\nSomebody up there means every word\nThe room is small and that is the point\nI'll say I was here when they were nobody\nI Stayed for This, I didn't plan to",
+      "youtube": {
+        "title": "Back of the Room | Headphones, Down Low",
+        "description": "Forty people, a coat you never took off, and a set that got you anyway.",
+        "tags": [
+          "trap soul",
+          "chill rap playlist",
+          "late night rap",
+          "headphone rap songs",
+          "mellow hip hop"
+        ]
+      },
+      "genreId": "trap-soul",
+      "genreText": "808 slides, 808 slide bass, tight hi-hat rolls",
+      "tempo": 64,
+      "structureTemplate": "T1",
+      "vocalType": "male",
+      "vocalGender": "male",
+      "arrangementDensity": "medium",
+      "moneyChordText": "ii-V-I turnaround, maj7 add9 color",
+      "moneyChordSectionText": "Verse: ii-V-I turnaround, maj7 add9 color / Chorus: vi-IV-I-V movement, maj7 color / Bridge: IV-V-iii-vi royal road progression",
+      "songRole": "cold-open"
+    },
+    {
+      "trackNo": 2,
+      "title": "The Old Block",
+      "hookPhrase": "Drive It Slow Here",
+      "seasonMoment": "a warm evening in early summer, windows down",
+      "listenerSituation": "driving past the old block where everything started, every corner holding a different memory",
+      "emotionArc": "quiet contentment resting undisturbed throughout",
+      "stylePrompt": "mellow boom-bap, band-limited sampler top end, drums compressed till the room pumps, dusty boom-bap drums, lazy head-nod pocket, Rhodes chop, soul sample texture, I-V-vi-IV verses lifting to vi-IV-I-V in the chorus, male and female duet in call and answer, close third harmony, triplet flow behind the beat, recorded in one pass with the loop running, hook once per early chorus, bookended in the last, half-time chorus over normal-time verses, a rap lead-in lands before the beat arrives, instrumental intro with no sung line, a stuttered vocal chop punctuates the pre-chorus, 84 BPM, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copyrighted song references, soundalike vocals, specific rapper imitation, named artist flow biting, signature hook of an existing song, aggressive battle-rap delivery, gunshot or violence imagery, explicit drug-dealing narrative, vintage tape saturation, 1970s AM-radio compression, nostalgic senior-radio announcer tone, flat chorus with no lift, monotonous melody contour, generic AI demo-band sound, muddy low-end mix, excessive reverb washing out the vocal, thin placeholder hook, stock loop arrangement with no song development, loud vinyl crackle, bright EDM synths, busy rap verses, car and traffic sound effects, one duet voice buried under the other, the vocal chop stuttering through the whole chorus",
+      "lyrics": "[intro]\n\n[verse 1: Male Vocal]\nTake the long way, come off at the second light\nThat's the wall we used to sit on, still there\nCorner store's a phone shop now, of course\nThe speed bumps are exactly where they were\nMy mother's window, third one from the end\nSomebody else's curtains in it\n\n[chorus: Male and Female Duet]\nDrive It Slow Here, there's no hurry\nEvery corner is holding something\nPoint at it, don't explain it\nThe block knows what we did to it\n\n[verse 2: Female Vocal]\nYou never told me about this street\nShow me where you broke your arm that summer\nThe court's been resurfaced, hoops are new\nThe bakery on the corner kept its name\nKids on it now who don't know your name\nThat's how it's supposed to go, I think\n\n[chorus: Male and Female Duet]\nEvery corner is holding something\nDrive It Slow Here, there's no hurry\nPoint at it, don't explain it\nThe block knows what we did to it\n\n[final chorus: Male and Female Duet Harmony]\nDrive It Slow Here, there's no hurry\nEvery corner is holding something\nWe could keep going round all night\nNothing here needs us to fix it\nDrive It Slow Here, there's no hurry",
+      "youtube": {
+        "title": "The Old Block | Headphones, Down Low",
+        "description": "Every corner holding something, and nothing here needing to be fixed. Mellow boom-bap.",
+        "tags": [
+          "mellow boom bap",
+          "chill rap playlist",
+          "jazz rap chill",
+          "lofi hip-hop beats",
+          "rooftop rap playlist"
+        ]
+      },
+      "genreId": "boom-bap-mellow",
+      "genreText": "dusty drums, dusty boom-bap drums, filtered bass, doubled intimate vocal with ad-lib shadows",
+      "tempo": 84,
+      "structureTemplate": "T4",
+      "vocalType": "mixed",
+      "vocalGender": "duet",
+      "arrangementDensity": "sparse",
+      "eraPaletteText": "jazz turnaround repeating under the whole verse, drums compressed until the room between hits pumps, sampler-era band-limited top end, nothing sparkling above it",
+      "moneyChordText": "I-V-vi-IV verses, vi-IV-I-V chorus lift",
+      "songRole": "flagship"
+    },
+    {
+      "trackNo": 3,
+      "title": "Ringing",
+      "hookPhrase": "Still in Your Ears",
+      "seasonMoment": "a summer night ending, pavement still wet",
+      "listenerSituation": "walking home from a late DJ set with the bassline still echoing faintly in your ears",
+      "emotionArc": "small sadness to steady comfort",
+      "stylePrompt": "lo-fi hip-hop study beat, vocal close inside the beat, drums compressed till the room pumps, dusty piano loop, vinyl crackle, loose head-nod swing, warm bass, ii-V-I turnaround with maj7 add9 color, female bright soprano lead, light rhythmic phrasing, breathy close-mic half-whispered phrasing, husky murmured ad-lib on the outro, recorded in one pass with the loop running, hook once per early chorus, bookended in the last, final hook almost a cappella as the outro tag, clean electric guitar arpeggio in the opening bars only, opens cold on the hook line with no lead-in, rising arpeggio into the final chorus is the loudest moment, 76 BPM, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copyrighted song references, soundalike vocals, specific rapper imitation, named artist flow biting, signature hook of an existing song, aggressive battle-rap delivery, gunshot or violence imagery, explicit drug-dealing narrative, vintage tape saturation, 1970s AM-radio compression, nostalgic senior-radio announcer tone, flat chorus with no lift, monotonous melody contour, generic AI demo-band sound, muddy low-end mix, excessive reverb washing out the vocal, thin placeholder hook, stock loop arrangement with no song development, loud vinyl crackle, bright EDM synths, busy rap verses, street and footstep sound effects, the whisper dropping below the beat, piano loop detuning against the bass",
+      "lyrics": "[hook intro]\nStill in Your Ears\n\n[verse 1]\nYour shoes are wet and you do not care\nFour blocks of nobody, all of it yours\nThe low note is still going in your head\nYou hum it wrong and then you get it\nA taxi slows down and you wave it on\n\n[chorus]\nStill in Your Ears, the whole way home\nYour heart is running slower than the beat was\nEvery window on the street is dark\nAnd the pavement keeps the time for you\nYou take the long way for no reason\n\n[verse 2]\nThe bakery light is on already, warm\nSomebody is starting their day as you end yours\nYour ears are ringing and you like it\nYou will pay for this at nine o'clock\nNot one part of you wants to be asleep\n\n[breakdown]\n\n[final chorus]\nStill in Your Ears, the whole way home\nYour heart is running slower than the beat was\nThe sky is doing something behind the flats\nYou put your key in very quietly\nStill in Your Ears, the whole way home",
+      "youtube": {
+        "title": "Ringing | Headphones, Down Low",
+        "description": "Walking home with the bassline still going in your head and no reason to hurry.",
+        "tags": [
+          "lofi hip-hop beats",
+          "chill rap playlist",
+          "late night walk",
+          "study beats",
+          "mellow hip hop"
+        ]
+      },
+      "genreId": "lofi-hiphop-study",
+      "genreText": "lo-fi hip-hop study beat, dusty piano loop, vinyl crackle",
+      "tempo": 76,
+      "structureTemplate": "T2",
+      "vocalType": "female",
+      "vocalGender": "female",
+      "arrangementDensity": "sparse",
+      "eraPaletteText": "recorded in one pass with the loop running underneath, vocal mixed close and low, sitting inside the beat rather than on top, drums compressed until the room between hits pumps",
+      "moneyChordText": "ii-V-I turnaround, maj7 add9 color",
+      "songRole": "flagship"
+    }
+  ]
+}
