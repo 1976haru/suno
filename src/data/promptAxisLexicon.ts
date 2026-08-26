@@ -62,7 +62,26 @@ const INTRO_HAS_INTRO_PHRASES = [
 // 먼저 소거해야 한다 — introSubcategory에서 사용.
 const NEGATION_PREFIX_WORDS = ['no', 'without', 'never'];
 
+/**
+ * 지시문 74 (TASK C §3.3) — 위 지시문 68 판정은 부정어와 어휘가 **맞붙어
+ * 있을 때만** 걸린다. 실측: "no instrumental intro"는 잡히지만 관사 하나가
+ * 끼어든 "without an intro"는 그대로 통과했다. 어휘를 하나씩 더 넣는 방식은
+ * 지시문 74 §3.2-⑤가 지목한 바로 그 함정("표현이 바뀌면 다시 새는 구조")
+ * 이므로, 부정어 뒤 두 단어까지 건너뛰고 'intro' 자체를 보는 일반형으로
+ * 바꾼다 — "without an intro"(1단어) · "no long instrumental intro"(2단어)가
+ * 모두 걸린다.
+ *
+ * 건너뛰는 폭을 2단어로 묶은 이유: 무제한이면 "no strings until the intro
+ * ends"처럼 인트로를 부정하지 않는 절까지 'immediate'로 뒤집힌다. 이 함수의
+ * 반환값은 introSubcategory → 인트로 모순 경고로 이어지므로 과잉 판정이
+ * 곧바로 오검출 경고가 된다.
+ */
+const NEGATED_INTRO_PATTERN = new RegExp(
+  `\\b(?:${NEGATION_PREFIX_WORDS.join('|')})\\b(?:\\s+\\S+){0,2}\\s+intro\\b`
+);
+
 function includesNegatedHasIntroPhrase(lower: string): boolean {
+  if (NEGATED_INTRO_PATTERN.test(lower)) return true;
   return INTRO_HAS_INTRO_PHRASES.some(phrase =>
     NEGATION_PREFIX_WORDS.some(negation => lower.includes(`${negation} ${phrase}`))
   );
@@ -188,7 +207,12 @@ export function classifyClause(clause: string, isFirstClause: boolean): PromptAx
   // 그래야 hookDevice 축으로 정상 분류되어 mergeAtom이 intro replace-in-place
   // 대상으로 잘못 집어삼키지 않는다.
   const looksLikeOutro = /\boutro\b|\bfinal\b/.test(lower);
-  if (!looksLikeOutro && (includesAny(lower, INTRO_IMMEDIATE_PHRASES) || includesAny(lower, INTRO_HAS_INTRO_PHRASES))) return 'intro';
+  // 지시문 74 (TASK C §3.3) — includesNegatedHasIntroPhrase를 여기서도 본다.
+  // 이걸 introSubcategory에만 두면 "without an intro"가 'intro' 축으로 분류되지
+  // 않아 모순 검사의 입력에서 아예 빠진다(quality.ts/fullAudit.ts 둘 다
+  // classifyClause === 'intro'인 절만 introSubcategory에 넣는다) — 두 함수가
+  // 같은 규칙을 봐야 일반형 수정이 실제로 검사까지 도달한다.
+  if (!looksLikeOutro && (includesAny(lower, INTRO_IMMEDIATE_PHRASES) || includesAny(lower, INTRO_HAS_INTRO_PHRASES) || includesNegatedHasIntroPhrase(lower))) return 'intro';
   if (includesAny(lower, BACKING_VOCAL_MARKERS)) return 'backingVocal';
   if (includesAny(lower, LEAD_VOCAL_PHRASES)) return 'leadVocal';
   if (looksLikeArrangementDensityDeclaration(lower)) return 'arrangementDensity';

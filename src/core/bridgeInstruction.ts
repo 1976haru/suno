@@ -597,8 +597,16 @@ function fastTrackSectionFloorCallouts(slots: PreassignedSongSlot[]): string[] {
         : '';
       return `- Track ${slot.trackNo} — ${slot.tempo} BPM: MUST have at least ${sMin} sections (target ${sMin}-${sMax}).${spineNote}`;
     }),
-    'A club-tempo shape that reaches the floor naturally, for reference rather than transcription: build-up intro, verse, pre-chorus, chorus/drop, breakdown, verse, chorus, instrumental break, bridge, final chorus, outro. Long instrumental stretches are idiomatic at these tempos — adding them makes the track MORE genre-true, not padded. For a genre whose vocal is defined as a minimal spoken-word stab rather than a full lyric lead, lean further still toward instrumental sections.'
-  ];
+    'A club-tempo shape that reaches the floor naturally, for reference rather than transcription: build-up intro, verse, pre-chorus, chorus/drop, breakdown, verse, chorus, instrumental break, bridge, final chorus, outro. Long instrumental stretches are idiomatic at these tempos — adding them makes the track MORE genre-true, not padded. For a genre whose vocal is defined as a minimal spoken-word stab rather than a full lyric lead, lean further still toward instrumental sections.',
+    // 지시문 74 §1.2/§1.3 — 외부 실험에서 확인된 부분: 간주 태그에 마디 수를
+    // 적어 두면 Suno가 그 섹션 길이를 추측하지 않는다(그 세트는 11~12섹션에
+    // 마디 수를 명시해 3:31~3:42로 나왔다). 가사에 쓰는 것이라 stylePrompt
+    // 단어 수(§3.3 상한)에는 영향이 없고, 섹션 태그는 가사 단어 수 집계에서도
+    // 빠진다. 빠른 대역 블록에만 넣는다 — §9 "95 BPM 이하 곡의 섹션 구조를
+    // 바꾸지 말 것". 보컬 섹션까지 마디를 박으면 노래가 그 길이에 맞춰 잘릴 수
+    // 있어 간주 섹션으로 한정한다.
+    'Write the bar count into the tag of every INSTRUMENTAL-only section on these tracks — "[Instrumental Break - 12 bars]", "[Intro - 12 bars instrumental]", "[Breakdown - 8 bars]", "[Outro - 12 bars]". That is what stops Suno guessing how long an instrumental stretch should be, and it is the single change that moved a measured rewrite of this kind from ~2:00 to 3:31-3:42. Leave the sung sections\' tags plain ("[Verse 1]", "[Chorus]") — a bar count on a vocal section can cut the singing short.'
+      ];
 }
 
 // TASK v3.62 (TASK 1-1) — was "weave that exact phrase into that song's
@@ -1099,6 +1107,32 @@ function eraGuardrailLines(preassignedSongs: PreassignedSongSlot[]): string[] {
 /** TASK v3.62 (TASK 1-2/2-2) — Suno reads stylePrompt as a descriptor list, not prose; a real pack measured 106 comma-separated descriptors in one stylePrompt because the old approach had to fill every protected/essential atom regardless of whether the song needed it. */
 function descriptorCountInstructionLine(): string {
   return '- stylePrompt must be a comma-separated list of roughly 25-35 short descriptors (genre, era, instruments, rhythm feel, harmony color, vocal description, tempo, structure/production notes) — not full sentences and not padded to hit a fixed checklist. Write only what is musically true and useful for THIS song; stop once you have described it well, even if that is fewer than 35 descriptors.';
+}
+
+/**
+ * 지시문 74 (TASK C §3.3) — 실측된 낭비 세 유형을 프롬프트 작성 시점에
+ * 막는다. 셋 다 "쓰면 안 된다"는 것을 몰라서 생기는 것이지 분량 압박 때문이
+ * 아니라, 사후 검사보다 지시문에 적는 쪽이 맞다.
+ *
+ * ① 가사 섹션 구조 재기술 — 실측 세트의 18~28번 절이 "12-bar intro > Verse 1
+ *    > Chorus > ..."로 가사에 이미 있는 구조를 다시 나열해 약 40단어를 썼다.
+ *    Suno는 가사의 섹션 태그를 읽으므로 두 번 적을 이유가 없다.
+ * ② `LOCK:` 류 라벨 — Suno는 프롬프트를 가중치가 매겨진 태그 목록으로 읽지
+ *    명령어로 파싱하지 않는다. 라벨 자체가 토큰만 차지한다.
+ * ③ 화성 기호 — 다만 **머니코드 절은 앱이 고정한 것이라 예외**다. 지시문
+ *    74 §3.2-④가 지목한 것은 "I6-vi7-IVmaj7-V7, chorus IVmaj7-I/E-ii7-V7-
+ *    I6/9"처럼 슬래시코드·확장코드까지 직접 적어 12단어를 쓴 경우이고,
+ *    같은 지시문 본문은 moneyChordText/moneyChordSectionText를 **verbatim**
+ *    으로 쓰라고 따로 요구한다. 그래서 "화성 기호 금지"를 통째로 적으면 이
+ *    지시문이 자기 자신과 충돌한다 — 앱이 준 절 **외에** 직접 코드를 더
+ *    적지 말라는 범위로 좁혀 쓴다.
+ */
+function promptWasteProhibitionLines(): string[] {
+  return [
+    '- Do NOT restate the lyrics\' own section structure in stylePrompt (e.g. "12-bar intro > Verse 1 > Chorus > Bridge > Final Chorus"). Suno reads the section tags in "lyrics" directly; repeating the running order in the style field is measured waste (~40 words in a real pack) and buys nothing. Naming ONE arrangement moment ("a 12-bar instrumental break before the last chorus") is fine — listing the whole running order is not.',
+    '- Do NOT use "LOCK:"-style labels ("GENRE LOCK:", "VOCAL LOCK:", "STRUCTURE LOCK:", "DURATION LOCK:", "MIX LOCK:"). Suno reads this field as a weighted list of descriptors, not as commands it parses — the label text is spent tokens that describe no sound.',
+    '- Beyond the money-chord clause this plan gives you (use that one verbatim), do NOT spell out further chord notation — no slash chords, no extended-chord spellings ("IVmaj7-I/E-ii7-V7-I6/9"). There is no evidence Suno reads chord symbols; one real pack spent 12 words on a line like that. Describe the harmony\'s effect in words instead ("bright lift into the chorus").'
+  ];
 }
 
 /**
@@ -2022,6 +2056,7 @@ export function buildClaudeCodeInstruction(
     ...slowTrackLengthCallouts(preassignedSongs),
     ...fastTrackSectionFloorCallouts(preassignedSongs),
     descriptorCountInstructionLine(),
+    ...promptWasteProhibitionLines(),
     ...eraGuardrailLines(preassignedSongs),
     hookDeviceInstructionLine,
     chorusContrastInstructionLine,
@@ -2317,6 +2352,7 @@ export function buildMultiSetClaudeCodeMasterInstruction(
     ...slowTrackLengthCallouts(allSlots),
     ...fastTrackSectionFloorCallouts(allSlots),
     descriptorCountInstructionLine(),
+    ...promptWasteProhibitionLines(),
     ...eraGuardrailLines(allSlots),
     hookDeviceInstructionLine,
     chorusContrastInstructionLine,

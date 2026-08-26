@@ -497,3 +497,88 @@ Test Files  371 passed | 1 skipped (372)
 정상화하려면 `api/.git`을 루트로 옮기고 연결된 워크트리를 복구하면
 됩니다(`C:/suno/suno-14`가 `feat/instruction-16`으로 연결돼 있습니다).
 되돌릴 수 있는 작업이지만 하루의 환경이므로 임의로 하지 않았습니다.
+
+---
+
+# 지시문 74 — 후속 보고 (재발행분)
+
+지시문 74가 다시 들어와 **현재 main 상태를 먼저 대조**했습니다. TASK A·B는
+위 보고대로 `f8718e5`로 이미 병합돼 있고, `git diff f8718e5 HEAD -- src/
+scripts/ tests/`가 비어 있어 `.git` 유실 복구(`896b2ec`)로도 유실된 것이
+없습니다. 그 커밋은 `.claude/worktrees/**`만 추가했습니다.
+
+대조 결과 **도달하지 않은 항목 4개**를 찾아 이번에 처리했습니다. 위 보고서
+본문은 그대로 두고 이 절만 덧붙입니다.
+
+## 이번에 채운 것
+
+| § | 항목 | 이전 상태 |
+|---|---|---|
+| 3.3 | `scoreSong` 절 단위 중복 검사 | **없었음** |
+| 3.3 | 인트로 모순 — 부정 접두어 일반형 | 부정어와 어휘가 맞붙은 경우만 |
+| 3.3 | 브릿지 금지 3종(구조 재기술·`LOCK:`·화성 기호) | **없었음** |
+| 1.2 | 간주 태그에 마디 수 명시 지시 | **없었음** (섹션 하한만 있었음) |
+
+커밋 2건: `139c483`(TASK C) · `58e1192`(TASK A §1.2).
+
+## §8-5 중복 절 검사 출력 — 수정 전 저장분에서 실제로 검출됨
+
+| 대상 | 곡 수 | 검출된 곡 | 건수 |
+|---|---|---|---|
+| `lyrics/` | 1,110 | 177 (16.0%) | 241 |
+| `lyrics/lyrics/` | 813 | 142 (17.5%) | 199 |
+
+실제 검출 예:
+
+```
+taskH/set1-songs.json #3 "Rest Here, My Love"
+   [exact]     "soft kick drum"                  가 두 번 (절 3, 절 13)
+   [contained] "clean electric guitar arpeggios" ⊂ "instruments: clean electric guitar arpeggios"
+
+20260816_따라하는율동동요_… #13 "Sort It Happy"
+   [contained] "I-IV-I-V progression"            ⊂ "Verse: I-IV-I-V progression"
+
+20260826_AfterHoursDeepHouse_봄을기다리며_02.json #2   ← 이번 주 생성분도 걸립니다
+   [contained] "filtered bass"                   ⊂ "filtered bass warmth"
+```
+
+오검출 방지로 확인한 것: 섹션 한정 머니코드("maj7 color" vs "maj7 add9
+color")는 부분 문자열이 아니라 걸리지 않고, 한 단어짜리 절("bright" ⊂
+"bright synth pluck")은 애초에 제외합니다. 둘 다 테스트로 고정했습니다.
+
+## §8-6 인트로 모순 검사 출력 — 세 표현 전부
+
+| 절 | classifyClause | introSubcategory |
+|---|---|---|
+| `no intro tag` | intro | immediate |
+| `no instrumental intro` | intro | immediate |
+| `vocal enters immediately` | intro | immediate |
+| `without an intro` | intro | immediate ← **이번에 고친 것** |
+| `no long instrumental intro` | intro | immediate |
+| `without a chord intro` | intro | immediate |
+| `short intro` | intro | has-intro |
+| `no strings until the intro ends` | — | — (인트로 부정 아님, 뒤집지 않음) |
+
+§8-6이 이름으로 지목한 세 표현은 지시문 68 이후 **이미 전부 잡히고
+있었습니다.** 실제로 새던 것은 부정어와 어휘 사이에 단어가 끼는 경우로,
+`without an intro`가 통과했습니다.
+
+## 아직 달성하지 못한 것
+
+**§5의 "stylePrompt 평균 60단어 이하"는 달성하지 못했습니다.** 현재 검증
+세트 9곡 실측:
+
+| 세트 | 곡별 단어 수 | 평균 |
+|---|---|---|
+| 세트1 딥하우스 | 118 / 127 / 115 | 120.0 |
+| 세트2 쇼와 70s | 117 / 122 / 108 | 115.7 |
+| 세트3 칠랩 | 107 / 101 / 113 | 107.0 |
+
+기준선(133단어)보다는 줄었지만 60단어와는 거리가 멉니다. 이번에 넣은 금지
+3종은 **앞으로 쓰이는 프롬프트**에만 작용하므로 이 수치를 바꾸지 못합니다.
+60단어에 닿으려면 §3.2가 열거한 낭비를 없애는 것만으로는 부족하고, 지금
+25~29개인 절 자체를 줄여야 합니다 — 그건 지시문 59의 요소 순서·필수 축
+규약과 정면으로 걸리는 별도 작업이라 임의로 손대지 않았습니다.
+
+**§7 청취 검증은 여전히 불가**합니다(위 0번과 같은 사유). 생성용 파일
+경로도 그대로입니다.
