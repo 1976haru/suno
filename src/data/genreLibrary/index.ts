@@ -555,7 +555,12 @@ export const EN_CHILLHOP_CORE_GENRE_IDS = [
   'en-deep-house-vocal-anthem',
   'en-deep-house-tech-groove',
   'en-deep-house-soulful',
-  'alt-rnb'
+  'alt-rnb',
+  // 지시문 75 (TASK A) — 칠·라운지 3종. 12종 → 15종. BPM 99~107 공백을
+  // 메우면서 기존 하우스 6종의 클럽 지향과 다른 축(배경음악·서사·낮)을 맡는다.
+  'en-chill-house-emotional',
+  'en-chill-deep-house',
+  'en-lounge-house'
 ] as const;
 
 /**
@@ -1549,7 +1554,68 @@ export const enChillhopGenrePacks: StructuredGenrePack[] = [
     archetypes: ['en-chillhop'],
     tier: 'core',
     eraTag: '2010s-2020s soulful deep house'
-  }, 'electronic', { rhythm: ['soulful four-on-the-floor groove', 'gospel-tinged clap layer on the backbeat'], vocal: ['powerful soulful vocal hook riding the groove', 'gospel-style call-and-response ad-libs'], production: ['warm soulful club mix', 'rounded low end'], harmony: ['gospel-tinged chord progression', 'soulful seventh-chord vamp'], moods: ['soulful', 'warm', 'uplifting'], audiences: ['소울풀 딥하우스', '선데이 루프탑 세션'], avoidTraits: ['aggressive festival EDM drop', 'cold minimal techno austerity', 'vintage tape saturation'] })
+  }, 'electronic', { rhythm: ['soulful four-on-the-floor groove', 'gospel-tinged clap layer on the backbeat'], vocal: ['powerful soulful vocal hook riding the groove', 'gospel-style call-and-response ad-libs'], production: ['warm soulful club mix', 'rounded low end'], harmony: ['gospel-tinged chord progression', 'soulful seventh-chord vamp'], moods: ['soulful', 'warm', 'uplifting'], audiences: ['소울풀 딥하우스', '선데이 루프탑 세션'], avoidTraits: ['aggressive festival EDM drop', 'cold minimal techno austerity', 'vintage tape saturation'] }),
+  /*
+   * 지시문 75 (TASK A) — 칠·라운지 대역 3종. 두 가지를 동시에 해결한다.
+   *
+   * ① BPM 99~107 공백(§1). 기존 12종은 랩 62~98 / 하우스 108~128로 갈려
+   *    5슬롯이 비어 있었다.
+   * ② 축의 공백. 기존 하우스 6종은 전부 클럽 지향이다(production에
+   *    'club mix' 계열이 6종 중 4종). 이 3종은 클럽이 아니라 배경음악·서사
+   *    지향이라 §11이 그 표현의 재사용을 금지한다 — 아래 production 어느
+   *    항목에도 'club' 계열 표현이 없다.
+   *
+   * moods는 기존 12종이 쓰는 27개 값과 한 개도 겹치지 않게 골랐다(§3.2-③
+   * "기존 12종의 moods 값을 전부 확인하고 겹치지 않는 값을 쓸 것").
+   */
+  legacyGenrePack({
+    id: 'en-chill-house-emotional',
+    label: 'Emotional Chill House',
+    styleCore: 'emotional chill house, unhurried four-on-the-floor pulse held at one level, wide soft-focus pad bed, storytelling lead vocal kept clear at the front',
+    instruments: ['soft-edged four-on-the-floor kick', 'long-decay analog pad wash', 'muted piano chord figure', 'rounded warm bassline', 'single-note synth counter-melody'],
+    tempoRange: [100, 112],
+    goodFor: ['감성 칠 하우스', 'story episode', 'night train window'],
+    archetypes: ['en-chillhop'],
+    tier: 'core',
+    eraTag: '2010s-2020s emotional chill house'
+    // 서사 동반용(§3.2-①). vocal-anthem이 'full sung chorus hook carrying the
+    // emotional peak'로 절정형인 데 반해 이쪽은 감정이 터지지 않고 유지되는
+    // 방향이라, rhythm 첫 항목에 "드롭으로 올라가지 않는다"를 명시한다.
+    // vocal은 가사가 이야기를 전달해야 하므로 organic의 'sparse breathy
+    // vocal texture used as a color, not a lead'와 정반대로 잡았다.
+  }, 'electronic', { rhythm: ['unhurried four-on-the-floor pulse that never lifts into a drop', 'brushed off-beat shaker in place of an open hat'], vocal: ['clear front-of-mix lead carrying the story line by line', 'diction kept plain enough to follow on first listen'], production: ['wide soft-focus reverb bed with no hard transient edge', 'airy high shelf instead of a loud compressed master'], harmony: ['four-chord loop resolving the same way every turn', 'suspended second held under the vocal for warmth'], moods: ['wistful', 'cinematic', 'tender'], audiences: ['감성 칠 하우스', '이야기가 있는 회차'], avoidTraits: ['festival drop or big-room build', 'belted climax chorus', 'peak-time compressed low end'] }),
+  legacyGenrePack({
+    id: 'en-chill-deep-house',
+    label: 'Chill Deep House',
+    styleCore: 'chill deep house, looping chord bed carried in front of the kick, steady unchanging groove made for background listening',
+    instruments: ['soft round kick sitting under the loop', 'repeating electric piano chord loop', 'warm filtered sub bass', 'light closed hat pattern', 'held pad layer'],
+    tempoRange: [104, 114],
+    goodFor: ['칠 딥하우스', 'study background', 'long night drive'],
+    archetypes: ['en-chillhop'],
+    tier: 'core',
+    eraTag: '2010s-2020s chill deep house'
+    // 배경음악용(§3.2-②). 서사도 절정도 없이 반복과 지속이 핵심이라
+    // rhythm에 "루프가 앞서고 킥이 받친다"를, production에 "처음부터 끝까지
+    // 같은 레벨"을 넣었다. 보컬 비중은 가장 낮지만 **완전 인스트루멘탈로
+    // 정의하지 않는다**(§11) — 이 워크스페이스의 가사 파이프라인이 모든 곡에
+    // 가사를 요구한다. tech-groove의 'no full lyric lead'와 갈리는 지점이다.
+  }, 'electronic', { rhythm: ['loop-forward groove where the chord bed leads and the kick supports', 'unchanging eight-bar cycle repeated without fills'], vocal: ['short sung phrase reused as one more layer of the loop', 'lead line placed low in the mix, present but never the focus'], production: ['even level held start to finish with no arrangement peak', 'soft-knee compression keeping every part at one distance'], harmony: ['two-chord cycle that never resolves away from itself', 'seventh-chord color left unchanged throughout'], moods: ['steady', 'understated', 'flowing'], audiences: ['칠 딥하우스', '공부·카페 배경음악'], avoidTraits: ['build-and-drop arrangement', 'foreground lead vocal performance', 'peak-time dancefloor energy'] }),
+  legacyGenrePack({
+    id: 'en-lounge-house',
+    label: 'Lounge House',
+    styleCore: 'lounge house, relaxed daytime four-on-the-floor under live lounge instrumentation, nylon guitar and vibraphone over a light groove',
+    instruments: ['electric piano comping', 'nylon-string guitar figure', 'vibraphone accent line', 'brushed percussion layer', 'soft upright-toned bass'],
+    tempoRange: [98, 110],
+    goodFor: ['라운지 하우스', 'cafe afternoon', 'seaside travel'],
+    archetypes: ['en-chillhop'],
+    tier: 'core',
+    eraTag: '2010s-2020s lounge house'
+    // 낮 시간대 전담(§3.2-③). 기존 12종과 신설 ①②가 전부 야간 지향이라
+    // (nocturnal/late-night/streetlight/rainy/dark) 이 장르 하나가 낮을 맡는다
+    // — moods를 breezy/sunlit/daytime으로 잡고 avoidTraits에 야간 저역을
+    // 넣은 것이 그 구분선이다. instruments도 순수 전자 편성이 아니라 라운지
+    // 편성(전기피아노·나일론 기타·비브라폰·브러시) 비중을 높였다.
+  }, 'electronic', { rhythm: ['light daytime four-on-the-floor with brushed percussion over the top', 'relaxed bossa-leaning off-beat accent'], vocal: ['easy mid-range lead sung at conversational volume', 'light scat syllables answering the instrumental phrase'], production: ['open daylight mix with the natural instrument tone left intact', 'shallow room ambience rather than a long reverb tail'], harmony: ['major seventh and ninth colors held through the loop', 'gentle turnaround lifting into each new phrase'], moods: ['breezy', 'sunlit', 'daytime'], audiences: ['라운지 하우스', '카페·여행 회차'], avoidTraits: ['night-club low end', 'dark minor-key brooding', 'all-electronic palette with no played instruments'] })
 ];
 
 /**

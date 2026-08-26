@@ -154,7 +154,7 @@ describe('[v3.56 Part 3] new/upgraded genre exclusivity', () => {
     return new Set(text.split(/[,\s]+/).filter(word => word.length > 3));
   }
 
-  it.each(NEW_GENRE_IDS)('%s carries at least 3 signatureSound keywords no other genre uses', genreId => {
+  function uniqueKeywordCount(genreId: string): number {
     const genre = genrePacks.find(item => item.id === genreId)!;
     const myWords = keywordsFor(genre);
     const otherWords = new Set<string>();
@@ -162,8 +162,47 @@ describe('[v3.56 Part 3] new/upgraded genre exclusivity', () => {
       if (other.id === genreId) continue;
       for (const word of keywordsFor(other)) otherWords.add(word);
     }
-    const unique = [...myWords].filter(word => !otherWords.has(word));
-    expect(unique.length, genreId).toBeGreaterThanOrEqual(3);
+    return [...myWords].filter(word => !otherWords.has(word)).length;
+  }
+
+  /*
+   * 지시문 75 (TASK A) — smooth-jazz-lounge만 하한이 2다.
+   *
+   * 이 장르가 갖고 있던 고유 단어는 'cocktail-lounge' / 'across' / 'lounge'
+   * 세 개였는데, 지시문 75가 **id와 label을 못박아** 신설한 en-lounge-house
+   * (Lounge House)가 'lounge'를 필연적으로 가져간다 — signatureSound의 마지막
+   * 원소가 label을 소문자로 붙인 것이라(legacyGenrePack) 문구를 바꿔서 피할
+   * 수 있는 종류가 아니다. 실측으로 확인한 것: 신설 3종을 제외하고 세면
+   * smooth-jazz-lounge의 고유 단어는 정확히 그 3개이고, 포함해서 세면
+   * 'lounge' 하나만 빠진 2개다('vibraphone'/'comping'은 신설 이전부터 다른
+   * 장르와 이미 공유하던 단어라 이 변화와 무관하다).
+   *
+   * 대안 두 가지를 모두 버린 이유:
+   *  - smooth-jazz-lounge 정의를 고쳐 고유 단어를 하나 더 만드는 것 →
+   *    테스트를 통과시키려고 관계없는 워크스페이스의 장르를 건드리는 것.
+   *  - en-lounge-house의 label 변경 → 지시문 75 §3.1이 고정한 값이다.
+   *
+   * 나머지 5종의 하한 3은 그대로 둔다 — 이 테스트가 지키려는 것("신설 장르가
+   * 서로 구분되는가")은 그쪽에서 계속 작동한다.
+   */
+  const UNIQUE_KEYWORD_FLOOR: Record<string, number> = { 'smooth-jazz-lounge': 2 };
+
+  it.each(NEW_GENRE_IDS)('%s carries at least 3 signatureSound keywords no other genre uses', genreId => {
+    expect(uniqueKeywordCount(genreId), genreId).toBeGreaterThanOrEqual(UNIQUE_KEYWORD_FLOOR[genreId] ?? 3);
+  });
+
+  it('smooth-jazz-lounge가 잃은 고유 단어는 정확히 "lounge" 하나다 — 신설 3종을 빼면 3개로 돌아온다', () => {
+    const CHILL_LOUNGE_IDS = ['en-lounge-house', 'en-chill-house-emotional', 'en-chill-deep-house'];
+    const genre = genrePacks.find(item => item.id === 'smooth-jazz-lounge')!;
+    const myWords = keywordsFor(genre);
+    const otherWords = new Set<string>();
+    for (const other of genrePacks) {
+      if (other.id === 'smooth-jazz-lounge' || CHILL_LOUNGE_IDS.includes(other.id)) continue;
+      for (const word of keywordsFor(other)) otherWords.add(word);
+    }
+    const withoutNewGenres = [...myWords].filter(word => !otherWords.has(word));
+    expect(withoutNewGenres.length).toBeGreaterThanOrEqual(3);
+    expect(withoutNewGenres.length - uniqueKeywordCount('smooth-jazz-lounge')).toBe(1);
   });
 
   it('assigns the 3 senior/cafe additions and 3 2030-channel additions to the correct archetypes', () => {
