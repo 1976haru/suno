@@ -1,6 +1,6 @@
 import type { ChannelProfile, LyricLanguage, SongIdea, SongScores } from '../types';
 import { hookLength, isWithinHookLengthBounds } from './lyricEngine';
-import { countWords, SAFE_TARGET, STYLE_CHAR_TARGET, STYLE_WORD_TARGET_MAX, SUNO_COPY_LIMIT } from './promptBudget';
+import { countWords, findRedundantClauses, SAFE_TARGET, splitAtoms, STYLE_CHAR_TARGET, STYLE_WORD_TARGET_MAX, SUNO_COPY_LIMIT } from './promptBudget';
 import { containsBlockedStyleToken, sanitizeSunoStyleText } from './sunoSafety';
 import { detectVocalGender, detectVocalGenderPresence } from './vocalPlan';
 import { matchVocalPreset } from '../data/vocalPresets';
@@ -549,6 +549,30 @@ export function scoreSong(song: SongIdea, channel?: ChannelProfile, language: Ly
   if (introSubcategories.size > 1) {
     pushUnique(warnings, '인트로 지시가 서로 모순됩니다 — "즉시 시작"과 "짧은 인트로 있음"이 같은 stylePrompt에 함께 있습니다. Suno가 어느 쪽을 따를지 예측할 수 없으니 한쪽만 남기세요.');
     score -= 15;
+  }
+
+  // 지시문 74 (TASK C §3.3) — 절 단위 중복. 조립 경로(promptBudget의
+  // dedupeTerms)는 이 두 규칙을 이미 적용하지만 브릿지 에이전트가 직접 쓴
+  // stylePrompt는 그 파이프라인을 타지 않아 그대로 새어 나온다. 실측: 저장된
+  // 1,110곡 중 177곡(241건)에서 검출된다 — 예) "soft kick drum"이 두 번,
+  // "clean electric guitar arpeggios" ⊂ "instruments: clean electric guitar
+  // arpeggios". 판정 로직은 findRedundantClauses가 dedupeTerms와 공유한다.
+  //
+  // 감점을 작게(건당 4, 합계 8 상한) 두는 이유: 인트로 모순(-15)이나 섹션
+  // 하한(-12)과 달리 이건 낭비이지 결함이 아니고, 실측 16~18%의 곡에서
+  // 걸리므로 폭이 크면 REGENERATE_QUALITY_BAR 근처의 곡들을 무더기로 재생성
+  // 경로에 밀어 넣는다(지시문 74 완료 보고 §11의 API 3배 호출 사고와 같은
+  // 함정).
+  const redundantClauses = findRedundantClauses(splitAtoms(song.stylePrompt));
+  if (redundantClauses.length) {
+    const shown = redundantClauses.slice(0, 3)
+      .map(finding => finding.kind === 'exact'
+        ? `"${finding.clause}"가 두 번`
+        : `"${finding.clause}"가 "${finding.coveredBy}"에 이미 포함`)
+      .join(' · ');
+    const more = redundantClauses.length > 3 ? ` 외 ${redundantClauses.length - 3}건` : '';
+    pushUnique(warnings, `stylePrompt에 중복된 절이 있습니다 — ${shown}${more}. 지워도 의미가 줄지 않으니 그 자리를 다른 서술에 쓰세요.`);
+    score -= Math.min(8, redundantClauses.length * 4);
   }
 
   // 지시문 08 (TASK C) — real structural/semantic lyric checks

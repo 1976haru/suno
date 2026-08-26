@@ -304,6 +304,63 @@ function capRepeatedAdjectives(atoms: string[], ids: PromptTermId[]): { id: Prom
     .filter(entry => Boolean(entry.text));
 }
 
+/** 지시문 74 (TASK C) — 한 프롬프트 안에서 낭비되는 절 하나. `clause`가 `coveredBy`에 이미 담겨 있어 지워도 의미가 줄지 않는다. */
+export interface RedundantClauseFinding {
+  kind: 'exact' | 'contained';
+  /** 지워도 되는 쪽(중복된 절). */
+  clause: string;
+  /** 그 의미를 이미 담고 있는 쪽. exact면 먼저 나온 같은 절, contained면 이 절을 포함하는 더 긴 절. */
+  coveredBy: string;
+}
+
+/**
+ * 지시문 74 (TASK C §3.3) — 완전 동일 절과 포함 관계 절을 찾는다.
+ *
+ * dedupeTerms가 이미 이 두 규칙(정확 일치 → 뒤엣것 제거, 포함 → 짧은 쪽
+ * 제거)을 쓰고 있지만 그건 **조립 경로 전용**이다. 브릿지 에이전트가 직접
+ * 쓴 stylePrompt는 그 파이프라인을 타지 않아 실측에서 그대로 새어 나왔다
+ * (§3.2-①: "full arrangement and full playback level from the first bar"와
+ * "full arrangement"가 같은 곡에 공존, ChatGPT 하우스 v3의 "off-beat open
+ * hats" 2회·"deep rounded bass" ⊂ "deep rounded bass with kick ducking").
+ * 판정 규칙을 두 벌 두지 않으려고 정규화(normalizeAtomKey)와 비교 방식을
+ * dedupeTerms와 공유한다 — 다른 점은 **제거가 아니라 어느 쌍이 겹치는지를
+ * 돌려준다**는 것뿐이다(scoreSong은 경고에 그 쌍을 실어야 한다).
+ *
+ * 한 단어짜리 절은 제외한다. dedupeTerms에는 이 가드가 없지만(조립 경로는
+ * 자기가 만든 원자만 다뤄 한 단어 원자가 나오지 않는다) 사람이 쓴 프롬프트
+ * 에서는 "bright" ⊂ "bright synth pluck" 같은 무해한 겹침이 흔해, 감점까지
+ * 하는 자리에서는 소음이 된다.
+ */
+export function findRedundantClauses(clauses: readonly string[]): RedundantClauseFinding[] {
+  const findings: RedundantClauseFinding[] = [];
+  const keys = clauses.map(normalizeAtomKey);
+  const meaningful = (index: number) => keys[index].split(' ').length >= 2;
+
+  const firstIndexByKey = new Map<string, number>();
+  const exactlyDuplicated = new Set<number>();
+  for (let i = 0; i < clauses.length; i += 1) {
+    const first = firstIndexByKey.get(keys[i]);
+    if (first === undefined) {
+      firstIndexByKey.set(keys[i], i);
+      continue;
+    }
+    exactlyDuplicated.add(i);
+    if (!meaningful(i)) continue;
+    findings.push({ kind: 'exact', clause: clauses[i], coveredBy: clauses[first] });
+  }
+
+  for (let i = 0; i < clauses.length; i += 1) {
+    if (exactlyDuplicated.has(i) || !meaningful(i)) continue;
+    const covering = clauses.findIndex((_, j) => j !== i
+      && !exactlyDuplicated.has(j)
+      && keys[j].length > keys[i].length
+      && keys[j].includes(keys[i]));
+    if (covering >= 0) findings.push({ kind: 'contained', clause: clauses[i], coveredBy: clauses[covering] });
+  }
+
+  return findings;
+}
+
 export function dedupeTerms(atoms: string[]): string[] {
   const seen = new Set<string>();
   const exactDeduped = atoms.filter(atom => {
