@@ -590,6 +590,27 @@ export const EN_CHILLHOP_HOUSE_BAND_GENRE_IDS = [
 ] as const;
 
 /**
+ * 지시문 76 (TASK A) — 지시문 75가 신설한 칠·라운지 3종(98~114 BPM)은
+ * **독립 대역이 아니라 양쪽에 붙는 브리지**다.
+ *
+ * 셋을 독립 대역으로 두면 12곡 세트를 3종으로 채워야 해서 장르당 4.0회가
+ * 된다(§1.2 실측). 양쪽 후보에 넣으면 두 대역 모두 9종이 되어 12/9 = 1.3회로
+ * 떨어진다 — 이것이 이 지시문의 핵심 계산이다.
+ *
+ * 대역 자체는 여전히 세트당 하나로 고정된다(§2.2). 브리지가 양쪽 후보에
+ * 들어갈 뿐이라, 한 세트에 62 BPM(trap-soul)과 128 BPM(garage-swing)이 함께
+ * 나오는 일은 생기지 않는다 — 느린 세트는 62~114, 빠른 세트는 98~128이다.
+ *
+ * 기존 두 배열은 한 글자도 바꾸지 않는다(§10 "랩 6종·하우스 6종의 대역
+ * 소속을 바꾸지 말 것") — 소비처인 core/setDirector.ts가 합집합을 만든다.
+ */
+export const EN_CHILLHOP_BRIDGE_BAND_GENRE_IDS = [
+  'en-chill-house-emotional',
+  'en-chill-deep-house',
+  'en-lounge-house'
+] as const;
+
+/**
  * TASK v3.63 (TASK A) — a real user made a custom "oldpoplounge" channel and
  * found almost none of the 320-genre library reachable, because every
  * archetype's core-genre list (this Record) is what getVisibleGenresFor
