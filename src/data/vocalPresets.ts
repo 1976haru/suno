@@ -183,7 +183,10 @@ export const vocalPresets: VocalPreset[] = [
     description: '시티팝에 어울리는 부드러운 가성이에요.',
     prompt: 'soft male falsetto, airy head voice, smooth city-pop phrasing, light and floating',
     gender: 'male',
-    suitedArchetypes: ['showa-cafe', 'j2000s', 'jp-2030-pop', 'kr-idol-male']
+    // 지시문 76 (TASK B) — alt-rnb·trap-soul이 이 워크스페이스의 코어라 가성 리드가
+    // 장르 정의 안에 이미 있다. 프롬프트에 빈티지 크루너/오페라틱/아나운서
+    // 어휘가 없어 en-chillhop-vocal-floor의 forbiddenTraits와 충돌하지 않는다.
+    suitedArchetypes: ['showa-cafe', 'j2000s', 'jp-2030-pop', 'kr-idol-male', 'en-chillhop']
   },
   {
     id: 'smoky-jazz-male',
@@ -212,7 +215,9 @@ export const vocalPresets: VocalPreset[] = [
     description: '수면·집중 콘텐츠에 어울리는 낮은 속삭임이에요.',
     prompt: 'soft male voice just above a whisper, intimate close-mic breath, very gentle and slow',
     gender: 'male',
-    suitedArchetypes: ['lofi-study', 'modern-chill']
+    // 지시문 76 (TASK B) — lofi-study·modern-chill이 이미 붙은 현대 친밀형 목소리로,
+    // 이 워크스페이스의 lofi-hiphop-study·chill-rap과 같은 결이다.
+    suitedArchetypes: ['lofi-study', 'modern-chill', 'en-chillhop']
   },
   {
     id: 'soft-female',
@@ -221,7 +226,9 @@ export const vocalPresets: VocalPreset[] = [
     description: '찻집에서 흐르는 잔잔한 목소리예요.',
     prompt: 'soft warm female alto, gentle breathy delivery, intimate and calm',
     gender: 'female',
-    suitedArchetypes: ['senior-morning', 'oldpop-lounge', 'christmas', 'lofi-study']
+    // 지시문 76 (TASK B) — 이미 lofi-study에 붙어 있는 현대 침착형 음색이고,
+    // 프롬프트에 시대 표지(크루너·아나운서)가 없다.
+    suitedArchetypes: ['senior-morning', 'oldpop-lounge', 'christmas', 'lofi-study', 'en-chillhop']
   },
   {
     id: 'mature-female',
@@ -251,7 +258,14 @@ export const vocalPresets: VocalPreset[] = [
     description: '쇼와 카페·시티팝에 어울리는 음색이에요.',
     prompt: 'husky female alto, smoky jazz phrasing, laid-back swing feel, warm lower register',
     gender: 'female',
-    suitedArchetypes: ['showa-cafe', 'city-night', 'kr-idol-female']
+    // 지시문 76 (TASK B) — §3.2가 "넣으려면 근거를 명시하라"고 지목한 둘 중 하나.
+    // 프롬프트는 'husky female alto, smoky jazz phrasing, laid-back swing feel'로,
+    // 이 워크스페이스 코어 장르인 jazz-rap의 'laid-back jazz-rap swing'과 같은
+    // 어휘다. 짝인 smoky-jazz-male은 반대로 **붙이지 않았다** — 그쪽은
+    // 'lounge microphone warmth'라는 크루너 라운지 표지가 프롬프트에 직접 있어
+    // forbiddenTraits('vintage crooner vibrato')와 부딪힌다. 또 현재 8종에
+    // 허스키 여성 음색이 하나도 없어 음색 축을 실제로 벌리는 항목이다(§3.2).
+    suitedArchetypes: ['showa-cafe', 'city-night', 'kr-idol-female', 'en-chillhop']
   },
   {
     id: 'airy-whisper-female',

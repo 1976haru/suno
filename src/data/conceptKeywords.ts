@@ -1993,6 +1993,71 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
     archetypeScope: ['en-chillhop'],
     axis: 'genre'
   },
+  /*
+   * 지시문 76 (TASK E) — 현대 일본 도시 장면(TASK D의 24개)을 컨셉으로
+   * 지목하기 위한 규칙 6종. 전부 archetypeScope: ['en-chillhop']이다.
+   *
+   * genreWeights를 붙이는 기준: 장면이 어느 대역에 얹히느냐다. 막차·역·
+   * 편의점 같은 밤 장면은 랩·칠 대역으로, 베이사이드 드라이브·아케이드
+   * 같은 넓은 장면은 칠·하우스 대역으로 기울인다 — 대역 자체는 세트
+   * 단위로 고정되므로(§2.2) 이 가중치는 그 대역 안에서 어느 장르가
+   * 앞서느냐만 바꾼다.
+   *
+   * 일본어 패턴은 넣지 않았다(§6 "판단해서 결정하고 근거를 보고"). 이
+   * 채널들은 시장만 일본이고 컨셉 입력은 한국어, 가사는 영어다 — 기존
+   * enchillhop-* 19종이 전부 한국어+영어 2종 패턴이라 이 6종만 3종을
+   * 쓰면 파일 안에서 규칙 형태가 갈린다. 필요해지면 그때 한 번에 넣는
+   * 편이 낫다.
+   *
+   * 지명 패턴('도쿄'/'tokyo')은 이미 jp2030-citypop이 쓰고 있지만 그쪽은
+   * archetypeScope가 ['jp-2030-pop']이라 서로 새지 않는다 — 실측으로
+   * 확인했고 테스트로 고정했다.
+   */
+  {
+    id: 'enchillhop-jp-city-night',
+    patterns: [/일본\s*도시/, /도쿄\s*(밤|야경|거리)/, /japanese\s*city/i, /tokyo\s*night/i, /city\s*pop\s*night/i],
+    genreWeights: { 'chill-rap': 2, 'lofi-hiphop-study': 2, 'en-chill-house-emotional': 2 },
+    moodWeights: { intimate: 2 },
+    archetypeScope: ['en-chillhop'],
+    axis: 'genre'
+  },
+  {
+    id: 'enchillhop-jp-last-train',
+    patterns: [/막차/, /마지막\s*열차/, /막\s*전철/, /last\s*train/i],
+    genreWeights: { 'lofi-hiphop-study': 2, 'chill-rap': 2, 'alt-rnb': 1 },
+    moodWeights: { 'calm-focus': 2 },
+    archetypeScope: ['en-chillhop']
+  },
+  {
+    id: 'enchillhop-jp-convenience-night',
+    patterns: [/편의점/, /자판기/, /convenience\s*store/i, /vending\s*machine/i],
+    genreWeights: { 'boom-bap-mellow': 2, 'chill-rap': 2, 'en-chill-deep-house': 1 },
+    moodWeights: { 'calm-focus': 1, nostalgic: 1 },
+    archetypeScope: ['en-chillhop']
+  },
+  {
+    id: 'enchillhop-jp-shopping-arcade',
+    patterns: [/상점가/, /아케이드/, /셔터\s*(내린|올리는)/, /shopping\s*arcade/i, /shuttered\s*street/i],
+    genreWeights: { 'en-lounge-house': 2, 'jazz-rap': 2, 'boom-bap-mellow': 1 },
+    moodWeights: { nostalgic: 2 },
+    archetypeScope: ['en-chillhop'],
+    axis: 'genre'
+  },
+  {
+    id: 'enchillhop-jp-bayside-drive',
+    patterns: [/베이사이드/, /임해\s*고속/, /항만\s*야경/, /bayside\s*drive/i, /harbou?r\s*(night|expressway)/i],
+    genreWeights: { 'en-chill-deep-house': 2, 'en-deep-house-organic': 2, 'en-lounge-house': 1 },
+    moodWeights: { intimate: 1, bright: 1 },
+    archetypeScope: ['en-chillhop'],
+    axis: 'genre'
+  },
+  {
+    id: 'enchillhop-jp-karaoke-night',
+    patterns: [/노래방/, /가라오케/, /karaoke/i, /오락실/, /game\s*arcade/i],
+    genreWeights: { 'chill-rap': 2, 'en-chill-house-emotional': 2, 'boom-bap-mellow': 1 },
+    moodWeights: { nostalgic: 2 },
+    archetypeScope: ['en-chillhop']
+  },
   {
     // 'nocturnal'/'relaxed'는 실존 moodPack id가 아니다(presets.ts's
     // moodPacks 실측) — 가장 가까운 실존 id(intimate/calm-focus)로 맞춘다.

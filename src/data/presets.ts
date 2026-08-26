@@ -982,6 +982,63 @@ export const channelPresets: ChannelProfile[] = [
     ],
     seoKeywords: ['jazz rap trap soul mix', 'garage house crossover', 'city night rap playlist', 'trap soul playlist', 'jazz rap late night', 'garage swing house'],
     archetype: 'en-chillhop'
+  },
+  /*
+   * 지시문 76 (TASK C) — 일본 시장 · 영어 가사 채널 2종.
+   *
+   * market='japan' + primaryLanguage='english'는 이 코드베이스에 이미 있는
+   * 조합이다(morning-showa-cafe, kr-2030-rap). 한 워크스페이스가 언어·시장이
+   * 다른 채널을 여럿 갖는 것도 kr-2030-pop(한국어 3 + 영어 1)에서 검증됐다.
+   *
+   * 두 채널의 preferredGenres가 대역 성향을 나눈다(§4.1) — 채널 A는 랩·칠,
+   * 채널 B는 칠·하우스. 주 3회를 한 채널에서 뽑으면 대역이 한쪽으로 굳는데,
+   * 채널마다 성향을 달리 두면 세트 단위 대역 고정(§2.2)을 유지하면서도 주
+   * 단위로는 양쪽이 섞인다.
+   *
+   * 실존 아티스트·레이블·애니메이션·게임 작품명은 어느 필드에도 쓰지
+   * 않는다(§4.3·§10). forbiddenCliches에 그 모방을 금지하는 항목을 넣었다.
+   */
+  {
+    id: 'tokyo-night-headphones',
+    name: 'Tokyo Night Headphones',
+    englishName: 'Tokyo Night Headphones',
+    market: 'japan',
+    primaryLanguage: 'english',
+    audience: 'twenties',
+    promise: 'English-language chill rap and late-night beats for the last train home through a rain-lit Japanese city',
+    visualIdentity: 'rain-slicked crossing at midnight, vending-machine glow against dark glass, vertical signage bokeh, quiet lowercase typography',
+    defaultVocal: 'calm conversational English rap flow, close-mic intimacy, soft sung hook on the chorus',
+    preferredGenres: ['chill-rap', 'lofi-hiphop-study', 'boom-bap-mellow', 'alt-rnb', 'en-chill-house-emotional'],
+    preferredMoods: ['calm-focus', 'nostalgic'],
+    forbiddenCliches: [
+      'specific DJ or producer imitation', 'named artist vocal timbre', 'signature hook of an existing song',
+      'drug-use imagery', 'explicit club-hookup narrative',
+      'named anime or game title reference', 'imitation of an existing anime or game soundtrack',
+      'stereotyped orientalist pentatonic motif'
+    ],
+    seoKeywords: ['tokyo night lofi', 'japanese city chill rap', 'last train playlist', 'rainy night hip hop', 'english lyrics lofi japan', 'late night study beats tokyo'],
+    archetype: 'en-chillhop'
+  },
+  {
+    id: 'harbour-line-house',
+    name: 'Harbour Line House',
+    englishName: 'Harbour Line House',
+    market: 'japan',
+    primaryLanguage: 'english',
+    audience: 'twenties',
+    promise: 'English-language chill and lounge house for a bayside drive between a Japanese port city and the airport road',
+    visualIdentity: 'elevated expressway over dark water, container-crane silhouettes at dusk, cool blue-to-amber gradient, wide letter-spaced typography',
+    defaultVocal: 'clear English vocal hook over a rolling groove, airy layered harmony, unforced delivery',
+    preferredGenres: ['en-chill-deep-house', 'en-lounge-house', 'en-deep-house-organic', 'en-deep-house-melodic', 'en-chill-house-emotional'],
+    preferredMoods: ['intimate', 'bright'],
+    forbiddenCliches: [
+      'specific DJ or producer imitation', 'named artist vocal timbre', 'signature hook of an existing song',
+      'drug-use imagery', 'explicit club-hookup narrative',
+      'named anime or game title reference', 'imitation of an existing anime or game soundtrack',
+      'aggressive festival EDM drop'
+    ],
+    seoKeywords: ['bayside house playlist', 'japan drive house music', 'lounge house english vocal', 'harbour night house mix', 'chill house japan city', 'airport road drive playlist'],
+    archetype: 'en-chillhop'
   }
 ];
 

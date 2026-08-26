@@ -11,7 +11,7 @@ import type {
   PreassignedSongSlot,
   ProviderSettings
 } from '../types';
-import { EN_CHILLHOP_HOUSE_BAND_GENRE_IDS, EN_CHILLHOP_RAP_BAND_GENRE_IDS, genreLibrary, getCoreGenreIdsForArchetype, getGenreById, isGenreEligibleForArchetype, totalGenreCount } from '../data/genreLibrary';
+import { EN_CHILLHOP_BRIDGE_BAND_GENRE_IDS, EN_CHILLHOP_HOUSE_BAND_GENRE_IDS, EN_CHILLHOP_RAP_BAND_GENRE_IDS, genreLibrary, getCoreGenreIdsForArchetype, getGenreById, isGenreEligibleForArchetype, totalGenreCount } from '../data/genreLibrary';
 import { sanitizeGenreIdsForArchetype } from './genreSelection';
 import { moodPacks, seasonPacks } from '../data/presets';
 import { matchConceptRules } from '../data/conceptKeywords';
@@ -260,6 +260,13 @@ const MOOD_FAMILY_HINT: Record<string, string> = {
 };
 
 /** TASK v5.7 (TASK C) — exported so setDirector's own ConceptAxisCoverage builder and Step2Plan.tsx can both tell whether a detected mood actually influenced the family/genre axis, without re-deriving the MOOD_FAMILY_HINT lookup themselves. */
+/**
+ * 지시문 76 (TASK A) — en-chillhop 세트의 장르당 반복 상한. §7이 요구하는
+ * "12곱 세트 장르당 1.5회 이하"를 targetCount 계산에 그대로 쓴다
+ * — ceil(songCount / 이 값)이 골라야 할 최소 장르 수다.
+ */
+const EN_CHILLHOP_MAX_GENRE_REPEAT = 1.5;
+
 export function moodFamilyHint(mood: MoodConstraint | undefined): string | undefined {
   if (!mood) return undefined;
   for (const descriptor of mood.descriptors) {
@@ -486,7 +493,14 @@ function chooseGenreIds(
   let enChillhopCrossoverUsed = 0;
   if (isEnChillhopArchetype(channel.archetype)) {
     const houseSignal = /딥\s*하우스|deep\s*house|하우스\s*비트|하우스\s*그루브|하우스\s*뮤직|house\s*beat|house\s*groove|house\s*music|개러지|게러지|garage/i.test(freeText);
-    const bandIds = new Set<string>(houseSignal ? EN_CHILLHOP_HOUSE_BAND_GENRE_IDS : EN_CHILLHOP_RAP_BAND_GENRE_IDS);
+    // 지시문 76 (TASK A) — 브리지 3종(98~114 BPM)은 양쪽 대역의 정규 후보다.
+    // 대역별 후보가 6종 → 9종이 되어 12곡 세트의 장르당 반복이 2.0 → 1.3회로
+    // 떨어진다. 브리지는 otherBandIds(교차)에 넣지 않는다 — 교차 상한 20%를
+    // 쓰는 예외 경로가 아니라 그냥 이 대역의 후보이기 때문이다(§2.2).
+    const bandIds = new Set<string>([
+      ...(houseSignal ? EN_CHILLHOP_HOUSE_BAND_GENRE_IDS : EN_CHILLHOP_RAP_BAND_GENRE_IDS),
+      ...EN_CHILLHOP_BRIDGE_BAND_GENRE_IDS
+    ]);
     const otherBandIds = new Set<string>(houseSignal ? EN_CHILLHOP_RAP_BAND_GENRE_IDS : EN_CHILLHOP_HOUSE_BAND_GENRE_IDS);
     const bandCandidates = candidates.filter(genre => bandIds.has(genre.id));
     if (bandCandidates.length) {
@@ -510,7 +524,25 @@ function chooseGenreIds(
     .sort((a, b) => b.score - a.score || a.genre.id.localeCompare(b.genre.id));
   const { min: breadthMin, max: breadthMax } = BREADTH_THRESHOLDS[breadth].genre;
   const minimumForCap = clamp(Math.ceil(songCount / 5), breadthMin, breadthMax);
-  const targetCount = clamp(Math.max(minimumForCap, ranked.filter(item => item.score >= 5).length >= 5 ? 5 : minimumForCap), breadthMin, breadthMax);
+  let targetCount = clamp(Math.max(minimumForCap, ranked.filter(item => item.score >= 5).length >= 5 ? 5 : minimumForCap), breadthMin, breadthMax);
+  // 지시문 76 (TASK A) — en-chillhop만: 브리지 3종을 대역에 넣어 후보를 6종
+  // → 9종으로 늘려도, 세트가 실제로 고르는 장르 수가 그대로면 반복은 줄지
+  // 않는다. 실측: 12곡 'balanced' 세트의 targetCount는 4~5라 12/5 = 2.4회로
+  // 남는다(§1.2가 지목한 병목이 후보 수가 아니라 선택 수에도 있었다).
+  //
+  // 주 3회 × 12곡 운영에서 §7이 요구하는 것은 장르당 1.5회 이하 —
+  // ceil(12/1.5) = 8종이다. 후보가 있는 만큼만, 그리고 **그 breadth가 이미
+  // 허용하는 최대치 안에서만** 올린다: breadthMax를 넘기지 않으므로
+  // 'focused'(최대 3종)를 고른 사용자의 선택은 그대로 존중된다.
+  // 다른 워크스페이스는 이 분기를 타지 않는다(§10).
+  if (enChillhopBandIds) {
+    const bandCandidateCount = ranked.filter(item => enChillhopBandIds!.has(item.genre.id)).length;
+    targetCount = clamp(
+      Math.max(targetCount, Math.min(bandCandidateCount, Math.ceil(songCount / EN_CHILLHOP_MAX_GENRE_REPEAT))),
+      breadthMin,
+      breadthMax
+    );
+  }
   const selected: string[] = [];
   const add = (id: string | undefined) => {
     if (!id || selected.includes(id)) return;
@@ -930,7 +962,17 @@ function makeAllocations(freeText: string, channel: ChannelProfile, songCount: n
   const introIds = introTexturesForArchetype(channel.archetype || 'senior-morning').map(texture => texture.id);
   const hookIds = hookDevices.map(device => device.id);
   const structureIds = ADULT_STRUCTURE_TEMPLATE_IDS;
-  const genreAllocation = applyPrimaryGenreMinShare(allocateGenreCounts(genreIds, songCount, protectedGenreIds), channel, songCount);
+  // 지시문 76 (TASK A) — en-chillhop만 평평 배분. 주 3회 × 12곡 운영에서
+  // §7이 요구하는 "장르당 1.5회 이하"는 chooseGenreIds가 8~9종을 골라도
+  // 순위 가중 배분이 뒤쪽을 0곡으로 떨어뜨리면 달성되지 않는다(실측:
+  // 8종을 골라도 실제로 쓰인 건 4종, 각 3곡). allocateGenreCounts의
+  // evenSpread 문서 주석에 배분 수치를 적어 뒀다. 다른 워크스페이스는
+  // 이 인자를 받지 않으므로 배분이 한 곡도 바뀌지 않는다(§10).
+  const genreAllocation = applyPrimaryGenreMinShare(
+    allocateGenreCounts(genreIds, songCount, protectedGenreIds, { evenSpread: isEnChillhopArchetype(channel.archetype), keepSingletons: isEnChillhopArchetype(channel.archetype) }),
+    channel,
+    songCount
+  );
 
   return [
     {

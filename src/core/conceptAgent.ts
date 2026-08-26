@@ -214,11 +214,28 @@ function genreRoleKo(index: number): string {
  * protected id can still receive a merge (gain a song), it just can never
  * be the one silently zeroed out.
  */
-export function allocateGenreCounts(genreIds: string[], songCount: number, protectedIds: string[] = []): GenreAllocationSlot[] {
+/**
+ * 지시문 76 (TASK A) — `evenSpread`는 순위 가중치를 끄고 모든 장르에 같은
+ * 몫을 준다.
+ *
+ * 기본 가중치는 `poolSize - index`라 앞쪽에 몰린다. 실측: 12곡 8장르면
+ * floor 배분이 3,3,3,1,1,1,**0,0**이 되어 뒤 두 장르가 0곡으로 탈락하고
+ * 결국 4~5종만 쓰인다 — 후보를 9종으로 늘려도(브리지) 반복이 줄지 않던
+ * 진짜 원인이 이 배분이었다. 평평하게 주면 12곡/8장르가 2,2,2,2,1,1,1,1로
+ * 나뉘어 장르당 1.5회가 된다(§7 목표).
+ *
+ * 기본값은 false — 다른 워크스페이스의 배분은 한 곡도 바뀌지 않는다.
+ */
+export function allocateGenreCounts(
+  genreIds: string[],
+  songCount: number,
+  protectedIds: string[] = [],
+  options: { evenSpread?: boolean; keepSingletons?: boolean } = {}
+): GenreAllocationSlot[] {
   if (!genreIds.length || songCount <= 0) return [];
   const cap = genreAllocationCap(songCount);
   const poolSize = genreIds.length;
-  const weights = genreIds.map((_, index) => poolSize - index);
+  const weights = genreIds.map((_, index) => (options.evenSpread ? 1 : poolSize - index));
   const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
   const counts = weights.map(weight => Math.floor((weight / totalWeight) * songCount));
 
@@ -257,7 +274,13 @@ export function allocateGenreCounts(genreIds: string[], songCount: number, prote
     overflow -= 1;
   }
 
-  const finalCounts = enforceMinimumGenreCount(counts, cap, genreIds, protectedIds);
+  // 지시문 76 (TASK A) — keepSingletons가 서면 1곱짜리 장르 정리를 건너뛴다.
+  // enforceMinimumGenreCount는 "한 번만 나오는 장르는 빼고 다른 장르에 몰아준다"는
+  // 규칙인데, 이것이 주 3회 운영의 목표(장르당 1.5회 이하)와 정면으로
+  // 부딪힌다 — 실측: 12곱 8장르의 [2,2,2,2,1,1,1,1]을 이 함수가
+  // [3,3,3,3,0,0,0,0]으로 되돌려 실제로 쓰이는 장르가 4종으로 떨어졌다.
+  // 기본값 false — 다른 워크스페이스는 이 규칙을 그대로 유지한다.
+  const finalCounts = options.keepSingletons ? counts : enforceMinimumGenreCount(counts, cap, genreIds, protectedIds);
   return genreIds
     .map((id, index) => ({ genreId: id, songCount: finalCounts[index], roleKo: genreRoleKo(index) }))
     .filter(slot => slot.songCount > 0);

@@ -186,8 +186,10 @@ describe('[지시문75 TASK D] 등록', () => {
     }
   });
 
-  it('보컬 프리셋 수는 그대로다 (§8 회귀 금지)', () => {
-    expect(suitablePresetsForArchetype('en-chillhop')).toHaveLength(8);
+  it('다른 아키타입의 보컬 프리셋 수는 그대로다 (§8 회귀 금지)', () => {
+    // 지시문 76 (TASK B)이 en-chillhop만 8 → 12로 늘렸다(주 3회 운영에서
+    // 장르보다 보컬이 먼저 병목이 된다는 §1.3 실측). 나머지 셋은 그때도
+    // 회귀 금지선이라 여기서 계속 고정한다.
     expect(suitablePresetsForArchetype('oldpop-lounge')).toHaveLength(6);
     expect(suitablePresetsForArchetype('kr-2030-pop')).toHaveLength(7);
     expect(suitablePresetsForArchetype('kr-kids-song')).toHaveLength(10);
