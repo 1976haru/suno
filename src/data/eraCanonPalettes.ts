@@ -812,6 +812,62 @@ export const ERA_CANON_PALETTES: EraCanonPalette[] = [
     // 포 온 더 플로어 — 이 팔레트만 driving이다.
     percussionStyle: 'driving',
     koreanReferenceNote: '따뜻한 아날로그 계열 딥하우스·UK 개러지 스윙 — 필터 스윕과 롱 빌드 중심'
+  },
+  /*
+   * 지시문 75 (TASK A §3.4) — 신설 칠·라운지 3종을 위한 별도 팔레트.
+   *
+   * §3.4는 먼저 canon-deep-house-club의 fitsGenreIds에 3종을 추가할 것을
+   * 지시하되, "그 팔레트의 productionTraits가 클럽 중심이면 별도 팔레트가
+   * 필요한지 판단"하라고 했다. 판단 결과 **별도 팔레트가 필요하다**:
+   *
+   *   canon-deep-house-club.productionTraits 3개 중 2개가 이 3종의 정의와
+   *   정면으로 부딪힌다.
+   *     'dry tight club low end with the kick and sub locked together'
+   *       ↔ en-chill-house-emotional의 'wide soft-focus reverb bed',
+   *         en-lounge-house의 avoidTraits 'night-club low end'
+   *     'sixteen-bar build and drop shaping the whole track'
+   *       ↔ en-chill-house-emotional의 'never lifts into a drop',
+   *         en-chill-deep-house의 avoidTraits 'build-and-drop arrangement'
+   *
+   * 지시문 74 (TASK B-1)이 productionTraits를 **항상 2개** 뽑도록 고정했으므로
+   * 붙이기만 하면 곡마다 클럽 원자 2개가 장르 정의와 싸우게 된다. vocalTraits
+   * 'hook phrase repeated as a chopped sample rather than sung through'도
+   * en-chill-house-emotional의 "가사가 이야기를 전달한다"와 반대다.
+   *
+   * vocalTraits에 성별 단어를 쓰지 않는다(지시문 74 TASK B-6) —
+   * tests/eraCanonPaletteVocalPractice.test.ts가 detectVocalGender로 검증한다.
+   */
+  {
+    id: 'canon-chill-lounge-house',
+    labelKo: '칠·라운지 하우스',
+    eraTag: '2010s-2020s chill and lounge house',
+    fitsGenreIds: ['en-chill-house-emotional', 'en-chill-deep-house', 'en-lounge-house'],
+    instrumentation: [
+      'electric piano chord loop left running underneath',
+      'nylon-string guitar figure played close to the bridge',
+      'vibraphone accent marking the phrase ends',
+      'brushed percussion in place of a hard closed hat'
+    ],
+    harmonyTraits: [
+      'two- or four-chord loop resolving the same way each turn',
+      'major seventh and ninth colors held without moving',
+      'suspended chord left hanging under the melody'
+    ],
+    vocalTraits: [
+      'lead sung at conversational volume rather than projected',
+      'diction kept plain so the words carry on first listen',
+      'short phrase reused as one more layer of the loop',
+      // 지시문 74 (TASK B-3) — 여기서부터는 음색이 아니라 녹음 관행이다.
+      'sung in one pass with the loop running, timing left as played',
+      'breaths and consonant edges left in rather than edited out'
+    ],
+    productionTraits: [
+      'wide soft-focus reverb bed with no hard transient edge',
+      'one level held from the first bar to the last',
+      'natural instrument tone left intact rather than compressed flat'
+    ],
+    percussionStyle: 'brushed',
+    koreanReferenceNote: '클럽이 아닌 배경음악·서사·낮 시간대 지향의 칠/라운지 하우스 — 한 레벨로 유지되고 절정을 만들지 않는다'
   }
 ];
 

@@ -1415,20 +1415,30 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   {
     id: 'situ-reunion',
     patterns: [/재회/, /다시\s*만난/],
-    genreWeights: { 'oldpop-close-harmony-duo': 2, 'retro-soul-pop': 2 },
+    // 지시문 75 (TASK C) — 이 세 규칙은 archetypeScope가 ADULT_ARCHETYPES라
+    // en-chillhop에도 적용되지만, genreWeights가 senior-oldpop 장르만 담고
+    // 있어 conceptAgent의 `coreGenreIds.has(id)` 필터에서 전부 걸러졌다 —
+    // 실측 결과 이 워크스페이스에서 감정 서사 컨셉의 장르 신호가 **0**이었고,
+    // 그래서 15종 균등 배분으로 떨어져 vocal-anthem(euphoric/anthemic)이
+    // 다른 장르와 같은 확률로 뽑히고 있었다. §5가 지목한 결함이 이것이다.
+    //
+    // 새 규칙을 만들지 않고(§5 "새 규칙을 남발하지 말 것") 기존 규칙의
+    // genreWeights에 en-chillhop 장르만 더한다. 다른 워크스페이스는 같은
+    // coreGenreIds 필터로 이 두 id를 무시하므로 영향이 없다.
+    genreWeights: { 'oldpop-close-harmony-duo': 2, 'retro-soul-pop': 2, 'en-chill-house-emotional': 3, 'en-deep-house-melodic': 2 },
     moodWeights: { nostalgic: 1 },
     archetypeScope: ADULT_ARCHETYPES
   },
   {
     id: 'situ-breakup-senior',
     patterns: [/이별/, /헤어지고/, /헤어진\s*후/, /\bbreakup\b/i],
-    genreWeights: { 'oldpop-rainy-ballad-blues': 3, 'piano-ballad': 2 },
+    genreWeights: { 'oldpop-rainy-ballad-blues': 3, 'piano-ballad': 2, 'en-chill-house-emotional': 3, 'en-deep-house-melodic': 2 },
     archetypeScope: ADULT_ARCHETYPES
   },
   {
     id: 'situ-confession',
     patterns: [/고백하는/, /고백/, /\bconfession\b/i],
-    genreWeights: { 'oldpop-soft-duet-80s': 2, chanson: 1 },
+    genreWeights: { 'oldpop-soft-duet-80s': 2, chanson: 1, 'en-chill-house-emotional': 3, 'en-deep-house-melodic': 2 },
     archetypeScope: ADULT_ARCHETYPES
   },
   {
@@ -1903,6 +1913,42 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
     id: 'enchillhop-deep-house-melodic',
     patterns: [/멜로딕\s*하우스/, /melodic\s*house/i],
     genreWeights: { 'en-deep-house-melodic': 4 },
+    archetypeScope: ['en-chillhop'],
+    axis: 'genre'
+  },
+  /*
+   * 지시문 75 (TASK B) — 신설 칠·라운지 3종의 지목 규칙.
+   *
+   * 가중치를 5로 두는 이유: conceptAgent는 매칭된 모든 규칙의 genreWeights를
+   * **합산**한다. '칠 딥하우스'/'chill deep house'는 이름에 딥하우스가 들어
+   * 있어 위 enchillhop-deep-house(포괄어) 규칙에도 함께 걸리고, 그 규칙이
+   * melodic/organic에 3을 준다. 5면 그 3을 확실히 넘는다. §4.2가 "포괄어
+   * 규칙에 신설 3종을 추가하지 말 것"이라고 못박았으므로 포괄어 쪽을 고쳐
+   * 해결하지 않고 이쪽 가중치로 해결한다.
+   *
+   * 넣지 않은 패턴(§4.1 주의): 단독 '하우스'/'house'(지시문 71 §5.2·73의
+   * 판단 유지), 단독 '감성'(한국어에서 대단히 흔하다 — '감성적인 노래'가
+   * 걸린다), 단독 '라운지'(smooth-jazz-lounge 등 다른 워크스페이스 장르와
+   * 충돌한다). 셋 다 결합형으로만 받는다.
+   */
+  {
+    id: 'enchillhop-chill-house-emotional',
+    patterns: [/칠\s*하우스/, /chill\s*house/i, /감성\s*하우스/, /이모셔널\s*하우스/, /emotional\s*house/i],
+    genreWeights: { 'en-chill-house-emotional': 5 },
+    archetypeScope: ['en-chillhop'],
+    axis: 'genre'
+  },
+  {
+    id: 'enchillhop-chill-deep-house',
+    patterns: [/칠\s*딥\s*하우스/, /chill\s*deep\s*house/i],
+    genreWeights: { 'en-chill-deep-house': 5 },
+    archetypeScope: ['en-chillhop'],
+    axis: 'genre'
+  },
+  {
+    id: 'enchillhop-lounge-house',
+    patterns: [/라운지\s*하우스/, /lounge\s*house/i],
+    genreWeights: { 'en-lounge-house': 5 },
     archetypeScope: ['en-chillhop'],
     axis: 'genre'
   },

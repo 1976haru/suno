@@ -86,6 +86,11 @@ export const ERA_BUCKETS_BY_GENRE_ID: Record<string, EraBucket[]> = {
   'en-deep-house-vocal-anthem': ['2010s', '2020s'],
   'en-deep-house-tech-groove': ['2010s', '2020s'],
   'en-deep-house-soulful': ['2010s', '2020s'],
+  // 지시문 75 (TASK A) — 신설 칠·라운지 3종. 기존 하우스 6종과 같은 판정
+  // 근거(2010년대 이후 프로덕션 미학)라 같은 버킷을 쓴다.
+  'en-chill-house-emotional': ['2010s', '2020s'],
+  'en-chill-deep-house': ['2010s', '2020s'],
+  'en-lounge-house': ['2010s', '2020s'],
   'oldpop-brill-building': ['1950s', '1960s'],
   'oldpop-girl-group-wall': ['1960s'],
   'oldpop-sunshine-pop': ['1960s'],
@@ -504,6 +509,10 @@ export const ERA_NOTE_KO_BY_GENRE_ID: Record<string, string> = {
   'en-deep-house-vocal-anthem': '보컬 앤섬 딥하우스 — 110-120 BPM 사이드체인 펌핑 그루브의 보컬 훅 중심 딥하우스 리바이벌이 2010년대 이후 프로덕션 미학이라 era-neutral이 아닌 2010s-2020s로 판정',
   'en-deep-house-tech-groove': '테크 그루브 딥하우스 — 115-125 BPM 미니멀 테크하우스 리바이벌이 2010년대 이후 프로덕션 미학이라 era-neutral이 아닌 2010s-2020s로 판정',
   'en-deep-house-soulful': '소울풀 딥하우스 — 108-116 BPM 가스펠톤 소울하우스 리바이벌이 2010년대 이후 프로덕션 미학이라 era-neutral이 아닌 2010s-2020s로 판정',
+  // 지시문 75 (TASK A)
+  'en-chill-house-emotional': '이모셔널 칠 하우스 — 100-112 BPM, 빌드-드롭 없이 한 레벨로 유지하는 서사 동반용 하우스로, 2010년대 이후 프로덕션 미학이라 era-neutral이 아닌 2010s-2020s로 판정',
+  'en-chill-deep-house': '칠 딝하우스 — 104-114 BPM, 루프가 앞서고 킹이 받치는 배경음악용 하우스로, 2010년대 이후 프로덕션 미학이라 era-neutral이 아닌 2010s-2020s로 판정',
+  'en-lounge-house': '라운지 하우스 — 98-110 BPM, 라운지 편성(전기피아노·나일론 기타·비브라폰)을 올린 낮 시간대 하우스로, 2010년대 이후 프로덕션 미학이라 era-neutral이 아닌 2010s-2020s로 판정',
   'oldpop-brill-building': '브릴 빌딩 사운드 — 1950년대 말~1960년대 초 뉴욕 브릴 빌딩 작곡 시스템의 팝 스타일',
   'oldpop-girl-group-wall': '걸그룹 사운드 + 월 오브 사운드 — 1960년대 초중반 필 스펙터 계열 프로덕션',
   'oldpop-sunshine-pop': '선샤인 팝 — 1960년대 중후반 캘리포니아 팝의 대표 스타일',
