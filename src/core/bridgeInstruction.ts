@@ -597,7 +597,15 @@ function fastTrackSectionFloorCallouts(slots: PreassignedSongSlot[]): string[] {
         : '';
       return `- Track ${slot.trackNo} — ${slot.tempo} BPM: MUST have at least ${sMin} sections (target ${sMin}-${sMax}).${spineNote}`;
     }),
-    'A club-tempo shape that reaches the floor naturally, for reference rather than transcription: build-up intro, verse, pre-chorus, chorus/drop, breakdown, verse, chorus, instrumental break, bridge, final chorus, outro. Long instrumental stretches are idiomatic at these tempos — adding them makes the track MORE genre-true, not padded. For a genre whose vocal is defined as a minimal spoken-word stab rather than a full lyric lead, lean further still toward instrumental sections.'
+    'A club-tempo shape that reaches the floor naturally, for reference rather than transcription: build-up intro, verse, pre-chorus, chorus/drop, breakdown, verse, chorus, instrumental break, bridge, final chorus, outro. Long instrumental stretches are idiomatic at these tempos — adding them makes the track MORE genre-true, not padded. For a genre whose vocal is defined as a minimal spoken-word stab rather than a full lyric lead, lean further still toward instrumental sections.',
+    // 지시문 74 §1.2/§1.3 — 외부 실험에서 확인된 부분: 간주 태그에 마디 수를
+    // 적어 두면 Suno가 그 섹션 길이를 추측하지 않는다(그 세트는 11~12섹션에
+    // 마디 수를 명시해 3:31~3:42로 나왔다). 가사에 쓰는 것이라 stylePrompt
+    // 단어 수(§3.3 상한)에는 영향이 없고, 섹션 태그는 가사 단어 수 집계에서도
+    // 빠진다. 빠른 대역 블록에만 넣는다 — §9 "95 BPM 이하 곡의 섹션 구조를
+    // 바꾸지 말 것". 보컬 섹션까지 마디를 박으면 노래가 그 길이에 맞춰 잘릴 수
+    // 있어 간주 섹션으로 한정한다.
+    'Write the bar count into the tag of every INSTRUMENTAL-only section on these tracks — "[Instrumental Break - 12 bars]", "[Intro - 12 bars instrumental]", "[Breakdown - 8 bars]", "[Outro - 12 bars]". That is what stops Suno guessing how long an instrumental stretch should be, and it is the single change that moved a measured rewrite of this kind from ~2:00 to 3:31-3:42. Leave the sung sections\' tags plain ("[Verse 1]", "[Chorus]") — a bar count on a vocal section can cut the singing short.'
       ];
 }
 

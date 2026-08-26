@@ -168,3 +168,32 @@ describe('[지시문74 TASK C] 브릿지 지시문 — 낭비 세 유형 금지 
     expect(text).toMatch(/moneyChordText/);
   });
 });
+
+describe('[지시문74 TASK A §1.2] 브릿지 지시문 — 간주 태그 마디 수 명시', () => {
+  const houseChannel = channelPresets.find(c => c.id === 'after-hours-deep-house')!;
+  const houseGenres = genrePacks.filter(g => houseChannel.preferredGenres.includes(g.id));
+  const houseOpts = makeOptions({ channel: houseChannel, songCount: 12, genreIds: houseChannel.preferredGenres });
+  const houseText = buildClaudeCodeInstruction(
+    houseOpts, houseGenres, moodPacks.slice(0, 2), testSeason, undefined, preallocateSongSlots(houseOpts, houseGenres)
+  );
+
+  it('빠른 대역 팩에는 간주 태그에 마디 수를 적으라는 지시가 나간다', () => {
+    expect(houseText).toContain('Write the bar count into the tag of every INSTRUMENTAL-only section');
+    expect(houseText).toContain('[Instrumental Break - 12 bars]');
+  });
+
+  it('보컬 섹션 태그는 그대로 두라고 함께 적혀 있다 — 마디 수가 노래를 자를 수 있다', () => {
+    expect(houseText).toContain('Leave the sung sections\' tags plain');
+  });
+
+  it('96 BPM 이상 트랙이 없는 팩에는 이 지시가 나가지 않는다 (§9 회귀 금지)', () => {
+    const seniorChannel = channelPresets.find(c => c.id === 'good-morning-memory-radio')!;
+    const seniorGenres = genrePacks.filter(g => seniorChannel.preferredGenres.includes(g.id));
+    const seniorMoods = moodPacks.slice(0, 2);
+    const opts = makeOptions({ channel: seniorChannel, songCount: 18, genreIds: seniorChannel.preferredGenres, moodIds: seniorMoods.map(m => m.id) });
+    const slots = preallocateSongSlots(opts, seniorGenres)
+      .map(slot => ({ ...slot, tempo: Math.min(slot.tempo, 95), sectionCountRange: [5, 6] as [number, number] }));
+    const text = buildClaudeCodeInstruction(opts, seniorGenres, seniorMoods, testSeason, undefined, slots);
+    expect(text).not.toContain('Write the bar count into the tag');
+  });
+});
