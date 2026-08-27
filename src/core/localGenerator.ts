@@ -20,7 +20,7 @@ import { applySlotOrderOverride } from './slotOrderOverride';
 import { AI_DISCLOSURE_LINE, sanitizePublicYoutubeTags } from './exportCompliance';
 import { isKidsArchetype } from '../utils/channelArchetype';
 import { matchVocalPreset, vocalPresets, type VocalPreset } from '../data/vocalPresets';
-import { applyVocalOnsetPhrasing, buildConceptVocalPresetPlan, resolveConceptVocalIntent } from './conceptVocalPlan';
+import { applyVocalOnsetPhrasing, buildConceptVocalPresetPlan, conceptVocalExclusionTerms, resolveConceptVocalIntent } from './conceptVocalPlan';
 import { eraBucketForGenreId, ERA_FORBIDDEN_DESCRIPTORS } from '../data/eraExclusions';
 import { PROXIMITY_POOL } from '../data/vocalTraits';
 import { buildHookDevicePlan, hookDeviceIdsForNarrative } from './hookDevicePlan';
@@ -2019,8 +2019,10 @@ export function generateLocalBlueprint(
     // bridgeInstruction.ts's vocabularyBankInstructionLineFor), not meant to
     // become a hard Suno Exclude-field entry for every adult track.
     const excludePrompt = isKidsArchetype(opts.channel.archetype) && sceneVocabularyBank.avoid.length
-      ? mergeNegativeStyleText(buildExcludePrompt(opts, trackGenres, killingPoint?.relaxes), sceneVocabularyBank.avoid.join(', '))
-      : buildExcludePrompt(opts, trackGenres, killingPoint?.relaxes);
+      // 지시문 77 (TASK C-4.3) — 이 트랙에 실제로 발성이 적용됐을 때만
+      // 반대편을 배제한다(충돌로 배정이 취소된 트랙에는 걸지 않는다).
+      ? mergeNegativeStyleText(buildExcludePrompt(opts, trackGenres, killingPoint?.relaxes, conceptPresetForTrack ? conceptVocalExclusionTerms(conceptVocalIntent) : []), sceneVocabularyBank.avoid.join(', '))
+      : buildExcludePrompt(opts, trackGenres, killingPoint?.relaxes, conceptPresetForTrack ? conceptVocalExclusionTerms(conceptVocalIntent) : []);
     // TASK v3.67 (TASK D follow-up) — a killing point relaxing "predictable
     // diatonic phrase structure" should not sit next to an earworm variant
     // that IS a predictable-cadence phrase; nudge to the adjacent rotation
@@ -2296,7 +2298,20 @@ export function generateLocalBlueprint(
           // 하드 예산 압박 시에만 쓰이므로 이 자리에서는 완전 보장이
           // 아니라 최선 노력이다(전체 폼에서는 항상 실린다).
           const floorClause = channelVocalFloor ? channelVocalFloor.requiredTraits[Math.abs(seed + idx * 53) % channelVocalFloor.requiredTraits.length] : undefined;
-          const priority = [genderClause, flagshipClause, floorClause, segments[0]].filter((value, i, arr): value is string => Boolean(value) && arr.indexOf(value) === i);
+          // 지시문 77 (TASK C) — 컨셉이 지목한 발성의 onset 절. 실측: 이
+          // 보호가 없으면 vocalDescriptionText에는 들어가는데 shortForm의
+          // "앞 2개" 컷에서 그대로 잘려 stylePrompt에 한 번도 도달하지
+          // 않았다 — §4.1이 지적한 "프리셋만 바뀌고 프롬프트 문구는 그대로"
+          // 상태와 결과가 같아진다. genderClause/flagshipClause가 정확히
+          // 같은 이유로 보호된 자리(v4.7 doc comment 둘)에 끼워 넣되,
+          // 그 둘의 순서는 건드리지 않는다(tests/v380.test.ts가 검증한다).
+          // floorClause보다 앞이다 — floor는 이 자리에서 원래 "완전 보장이
+          // 아니라 최선 노력"이라고 자기 주석이 명시한 항목이고, onset은
+          // 이 곡에 대한 사용자의 명시적 컨셉 지목이다.
+          const onsetClause = conceptVocalIntent && conceptPresetForTrack
+            ? segments.find(segment => conceptVocalIntent.family.onsetClauses.some(clause => clause.toLowerCase() === segment.toLowerCase()))
+            : undefined;
+          const priority = [genderClause, flagshipClause, onsetClause, floorClause, segments[0]].filter((value, i, arr): value is string => Boolean(value) && arr.indexOf(value) === i);
           const kept = priority.slice(0, 2);
           return [kept.join(', '), audienceProfile.constraints[0]].filter(Boolean).join(', ');
         })()

@@ -1070,8 +1070,9 @@ export function preallocateSongSlots(
     // v5.10 (TASK H) — kids-only: also merges sceneVocabularyBank.avoid, same
     // reasoning/gating as localGenerator.ts's identical excludePrompt change.
     const negativeStyleText = isKidsArchetype(opts.channel.archetype) && sceneVocabularyBank.avoid.length
-      ? mergeNegativeStyleText(buildExcludePrompt(opts, trackGenres, killingPoint?.relaxes), sceneVocabularyBank.avoid.join(', '))
-      : buildExcludePrompt(opts, trackGenres, killingPoint?.relaxes);
+      // 지시문 77 (TASK C-4.3) — localGenerator.ts의 동일 처리 참고.
+      ? mergeNegativeStyleText(buildExcludePrompt(opts, trackGenres, killingPoint?.relaxes, conceptPresetForTrack ? conceptVocalExclusionTerms(conceptVocalIntent) : []), sceneVocabularyBank.avoid.join(', '))
+      : buildExcludePrompt(opts, trackGenres, killingPoint?.relaxes, conceptPresetForTrack ? conceptVocalExclusionTerms(conceptVocalIntent) : []);
     // TASK v3.67 (TASK D follow-up) — mirrors localGenerator.ts's own
     // predictable-cadence nudge: don't hand a relaxed track an earworm
     // phrase that IS the thing it was just given permission to break.

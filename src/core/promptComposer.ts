@@ -772,7 +772,13 @@ export function buildExcludePrompt(
    * stays in the exclude text regardless of what this list contains.
    * Undefined/empty behaves exactly as before this task.
    */
-  relaxedExclusions: readonly string[] = []
+  relaxedExclusions: readonly string[] = [],
+  /**
+   * 지시문 77 (TASK C-4.3) — 이 곡에 적용된 발성 계열의 반대편 배제어.
+   * buildNegativePromptSpec이 trimmable arrangement 티어 맨 앞에 넣으므로,
+   * 총량은 늘지 않고 같은 티어의 덜 중요한 항목이 밀려난다.
+   */
+  conceptVocalExclusions: readonly string[] = []
 ): string {
   // 지시문 09 (TASK C-2) — core/negativePromptSpec.ts's buildNegativePromptSpec
   // existed but nothing built the exclude-prompt text FROM it — this
@@ -787,7 +793,7 @@ export function buildExcludePrompt(
   // that real protection rather than replacing it — matching this
   // directive's own "09는 호출되게까지만, 권위화는 10에서" scoping for
   // promptSpec.ts, applied the same way here.
-  const spec = buildNegativePromptSpec(opts, genres, relaxedExclusions);
+  const spec = buildNegativePromptSpec(opts, genres, relaxedExclusions, conceptVocalExclusions);
   const alwaysKeepText = mergeNegativeStyleText(
     spec.copyright.join(', '),
     spec.user.join(', '),

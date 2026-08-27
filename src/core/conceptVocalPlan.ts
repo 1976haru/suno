@@ -80,7 +80,7 @@ export const VOCAL_FAMILIES: Record<VocalFamilyId, VocalFamily> = {
     labelKo: '숨소리 섞인 발성',
     onsetClauses: ['soft glottal onset', 'audible breath between phrases, never pushed'],
     redundantClausePattern: /^(?:.*\b(?:whisper-soft|breathy|airy breath|just above a whisper|half-whispered|breath-forward)\b.*)$/i,
-    excludeTerms: ['belted chorus', 'chest-heavy projection', 'pressed vocal tone', 'hard glottal attack', 'loud sustained power notes'],
+    excludeTerms: ['belted chorus', 'chest-heavy projection', 'hard glottal attack'],
     conflictingGenreWording: /\b(?:powerful|belted|big[- ]voiced|full[- ]throated|gospel-style|anthemic|soaring|full sung chorus|diva)\b/i
   },
   belted: {
@@ -88,7 +88,7 @@ export const VOCAL_FAMILIES: Record<VocalFamilyId, VocalFamily> = {
     labelKo: '힘 있게 뻗는 발성',
     onsetClauses: ['firm glottal closure', 'sustained chest projection through the hook'],
     redundantClausePattern: /^(?:.*\b(?:powerful|projected|full-voiced|belted|expressive but controlled runs)\b.*)$/i,
-    excludeTerms: ['breathy half-voice', 'whispered delivery', 'airy unsupported tone', 'vocal fry onset'],
+    excludeTerms: ['breathy half-voice', 'whispered delivery', 'airy unsupported tone'],
     conflictingGenreWording: /\b(?:whisper|breathy|hushed|half-whispered|murmured|spoken-word|barely above a whisper)\b/i
   },
   clean: {
