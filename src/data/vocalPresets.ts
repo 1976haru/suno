@@ -147,8 +147,8 @@ export const vocalPresets: VocalPreset[] = [
     id: 'warm-mature-male',
     label: '따뜻한 중년 남성',
     sublabel: 'Warm mature male',
-    description: '추억 라디오 DJ 같은 편안한 목소리예요.',
-    prompt: 'mature soulful male tenor, soft slightly husky close-mic delivery, gentle and sincere',
+    description: '음을 부드럽게 열고 들어가는, 살짝 쉰 듯한 라디오 DJ 목소리예요.',
+    prompt: 'mature soulful male tenor, soft slightly husky close-mic delivery, soft glottal onset, gentle',
     gender: 'male',
     suitedArchetypes: ['senior-morning', 'showa-70s', 'oldpop-lounge', 'christmas']
   },
@@ -156,8 +156,8 @@ export const vocalPresets: VocalPreset[] = [
     id: 'low-calm-male',
     label: '낮고 차분한 남성',
     sublabel: 'Low calm male',
-    description: '늦은 밤 어울리는 깊은 목소리예요.',
-    prompt: 'low calm male baritone, restrained emotional delivery, warm late-night tone',
+    description: '성대를 깔끔하게 붙여 흔들림 없이 부르는, 늦은 밤의 낮은 목소리예요.',
+    prompt: 'low calm male baritone, restrained emotional delivery, clean fold closure, warm late-night tone',
     gender: 'male',
     // 지시문 72 (TASK A) — 'en-chillhop' 추가: en-chillhop-vocal-floor의
     // requiredTraits(natural conversational English delivery, contemporary
@@ -169,8 +169,8 @@ export const vocalPresets: VocalPreset[] = [
     id: 'clear-light-male',
     label: '맑고 담백한 남성',
     sublabel: 'Clear light male',
-    description: '깨끗하고 편안하게 들리는 목소리예요.',
-    prompt: 'clear light male tenor, clean simple delivery, youthful and sincere',
+    description: '울림이 얼굴 앞쪽에 맺혀 또렷하게 들리는, 담백한 목소리예요.',
+    prompt: 'clear light male tenor, clean simple delivery, forward mask resonance, youthful',
     gender: 'male',
     // 지시문 72 (TASK A) — 'en-chillhop' 추가: 자연스러운 대화체 전달이라
     // en-chillhop-vocal-floor의 requiredTraits와 직접 일치, forbiddenTraits 없음.
@@ -180,8 +180,8 @@ export const vocalPresets: VocalPreset[] = [
     id: 'airy-falsetto-male',
     label: '에어리 팔세토 남성',
     sublabel: 'Airy falsetto male',
-    description: '시티팝에 어울리는 부드러운 가성이에요.',
-    prompt: 'soft male falsetto, airy head voice, smooth city-pop phrasing, light and floating',
+    description: '호흡을 세게 밀지 않는, 시티팝에 어울리는 부드러운 가성이에요.',
+    prompt: 'soft male falsetto, airy head voice, low breath pressure, smooth city-pop phrasing',
     gender: 'male',
     // 지시문 76 (TASK B) — alt-rnb·trap-soul이 이 워크스페이스의 코어라 가성 리드가
     // 장르 정의 안에 이미 있다. 프롬프트에 빈티지 크루너/오페라틱/아나운서
@@ -192,8 +192,8 @@ export const vocalPresets: VocalPreset[] = [
     id: 'smoky-jazz-male',
     label: '스모키 재즈 남성',
     sublabel: 'Smoky jazz male',
-    description: '재즈 라운지 분위기의 허스키한 목소리예요.',
-    prompt: 'smoky male baritone, relaxed jazz phrasing, lounge microphone warmth, slight rasp',
+    description: '성대 마찰이 그대로 들리는, 재즈 라운지의 허스키한 목소리예요.',
+    prompt: 'smoky male baritone, relaxed jazz phrasing, lounge microphone warmth, audible fold rasp',
     gender: 'male',
     suitedArchetypes: ['showa-cafe', 'city-night']
   },
@@ -201,8 +201,8 @@ export const vocalPresets: VocalPreset[] = [
     id: 'bright-young-male',
     label: '밝은 청년 남성',
     sublabel: 'Bright young male',
-    description: '산뜻하고 젊은 느낌의 목소리예요.',
-    prompt: 'bright young male voice, clean modern pop delivery, fresh and open tone',
+    description: '앞쪽 공명으로 산뜻하게 뻗는, 젊은 느낌의 목소리예요.',
+    prompt: 'bright young male voice, clean modern pop delivery, forward mask resonance, open',
     gender: 'male',
     // 지시문 72 (TASK A) — 'en-chillhop' 추가: "clean modern pop delivery"가
     // 바닥의 contemporary urban vocal placement와 직접 일치.
@@ -212,8 +212,8 @@ export const vocalPresets: VocalPreset[] = [
     id: 'whisper-male',
     label: '속삭이는 남성',
     sublabel: 'Whisper male',
-    description: '수면·집중 콘텐츠에 어울리는 낮은 속삭임이에요.',
-    prompt: 'soft male voice just above a whisper, intimate close-mic breath, very gentle and slow',
+    description: '성대를 다 닫지 않고 공기를 섞어 내는, 수면·집중용 낮은 속삭임이에요.',
+    prompt: 'soft male voice just above a whisper, intimate close-mic breath, soft glottal onset',
     gender: 'male',
     // 지시문 76 (TASK B) — lofi-study·modern-chill이 이미 붙은 현대 친밀형 목소리로,
     // 이 워크스페이스의 lofi-hiphop-study·chill-rap과 같은 결이다.
@@ -223,8 +223,8 @@ export const vocalPresets: VocalPreset[] = [
     id: 'soft-female',
     label: '부드러운 여성',
     sublabel: 'Soft female',
-    description: '찻집에서 흐르는 잔잔한 목소리예요.',
-    prompt: 'soft warm female alto, gentle breathy delivery, intimate and calm',
+    description: '공기 반 소리 반으로 낮게 내려놓는, 찻집에 흐르는 잔잔한 목소리예요.',
+    prompt: 'soft warm female alto, gentle breathy delivery, low breath pressure, calm',
     gender: 'female',
     // 지시문 76 (TASK B) — 이미 lofi-study에 붙어 있는 현대 침착형 음색이고,
     // 프롬프트에 시대 표지(크루너·아나운서)가 없다.
@@ -234,8 +234,8 @@ export const vocalPresets: VocalPreset[] = [
     id: 'mature-female',
     label: '성숙한 여성',
     sublabel: 'Mature female',
-    description: '우아하고 안정적인 목소리예요.',
-    prompt: 'mature elegant female mezzo-soprano, warm restrained delivery, sophisticated tone',
+    description: '성대를 정확히 붙여 흔들림이 없는, 우아하고 안정적인 목소리예요.',
+    prompt: 'mature elegant female mezzo-soprano, warm restrained delivery, clean fold closure',
     gender: 'female',
     suitedArchetypes: ['senior-morning', 'showa-cafe', 'showa-70s', 'oldpop-lounge', 'christmas', 'kr-2030-pop']
   },
@@ -243,8 +243,8 @@ export const vocalPresets: VocalPreset[] = [
     id: 'bright-clear-female',
     label: '맑고 밝은 여성',
     sublabel: 'Bright clear female',
-    description: '종소리처럼 또렷하고 밝은 목소리예요.',
-    prompt: 'bright clear female soprano, bell-like clarity, light and uplifting delivery',
+    description: '울림이 앞쪽에 맺혀 종소리처럼 또렷한, 밝은 목소리예요.',
+    prompt: 'bright clear female soprano, bell-like clarity, forward mask resonance, uplifting',
     gender: 'female',
     // 지시문 72 (TASK A) — 'en-chillhop' 추가: "light and uplifting delivery"가
     // en-deep-house-melodic 등 보컬 훅이 분명한 하우스 장르와 잘 맞는다.
@@ -255,8 +255,8 @@ export const vocalPresets: VocalPreset[] = [
     id: 'husky-jazz-female',
     label: '허스키 재즈 여성',
     sublabel: 'Husky jazz female',
-    description: '쇼와 카페·시티팝에 어울리는 음색이에요.',
-    prompt: 'husky female alto, smoky jazz phrasing, laid-back swing feel, warm lower register',
+    description: '성대 마찰이 섞여 거친, 쇼와 카페·시티팝에 어울리는 음색이에요.',
+    prompt: 'husky female alto, audible fold rasp, smoky jazz phrasing, laid-back swing feel',
     gender: 'female',
     // 지시문 76 (TASK B) — §3.2가 "넣으려면 근거를 명시하라"고 지목한 둘 중 하나.
     // 프롬프트는 'husky female alto, smoky jazz phrasing, laid-back swing feel'로,
@@ -271,8 +271,8 @@ export const vocalPresets: VocalPreset[] = [
     id: 'airy-whisper-female',
     label: '속삭이는 여성',
     sublabel: 'Airy whisper female',
-    description: '수면·휴식 콘텐츠용 에어리한 목소리예요.',
-    prompt: 'soft female voice just above a whisper, airy breath tone, slow intimate delivery',
+    description: '음 시작을 공기로 여는, 수면·휴식 콘텐츠용 에어리한 목소리예요.',
+    prompt: 'soft female voice just above a whisper, airy breath tone, soft glottal onset',
     gender: 'female',
     // 지시문 72 (TASK A) — 'en-chillhop' 추가: trap-soul("sparse... doubled
     // intimate vocal")/lofi-hiphop-study("optional soft hook vocal kept low")의
@@ -283,8 +283,8 @@ export const vocalPresets: VocalPreset[] = [
     id: 'bright-young-female',
     label: '밝은 청년 여성',
     sublabel: 'Bright young female',
-    description: '산뜻하고 젊은 느낌의 목소리예요.',
-    prompt: 'bright young female voice, clean modern pop delivery, fresh and open tone',
+    description: '성대가 깔끔하게 붙어 잡음 없이 뻗는, 산뜻한 목소리예요.',
+    prompt: 'bright young female voice, clean modern pop delivery, clean fold closure, open',
     gender: 'female',
     // 지시문 72 (TASK A) — 'en-chillhop' 추가: bright-young-male과 대칭되는
     // "clean modern pop delivery"로 바닥의 contemporary urban placement와 일치.
@@ -294,8 +294,8 @@ export const vocalPresets: VocalPreset[] = [
     id: 'soulful-female',
     label: '소울풀 여성',
     sublabel: 'Soulful female',
-    description: '감정을 실어 부르는 따뜻한 목소리예요.',
-    prompt: 'soulful female voice, warm gospel-tinged phrasing, expressive but controlled runs',
+    description: '흉성과 두성을 유연하게 오가며 감정을 싣는 목소리예요.',
+    prompt: 'soulful female voice, gospel-tinged phrasing, controlled runs, flexible chest-to-head mix',
     gender: 'female',
     suitedArchetypes: ['senior-morning', 'showa-70s', 'christmas', 'kr-2030-pop']
   },
@@ -303,8 +303,8 @@ export const vocalPresets: VocalPreset[] = [
     id: 'male-female-duet',
     label: '남녀 듀엣',
     sublabel: 'Male-female duet',
-    description: '절을 주고받고 후렴에서 화음을 쌓아요.',
-    prompt: 'male and female duet, alternating verses, close harmony on the chorus, warm blended tone',
+    description: '두 사람이 음 시작을 맞춰, 절을 주고받고 후렴에서 화음을 쌓아요.',
+    prompt: 'male and female duet, alternating verses, close harmony on the chorus, matched onsets',
     gender: 'duet',
     // 지시문 38 (TASK D2) — j2000s/city-night/kr-2030-pop/jp-2030-pop 4개는
     // 태그를 하나도 안 채우면 이 4개 아키타입에 duet/mixed 계열 프리셋이
@@ -321,8 +321,8 @@ export const vocalPresets: VocalPreset[] = [
     id: 'mixed-harmony-group',
     label: '혼성 화음 그룹',
     sublabel: 'Mixed harmony group',
-    description: '작은 그룹이 부드럽게 화음을 넣어요.',
-    prompt: 'small mixed vocal group, close three-part harmony, soft blended backing, retro group feel',
+    description: '음 시작을 하나로 맞춘 작은 그룹이 부드럽게 화음을 넣어요.',
+    prompt: 'small mixed vocal group, close three-part harmony, unified soft onsets, retro group feel',
     gender: 'mixed',
     // 지시문 38 (TASK D2) — lofi-study/modern-chill도 male-female-duet과
     // 같은 이유로 혼성 후보가 필요하다: 두 아키타입 모두 보컬이 전면에
