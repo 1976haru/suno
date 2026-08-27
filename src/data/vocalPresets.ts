@@ -299,6 +299,95 @@ export const vocalPresets: VocalPreset[] = [
     gender: 'female',
     suitedArchetypes: ['senior-morning', 'showa-70s', 'christmas', 'kr-2030-pop']
   },
+  // ---------------------------------------------------------------------------
+  // 지시문 78 (TASK B) — 신설 7종. §1 실측에서 belted/dark가 성인 7개
+  // 아키타입 **전부 0종**이었고 husky는 채널당 0~1종에 기존 3종이 전부
+  // smoky jazz 문맥에 묶여 있었다. 여성 falsetto는 남성만 있었다.
+  //
+  // suitedArchetypes는 TASK C에서 채운다 — 그때까지 이 7종은
+  // suitablePresetsForArchetype 어디에도 나타나지 않는다(빈 배열 =
+  // 하드 필터에서 전부 제외, 기존 동작 완전 무변경).
+  // ---------------------------------------------------------------------------
+  {
+    // §3.2 — 기존 soulful-female의 'controlled runs, flexible chest-to-head mix'
+    // (절제·레지스터 유연성)와 명확히 구분된다: 이쪽은 성대 폐쇄와 흉성 투사다.
+    // senior-oldpop-vocal-floor의 forbiddenTraits 'aggressive belting'에 걸리지
+    // 않도록 'aggressive'/'belting' 어휘를 쓰지 않고, kr-2030/jp-2030/en-chillhop
+    // 바닥의 'operatic projection'과도 다른 흉성 기반 표현으로 썼다.
+    id: 'belted-male',
+    label: '힘 있게 뻗는 남성',
+    sublabel: 'Full-voiced male',
+    description: '후렴에서 성대를 단단히 닫고 시원하게 뻗어 올리는 목소리예요.',
+    prompt: 'full-voiced male tenor, firm glottal closure, sustained chest projection into the chorus',
+    gender: 'male',
+    suitedArchetypes: []
+  },
+  {
+    id: 'belted-female',
+    label: '힘 있게 뻗는 여성',
+    sublabel: 'Full-voiced female',
+    description: '후렴에서 흉성으로 밀어 올려 음량이 실제로 커지는 목소리예요.',
+    prompt: 'full-voiced female alto, firm glottal closure, chest-driven projection lifting the chorus',
+    gender: 'female',
+    suitedArchetypes: []
+  },
+  {
+    // §3.2 — 기존 low-calm-male은 **음역이 낮을 뿐** 공명은 warm/clean이다
+    // ('low calm male baritone, ... clean fold closure, warm late-night tone').
+    // 이쪽은 후두 위치와 인두 공명강을 지목한다 — 한국어로 흔히 "동굴 소리".
+    id: 'dark-resonant-male',
+    label: '동굴 소리 남성',
+    sublabel: 'Dark resonant male',
+    description: '후두를 낮춰 동굴처럼 울리는 어두운 목소리예요.',
+    prompt: 'male baritone with lowered larynx, deep pharyngeal resonance, dark cavernous tone',
+    gender: 'male',
+    suitedArchetypes: []
+  },
+  {
+    // §3.2 "저음과 어두움은 다른 축이다" — alto(저음역이 아님)인데 공명이
+    // 어둡다. 이 조합이 없으면 dark 축이 남성 저음의 다른 이름으로 축소된다.
+    id: 'dark-resonant-female',
+    label: '동굴 소리 여성',
+    sublabel: 'Dark resonant female',
+    description: '음역은 높아도 공명이 낮게 깔려 어둡게 울리는 목소리예요.',
+    prompt: 'female alto with lowered larynx, deep pharyngeal resonance, dark velvet tone',
+    gender: 'female',
+    suitedArchetypes: []
+  },
+  {
+    // §3.2 — 기존 허스키 3종(warm-mature-male / smoky-jazz-male /
+    // husky-jazz-female)이 전부 재즈·라운지 문맥에 묶여 있어 2030·아이돌·
+    // 칠랩에 붙일 수 없었다. 이 2종에는 jazz/lounge/smoky 어휘를 쓰지 않는다.
+    id: 'husky-grain-male',
+    label: '거친 결 남성',
+    sublabel: 'Husky grain male',
+    description: '성대 마찰이 섞인 거친 결의 목소리예요 — 장르를 가리지 않아요.',
+    prompt: 'male voice with audible fold rasp, dry grainy texture, plainspoken and direct',
+    gender: 'male',
+    suitedArchetypes: []
+  },
+  {
+    id: 'husky-grain-female',
+    label: '거친 결 여성',
+    sublabel: 'Husky grain female',
+    description: '다듬지 않은 거친 결이 그대로 남은 목소리예요 — 장르를 가리지 않아요.',
+    prompt: 'female voice with audible fold rasp, worn grainy edge, direct and unpolished',
+    gender: 'female',
+    suitedArchetypes: []
+  },
+  {
+    // §3.2 "여성 falsetto는 남성과 생리적으로 다르므로 같은 문구를 성별만
+    // 바꿔 쓰지 말 것" — airy-falsetto-male은 두성의 공기감(airy head voice,
+    // low breath pressure)을 말하고, 이쪽은 파사지오 위에서의 얇은 성대
+    // 접촉을 말한다. 겹치는 단어는 'falsetto' 하나뿐이다.
+    id: 'light-falsetto-female',
+    label: '가벼운 가성 여성',
+    sublabel: 'Light falsetto female',
+    description: '파사지오 위에서 성대를 얇게 붙여 내는 가볍고 투명한 가성이에요.',
+    prompt: 'light female falsetto above the passaggio, thin fold contact, weightless clarity',
+    gender: 'female',
+    suitedArchetypes: []
+  },
   {
     id: 'male-female-duet',
     label: '남녀 듀엣',
