@@ -629,7 +629,7 @@ export function preallocateSongSlots(
   // 전부 vocalPlan의 트랙 위치를 SWAP하므로, 그 전에 만들면 지시문 47이
   // 고쳤던 것과 정확히 같은 "인덱스 어긋남" 결함이 재발한다.
   // 이 함수는 vocalPlan을 읽기만 한다 — 성별 쿼터는 한 트랙도 바뀌지 않는다.
-  const conceptVocalPresetPlan = buildConceptVocalPresetPlan(conceptVocalIntent, vocalPlan);
+  const conceptVocalPresetPlan = buildConceptVocalPresetPlan(conceptVocalIntent, vocalPlan, genrePlan);
   // TASK v3.41 Part A2/D — mirrors vocalPlan's pre-pass shape/seed one more
   // step: which of each type's 5 wordings a given trackNo gets, so a 15-song
   // 5/5/5 kids pack no longer reuses one fixed string per type across

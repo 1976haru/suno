@@ -4,6 +4,8 @@ import { countWords, findRedundantClauses, SAFE_TARGET, splitAtoms, STYLE_CHAR_T
 import { containsBlockedStyleToken, sanitizeSunoStyleText } from './sunoSafety';
 import { detectVocalGender, detectVocalGenderPresence } from './vocalPlan';
 import { matchVocalPreset } from '../data/vocalPresets';
+import { getGenreById } from '../data/genreLibrary';
+import { detectVocalGenreConflict, VOCAL_FAMILIES } from './conceptVocalPlan';
 import { eraLyricSafetyIssues } from '../data/japaneseEraGuidance';
 import { extractContentIdFlags } from './exportCompliance';
 import { lintEnglishLyrics } from './englishLint';
@@ -634,6 +636,35 @@ export function scoreSong(song: SongIdea, channel?: ChannelProfile, language: Ly
   if (sceneContradiction) {
     pushUnique(warnings, sceneContradiction);
     score -= 5;
+  }
+
+  // 지시문 77 (TASK D) — 장르↔발성 충돌. 일부 장르는 정의 자체가 컨셉이
+  // 지목한 발성과 반대다(예: en-deep-house-soulful의 vocal 문구 "powerful
+  // soulful vocal hook riding the groove"). 그 장르에 breathy를 요구하면
+  // 프롬프트 안에서 두 지시가 싸운다 — 지시문 74가 인트로 자기모순을 잡은
+  // 것과 같은 유형이다.
+  //
+  // 방침(§5.2): **장르를 우선하고 발성 지목은 무시하되, 경고만 남긴다.**
+  // 장르가 곡의 정체성이고 발성은 그 안의 변주다 — 발성 때문에 장르가
+  // 바뀌면 세트의 대역 구성과 BPM 고정(지시문 76 TASK A)이 흔들린다.
+  // 감점하지 않는다: 사용자 입력이 서로 안 맞는 것이지 생성 결함이 아니다.
+  //
+  // 판정 기준은 **장르 자신의 vocal/styleCore 문구**다 — 하드코딩한 장르 id
+  // 목록을 쓰지 않는다(장르가 추가될 때마다 누락되는, 지시문 72·73에서
+  // 반복된 패턴). core/conceptVocalPlan.ts의 detectVocalGenreConflict가
+  // 그 단일 판정 함수다.
+  //
+  // check:vocal-genre-fit(지시문 63 TASK C)과는 축이 다르다 — 그쪽은
+  // 장르가 원하는 **성별**(dominantVocalTypeForGenre)과 실제 vocalType의
+  // 일치율이고, 이쪽은 **발성(onset)**의 방향이다. 중복 구현이 아니다.
+  if (song.conceptVocalFamilyId) {
+    const conflict = detectVocalGenreConflict(getGenreById(song.genreId ?? ''), song.conceptVocalFamilyId);
+    if (conflict) {
+      pushUnique(
+        warnings,
+        `컨셉이 지목한 ${VOCAL_FAMILIES[song.conceptVocalFamilyId].labelKo}과 이 곡의 장르(${conflict.genreLabel})가 서로 반대입니다 — 장르를 그대로 두고 발성 지목은 적용하지 않았습니다(장르 정의: "${conflict.evidence}"). 발성을 살리려면 장르를 바꾸거나 컨셉에서 발성 표현을 빼세요.`
+      );
+    }
   }
 
   // 지시문 11 (TASK A) — 관계 상태 연속성. 다른 워크스페이스의 가사에는

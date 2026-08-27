@@ -1538,7 +1538,7 @@ export function generateLocalBlueprint(
   // 지시문 77 (TASK A-2.2) — vocalPlan이 최종 확정된 뒤에 계산한다
   // (batchPreallocation.ts의 동일 지점과 같은 이유 — 위 단계들이 트랙
   // 위치를 SWAP하므로 그 전에 만들면 인덱스가 어긋난다).
-  const conceptVocalPresetPlan = buildConceptVocalPresetPlan(conceptVocalIntent, vocalPlan);
+  const conceptVocalPresetPlan = buildConceptVocalPresetPlan(conceptVocalIntent, vocalPlan, genrePlan);
   // TASK v3.41 Part A2/D — mirrors batchPreallocation.ts's own
   // buildVocalVariantPlan call (same seed) so the local and realtime/Batch/
   // bridge paths rotate through the same per-song wording for the same opts.

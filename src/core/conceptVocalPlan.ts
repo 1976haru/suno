@@ -31,6 +31,7 @@
 import type { ChannelArchetype, GenrePack } from '../types';
 import { vocalPresets, type VocalPreset } from '../data/vocalPresets';
 import { CONCEPT_KEYWORD_RULES, matchConceptRules } from '../data/conceptKeywords';
+import { getGenreById } from '../data/genreLibrary';
 import { suitablePresetsForArchetype } from './vocalRecommender';
 import { vocalTypeMatchesPresetGender, type VocalType } from './vocalPlan';
 
@@ -217,7 +218,15 @@ export function resolveConceptVocalIntent(
  */
 export function buildConceptVocalPresetPlan(
   intent: ConceptVocalIntent | undefined,
-  vocalPlan: readonly (VocalType | undefined)[] | null | undefined
+  vocalPlan: readonly (VocalType | undefined)[] | null | undefined,
+  /**
+   * 지시문 77 (TASK D) — 트랙별 lead 장르 id. 그 장르의 정의 자체가 이
+   * 발성과 반대인 트랙은 **배정하지 않는다**(§5.2 "장르를 우선하고 발성
+   * 지목은 무시한다"). 경고는 core/quality.ts가 따로 낸다 — 여기서는
+   * 조용히 건너뛰고, SongIdea.conceptVocalFamilyId는 그대로 실려 그
+   * 경고의 근거가 된다. 생략하면 충돌 검사 없이 전부 배정한다(기존 동작).
+   */
+  genrePlan?: readonly (string | undefined)[]
 ): (VocalPreset | undefined)[] | null {
   if (!intent || !intent.availablePresets.length || !vocalPlan?.length) return null;
   const byType = new Map<VocalType, VocalPreset[]>();
@@ -226,8 +235,9 @@ export function buildConceptVocalPresetPlan(
   }
   const cursor = new Map<VocalType, number>();
   let assigned = 0;
-  const plan = vocalPlan.map(type => {
+  const plan = vocalPlan.map((type, idx) => {
     if (!type) return undefined;
+    if (genrePlan && detectVocalGenreConflict(getGenreById(genrePlan[idx] ?? ''), intent.familyId)) return undefined;
     const candidates = byType.get(type) ?? [];
     if (!candidates.length) return undefined;
     const at = cursor.get(type) ?? 0;
