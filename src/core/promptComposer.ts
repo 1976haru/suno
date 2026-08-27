@@ -1332,7 +1332,7 @@ export function songOutputShape(generateThumbnailText: boolean, packagingLanguag
     // 무시된다 — 하지만 슬롯이 없는 독립 가져오기(별도 세션에서 이
     // 파일만 가져오는 경우)에서는 이 값이 유일한 출처가 된다.
     effectiveVocalPresetId: 'string optional; copy from preassignedSongs if present',
-    vocalPresetSource: "'plan' | 'tone-match' | 'auto' optional; copy from preassignedSongs if present",
+    vocalPresetSource: "'plan' | 'tone-match' | 'auto' | 'concept' optional; copy from preassignedSongs if present",
     qualityScore: 0,
     warnings: []
   };

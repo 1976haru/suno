@@ -1535,7 +1535,29 @@ export interface SongIdea {
    * undefined only for the rare fallback-vocal-text case with no
    * vocalType at all.
    */
-  vocalPresetSource?: 'plan' | 'tone-match' | 'auto';
+  /**
+   * 지시문 77 (TASK A-2.3) — 'concept' 신설. 기존 3값의 doc comment가 말하는
+   * "이 슬롯의 effectiveVocalPresetId가 실제로 어디서 왔는가"에 네 번째
+   * 출처가 생겼다: 컨셉 자유 텍스트의 발성 지목(core/conceptVocalPlan.ts).
+   * 'auto'에 합치지 않은 이유 — 'auto'는 "아무 신호도 없어 기본 경로가
+   * 골랐다"는 뜻이라, 컨셉이 실제로 개입했는지를 출력만 보고 구분할 수
+   * 없게 된다(§2.3 "이 값이 없으면 컨셉이 실제로 작동했는지 출력만 보고는
+   * 알 수 없다"). 'plan'(사용자가 트랙별로 직접 고른 vocalPresetPlan)도
+   * 'tone-match'(vocalTone 문자열이 프리셋과 정확히 일치)도 아니다 —
+   * 우선순위는 plan > tone-match > concept > auto로, 사용자의 명시적 선택이
+   * 항상 컨셉 추론을 이긴다.
+   */
+  vocalPresetSource?: 'plan' | 'tone-match' | 'auto' | 'concept';
+  /**
+   * 지시문 77 (TASK D) — 이 트랙에 대해 컨셉이 지목한 발성 계열
+   * (core/conceptVocalPlan.ts의 VocalFamilyId). **실제로 프리셋이
+   * 배정됐는지와 무관하게** 실린다 — 장르가 그 발성과 정면으로 반대라
+   * 배정을 포기한 경우(§5.2 "장르를 우선하고 발성 지목은 무시하되,
+   * 경고를 남긴다")에도 core/quality.ts가 그 사실을 알아야 경고를 낼 수
+   * 있기 때문이다. 값이 있다고 해서 vocalPresetSource가 'concept'인 것은
+   * 아니다(그 둘의 차이가 곧 "무시됐다"는 신호다).
+   */
+  conceptVocalFamilyId?: 'breathy' | 'belted' | 'clean';
   /**
    * v5.11 (TASK L) — this track's actual assigned genre id(s) (from
    * core/genreRotation.ts's genresForTrack, usually length 1, length 2 for
@@ -2118,7 +2140,29 @@ export interface PreassignedSongSlot {
    */
   effectiveVocalPresetId?: string;
   /** 지시문 49 (TASK A) — mirrors SongIdea.vocalPresetSource's own doc comment; the source this slot's effectiveVocalPresetId actually came from. */
-  vocalPresetSource?: 'plan' | 'tone-match' | 'auto';
+  /**
+   * 지시문 77 (TASK A-2.3) — 'concept' 신설. 기존 3값의 doc comment가 말하는
+   * "이 슬롯의 effectiveVocalPresetId가 실제로 어디서 왔는가"에 네 번째
+   * 출처가 생겼다: 컨셉 자유 텍스트의 발성 지목(core/conceptVocalPlan.ts).
+   * 'auto'에 합치지 않은 이유 — 'auto'는 "아무 신호도 없어 기본 경로가
+   * 골랐다"는 뜻이라, 컨셉이 실제로 개입했는지를 출력만 보고 구분할 수
+   * 없게 된다(§2.3 "이 값이 없으면 컨셉이 실제로 작동했는지 출력만 보고는
+   * 알 수 없다"). 'plan'(사용자가 트랙별로 직접 고른 vocalPresetPlan)도
+   * 'tone-match'(vocalTone 문자열이 프리셋과 정확히 일치)도 아니다 —
+   * 우선순위는 plan > tone-match > concept > auto로, 사용자의 명시적 선택이
+   * 항상 컨셉 추론을 이긴다.
+   */
+  vocalPresetSource?: 'plan' | 'tone-match' | 'auto' | 'concept';
+  /**
+   * 지시문 77 (TASK D) — 이 트랙에 대해 컨셉이 지목한 발성 계열
+   * (core/conceptVocalPlan.ts의 VocalFamilyId). **실제로 프리셋이
+   * 배정됐는지와 무관하게** 실린다 — 장르가 그 발성과 정면으로 반대라
+   * 배정을 포기한 경우(§5.2 "장르를 우선하고 발성 지목은 무시하되,
+   * 경고를 남긴다")에도 core/quality.ts가 그 사실을 알아야 경고를 낼 수
+   * 있기 때문이다. 값이 있다고 해서 vocalPresetSource가 'concept'인 것은
+   * 아니다(그 둘의 차이가 곧 "무시됐다"는 신호다).
+   */
+  conceptVocalFamilyId?: 'breathy' | 'belted' | 'clean';
   /** v5.11 (TASK L) — this trackNo's actual assigned genre id(s), already sanitized; mirrors SongIdea.effectiveGenreIds's own doc comment. */
   effectiveGenreIds: string[];
   /** v5.13 (TASK: kidsAgeTierId wiring) — mirrors SongIdea.effectiveKidsAgeTierId's own doc comment; whole-pack-resolved (same value on every slot for a kids archetype), not per-track. */

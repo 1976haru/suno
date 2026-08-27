@@ -54,7 +54,8 @@
     "test:e2e": "playwright test",
     "test:e2e:smoke": "playwright test --grep @smoke-cost",
     "perf:budget": "vitest run tests/performanceBudget.test.ts --reporter=verbose",
-    "measure:checks": "tsx scripts/measureCheckCost.ts"
+    "measure:checks": "tsx scripts/measureCheckCost.ts",
+    "check:concept-vocal-axis": "tsx scripts/checkConceptVocalAxis.ts"
   },
   "dependencies": {
     "@vitejs/plugin-react": "6.0.3",

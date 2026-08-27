@@ -52,6 +52,35 @@ export interface KeywordRule {
    * 동일(§하지 말 것 "장르 키워드 매칭 없음 → 현재 동작 유지").
    */
   axis?: 'genre';
+  /**
+   * 지시문 77 (TASK A-1) — 이 규칙이 지목하는 **발성**(음 시작 방식 =
+   * onset)에 대응하는 vocalPresets.ts 프리셋 id → 가중치. 컨셉으로
+   * 장르·계절·무드는 지목할 수 있는데 보컬 음색만 지목할 방법이 없어
+   * (§1.1 실측: "숨소리 나는 보컬"/"공기 반 소리 반"/"breathy vocal"
+   * 매칭 0개) 신설한 축이다. genreWeights/moodWeights/seasonWeights와
+   * 완전히 같은 형식 — 새 형식을 만들지 않는다.
+   *
+   * 소비처는 core/conceptVocalPlan.ts 하나뿐이며, 거기서
+   *  ① suitablePresetsForArchetype 하드 필터(지시문 38 TASK D2)를 그대로
+   *     통과한 후보 안에서만,
+   *  ② 이미 확정된 성별 쿼터(지시문 63)의 트랙별 vocalType을 바꾸지 않고,
+   *  "같은 성별 슬롯 안에서 어떤 프리셋을 고를지"에만 쓰인다.
+   * 여기 없는 프리셋 id는 필터에서 조용히 버려지므로(지시문 72에서 확인된
+   * 패턴) 반드시 vocalPresets.ts에 실존하는 id만 쓴다 —
+   * scripts/checkConceptVocalAxis.ts가 이를 실측으로 막는다.
+   *
+   * `axis`에 'vocal'을 추가하지 않은 이유: axis는 "이 규칙이 어느 축을
+   * 말하는가"라는 범용 분류 태그가 아니라, rankFromRules/
+   * buildAxisAwareGenreAllocation **한 곳만** 읽는 장르 랭킹 판별자다
+   * (지시문 67 — 시대 키워드가 같은 장르 후보 풀에서 장르 키워드를 밀어내는
+   * 결함의 수정). 발성 규칙은 genreWeights가 0개라 어떤 axis 값을 줘도
+   * 무의미하고, 반대로 union을 넓히면 장르어와 발성어를 동시에 가진 미래
+   * 규칙(예: "소울풀한 여성 보컬 하우스")이 familyScore 버킷에서 잘못
+   * 갈릴 여지가 생긴다. vocalPresetWeights의 존재 자체가 판별자다 —
+   * genreWeights/moodWeights/seasonWeights가 지금껏 axis 플래그 없이
+   * 구분돼 온 것과 같은 방식.
+   */
+  vocalPresetWeights?: Record<string, number>;
 }
 
 /**
