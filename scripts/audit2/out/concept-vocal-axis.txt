@@ -1,0 +1,50 @@
+=== 지시문 77 — 컨셉→발성 축 ===
+
+vocalPresetWeights를 가진 규칙: 8개 (목표 6개 이상)
+  vocal-breathy-onset          {"airy-whisper-female":3,"whisper-male":3,"soft-female":2,"airy-falsetto-male":2}
+  vocal-airy-tone              {"airy-whisper-female":3,"airy-falsetto-male":3,"soft-female":2,"whisper-male":1}
+  vocal-half-air-half-voice    {"airy-whisper-female":3,"whisper-male":2,"soft-female":2,"airy-falsetto-male":2}
+  vocal-whisper                {"airy-whisper-female":3,"whisper-male":3,"soft-female":1}
+  vocal-belted-power           {"belted-male":3,"belted-female":3}
+  vocal-clean-plain            {"clear-light-male":2,"bright-young-male":2,"bright-young-female":2,"bright-clear-female":2,"low-calm-male":1,"mature-female":1}
+  vocal-husky-grain            {"husky-grain-male":3,"husky-grain-female":3,"husky-jazz-female":2,"smoky-jazz-male":2}
+  vocal-dark-resonant          {"dark-resonant-male":3,"dark-resonant-female":3}
+
+실존하지 않는 프리셋 id: 0건
+
+--- §1.1 질의 재실행 (archetype=en-chillhop) ---
+"숨소리 섞인 목소리로 부르는 칠 딥하우스" → 1개 [vocal-breathy-onset] family=breathy
+"공기 반 소리 반" → 1개 [vocal-half-air-half-voice] family=breathy
+"숨소리 나는 보컬" → 1개 [vocal-breathy-onset] family=breathy
+"속삭이는 목소리" → 1개 [vocal-whisper] family=breathy
+"breathy vocal" → 1개 [vocal-breathy-onset] family=breathy
+"airy whisper" → 2개 [vocal-airy-tone, vocal-whisper] family=breathy
+"에어리한 보컬" → 1개 [vocal-airy-tone] family=breathy
+
+--- 프리셋 → 발성 계열 매핑 ---
+  warm-mature-male       (미매핑)      en-chillhop=N
+  low-calm-male          clean      en-chillhop=Y
+  clear-light-male       clean      en-chillhop=Y
+  airy-falsetto-male     breathy    en-chillhop=Y
+  smoky-jazz-male        husky      en-chillhop=N
+  bright-young-male      clean      en-chillhop=Y
+  whisper-male           breathy    en-chillhop=Y
+  soft-female            breathy    en-chillhop=Y
+  mature-female          clean      en-chillhop=N
+  bright-clear-female    clean      en-chillhop=Y
+  husky-jazz-female      husky      en-chillhop=Y
+  airy-whisper-female    breathy    en-chillhop=Y
+  bright-young-female    clean      en-chillhop=Y
+  soulful-female         (미매핑)      en-chillhop=N
+  belted-male            belted     en-chillhop=Y
+  belted-female          belted     en-chillhop=Y
+  dark-resonant-male     dark       en-chillhop=Y
+  dark-resonant-female   dark       en-chillhop=Y
+  husky-grain-male       husky      en-chillhop=Y
+  husky-grain-female     husky      en-chillhop=Y
+  light-falsetto-female  (미매핑)      en-chillhop=Y
+  male-female-duet       (미매핑)      en-chillhop=Y
+  mixed-harmony-group    (미매핑)      en-chillhop=Y
+
+미매핑 5종: warm-mature-male, soulful-female, light-falsetto-female, male-female-duet, mixed-harmony-group
+  (근거가 애매한 프리셋은 어느 계열에도 넣지 않는다 — core/conceptVocalPlan.ts의 VOCAL_FAMILY_BY_PRESET_ID 주석 참고)

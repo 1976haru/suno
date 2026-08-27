@@ -1,0 +1,98 @@
+[check:choices] 지시문 24 TASK C(13축) + 지시문 30 TASK D(20축+강등추적+listeningIntent) — 정본 축 계약 감사
+
+✓ moneyChordMode     입력:O  소비:via-choices    가드:O  강등추적:X  → OK
+✓ vocalTone          입력:O  소비:via-choices    가드:O  강등추적:O  → OK
+✓ genreIds           입력:O  소비:via-choices    가드:O  강등추적:X  → OK
+✗ lyricLanguage      입력:O  소비:via-opts-only  가드:X  강등추적:O  → CONTRACT VIOLATION
+    입력: Step2Concept.tsx:1208
+    소비: setDirector.ts:725는 미리보기(SetPlan)만 보호; 실제 생성기(localGenerator.ts:1296-2264)는 opts.lyricLanguage를 직접 읽어 choices 보호를 거치지 않음. 지시문 30 TASK A: consumption 경로 자체는 안 바꿨지만, App.tsx의 applyChannelToOptions가 더 이상 'user' provenance를 조용히 덮지 않는다(shouldConfirmLanguageOverride — 값이 애초에 오염되지 않으므로 이 opts-직접-읽기 경로도 안전해짐).
+    가드: 없음 — 지시문 30 TASK A는 소비 시점 가드 대신 오염 자체를 원천 차단(App.tsx)하는 다른 층위에서 고쳤다
+
+✗ packagingLanguage  입력:O  소비:via-opts-only  가드:X  강등추적:O  → CONTRACT VIOLATION
+    입력: Step2Concept.tsx:1222
+    소비: core/packagingLanguage.ts:20-21 resolvePackagingLanguage가 opts.packagingLanguage만 읽음 — choices.packagingLanguage를 읽는 곳이 src/core 어디에도 없음
+    가드: 없음
+
+✗ perspective        입력:O  소비:via-opts-only  가드:X  강등추적:X  → CONTRACT VIOLATION
+    입력: Step2Concept.tsx:1257-1258
+    소비: setDirector.ts:732,816은 미리보기만; 실제 생성기(lyricDiversityPlan.ts:402, promptComposer.ts:1323,1406)는 opts.perspective 직접 사용
+    가드: 없음
+
+✗ perspectiveMode    입력:O  소비:via-opts-only  가드:X  강등추적:X  → CONTRACT VIOLATION
+    입력: Step2Concept.tsx:1262-1298
+    소비: setDirector.ts:738-739은 미리보기만; resolvePerspectiveMode(lyricDiversityPlan.ts:403)는 opts.perspectiveMode/opts.perspectiveModeIsExplicitChoice 직접 사용
+    가드: 없음
+
+✗ genreBlendMode     입력:O  소비:via-opts-only  가드:X  강등추적:X  → CONTRACT VIOLATION
+    입력: Step2Concept.tsx:750-786
+    소비: core/genreRotation.ts:61-62 resolveGenreBlendMode가 opts.genreBlendMode만 읽음(?? 'shared-primary' 무경고 폴백 포함) — buildBaseOptions는 genreBlendMode 필드 자체를 반환하지 않음
+    가드: 없음
+
+✗ seasonId           입력:O  소비:via-opts-only  가드:X  강등추적:X  → CONTRACT VIOLATION
+    입력: Step2Concept.tsx:599-601
+    소비: setDirector.ts:730은 미리보기만 보호; 실제 생성 경로는 opts.seasonId를 choices 우회로 직접 소비
+    가드: 없음
+
+✗ songCount          입력:O  소비:via-opts-only  가드:X  강등추적:X  → CONTRACT VIOLATION
+    입력: Step3Generate.tsx:1422-1439
+    소비: 실제 생성 전 구간에서 opts.songCount 직접 사용. 추가로 App.tsx:503,646이 choiceProvenance 갱신 없이 opts.songCount를 사후 재작성 — user 출처 태그가 남은 채 값만 바뀔 수 있음(가장 심각한 사례)
+    가드: 없음
+
+✗ breadth            입력:O  소비:via-opts-only  가드:X  강등추적:X  → CONTRACT VIOLATION
+    입력: Step2Plan.tsx:492-500 (breadthOverride)
+    소비: constraints.ts:935-936 detectConceptBreadth가 opts.breadthOverride 직접 사용; buildBaseOptions는 breadth/breadthOverride 필드를 아예 반환하지 않음
+    가드: 없음
+
+✗ paletteFamilyId    입력:O  소비:via-opts-only  가드:X  강등추적:X  → CONTRACT VIOLATION
+    입력: Step2Plan.tsx:400,521 (paletteFamilyOverride)
+    소비: setDirector.ts:1501 resolveMainFamilyId·Step2Plan.tsx:198 모두 opts.paletteFamilyOverride 원본을 직접 사용
+    가드: 없음
+
+✗ kidsAgeTierId      입력:O  소비:via-opts-only  가드:X  강등추적:O  → CONTRACT VIOLATION
+    입력: App.tsx:237,258 — 실제로는 항상 source:'channel'만 생성됨(Step1Channel.tsx:559-560의 채널 편집기 draft 경유). 'user' 출처는 설계상 존재하지 않음
+    소비: localGenerator.ts:133-135 resolveKidsAgeTierId가 opts.kidsAgeTierId ?? opts.channel.kidsAgeTierId 직접 사용
+    가드: 없음
+
+✗ moodIds            입력:O  소비:via-opts-only  가드:X  강등추적:O  → CONTRACT VIOLATION
+    입력: Step2Concept.tsx의 무드 칩 그리드(toggleArray('moodIds', ...))
+    소비: localGenerator.ts:1312 openingPackContext(dominantMoodIds: opts.moodIds) 등 7개 파일이 opts.moodIds 직접 사용; setDirector.ts:734는 미리보기용 inferMoodIds(freeText, channel)로 별도 추론, choices를 거치지 않음
+    가드: 없음
+
+✗ durationTarget     입력:O  소비:via-opts-only  가드:X  강등추적:X  → CONTRACT VIOLATION
+    입력: Step2Concept.tsx의 "곡 길이" ChoiceGrid
+    소비: localGenerator.ts·openingOverride.ts·promptComposer.ts·soundSignature.ts·videoExport.ts가 opts.durationTarget 직접 사용; setDirector.ts:746은 미리보기용 고정값 'under3m30'
+    가드: 없음
+
+✗ lyricDepth         입력:O  소비:via-opts-only  가드:X  강등추적:X  → CONTRACT VIOLATION
+    입력: Step2Concept.tsx의 "가사 깊이" ChoiceGrid
+    소비: localGenerator.ts·promptComposer.ts·soundSignature.ts가 opts.lyricDepth 직접 사용; setDirector.ts:745는 미리보기용 고정값 'commercial'
+    가드: 없음
+
+✗ hookMode           입력:O  소비:via-opts-only  가드:X  강등추적:X  → CONTRACT VIOLATION
+    입력: Step2Concept.tsx의 훅 생성 방식 chip pair
+    소비: batchPreallocation.ts·batchStitcher.ts·hookDedup.ts·hookLedger.ts·multiSetGeneration.ts·promptComposer.ts·quality.ts가 opts.hookMode 직접 사용
+    가드: 없음
+
+✗ referenceMood      입력:O  소비:via-opts-only  가드:X  강등추적:X  → CONTRACT VIOLATION
+    입력: Step2Concept.tsx의 Reference mood textarea
+    소비: promptComposer.ts:646 buildReferenceMoodStyleClause(opts.referenceMood) 직접 사용
+    가드: 없음
+
+✗ negativeStyle      입력:O  소비:via-opts-only  가드:O  강등추적:X  → CONTRACT VIOLATION
+    입력: Step2Concept.tsx의 Music Exclude styles 프리셋 칩/textarea
+    소비: data/negativeStyles.ts의 resolveNegativeStyleText(opts)가 opts.negativeStyle을 직접 읽음(promptComposer.ts:1336 경유) — choices 객체를 거치지 않음
+    가드: userChoices.ts:476-484
+
+✗ avoidWords         입력:O  소비:via-opts-only  가드:X  강등추적:X  → CONTRACT VIOLATION
+    입력: Step2Concept.tsx의 "가사에서 피할 것들" 프리셋/커스텀 입력
+    소비: negativePromptSpec.ts:89 parseNegativeStyleTerms(opts.avoidWords) 직접 사용
+    가드: 없음
+
+○ listeningIntent    (provenance 축 아님 — 별도 트랙, 지시문 30 TASK B)
+    입력: Step2Concept.tsx의 "청취 목적" ChoiceGrid(opts.listeningIntent)
+    TASK B 이전 소비: core/setDirector.ts·batchPreallocation.ts·localGenerator.ts grep 결과 0곳 — 클릭 시 1회성으로 genreIds/diversityAllocations를 기록할 뿐, 생성 경로 어디도 opts.listeningIntent 자체를 다시 읽지 않았음
+    TASK B 수정: 지시문 30 TASK B-4 — core/listeningIntent.ts의 applyListeningIntentToOptions로 로직 추출, App.tsx의 requestGeneration(생성 시작 시점)이 applyListeningIntentIfPending으로 재적용 여부를 실제로 확인하는 새 호출 지점이 됨
+
+통과(OK) 3 / CONTRACT VIOLATION 17  (총 20축 + listeningIntent 1, 감사표-소스 불일치 0건)
+
+[참고] CONTRACT VIOLATION(위 17건)은 CI 실패 사유가 아니다 — 대부분(perspective/seasonId/songCount/breadth 등)이 지시문 30 범위 밖의 기존 아키텍처 사실이라, 그대로 CI 게이트로 걸면 이 지시문이 다루지 않은 이슈까지 막아선다(§하지 말 것 "새 관문·새 품질 기능을 추가하지 말 것", 공통 규약 7 "실측 없이 blocking을 만들지 않는다"). CI는 AUDIT TABLE DRIFT(위 테이블이 실제 소스/export와 어긋남)만 실패시킨다 — 그건 이 표 자체가 거짓말을 하고 있다는 뜻이라 언제나 실측 가능한 회귀다. 지시문 30이 실제로 고친 3건(lyricLanguage 강등 차단, listeningIntent 소비, 강등추적 인프라)의 동작 회귀 방지는 tests/generationChoiceProvenance.test.ts·tests/listeningIntent.test.ts가 맡는다(둘 다 npm run test 경유로 CI에 이미 있음).

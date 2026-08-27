@@ -1,0 +1,132 @@
+[check:coverage] 13 아키타입 × 21 축
+
+
+■ preferredGenres (채널 합집합)
+  srMorn=29 | showaC=3 | showa7=4 | j2000s=3 | chill=16 | cityNt=11 | oldpop=24 | kr2030=19 | jp2030=6 | idolM=9 | idolF=9 | lofi=14 | kids=3
+
+■ lyricTheme 후보 (실효/원본)
+  srMorn=110 | showaC=46 | showa7=36 | j2000s=36 | chill=532(원본0)⚠ | cityNt=532(원본0)⚠ | oldpop=110 | kr2030=46 | jp2030=46 | idolM=46 | idolF=46 | lofi=532(원본0)⚠ | kids=42
+
+■ moneyChordRotationPool
+  srMorn=6 | showaC=6 | showa7=6 | j2000s=6 | chill=6 | cityNt=6 | oldpop=6 | kr2030=6 | jp2030=6 | idolM=9 | idolF=9 | lofi=6 | kids=6
+
+■ signatureMoneyChordId
+  srMorn=doowop | showaC=royalRoad | showa7=showaModern | j2000s=komuro | chill=jazzColor | cityNt=cityPop | oldpop=doowop | kr2030=default | jp2030=cityPop | idolM=emotional | idolF=emotional | lofi=jazzColor | kids=kidsSimple
+
+■ introTexture 풀 (전용/전체폴백)
+  srMorn=14(전체14) | showaC=17(전체17) | showa7=17(전체17) | j2000s=11(전체11) | chill=9(전체30)⚠ | cityNt=10(전체10) | oldpop=13(전체13) | kr2030=6(전체30)⚠ | jp2030=6(전체30)⚠ | idolM=6(전체30)⚠ | idolF=6(전체30)⚠ | lofi=3(전체30)⚠ | kids=10(전체10)
+
+■ openingHooks (팔레트 계열 매칭)
+  srMorn=7 | showaC=7 | showa7=5 | j2000s=— | chill=— | cityNt=— | oldpop=7 | kr2030=— | jp2030=— | idolM=— | idolF=— | lofi=— | kids=—
+
+■ vocalPreset 풀 (suitablePresetsForArchetype, 하드 필터)
+  srMorn=8 | showaC=8 | showa7=10 | j2000s=8 | chill=9 | cityNt=13 | oldpop=12 | kr2030=16 | jp2030=13 | idolM=8 | idolF=9 | lofi=7 | kids=10
+
+■ killingPoint 풀
+  srMorn=공통세트 | showaC=공통세트 | showa7=공통세트 | j2000s=공통세트 | chill=공통세트 | cityNt=공통세트 | oldpop=공통세트 | kr2030=공통세트 | jp2030=공통세트 | idolM=공통세트 | idolF=공통세트 | lofi=공통세트 | kids=kids세트
+
+■ PaletteFamily 등록 (등록/전체 장르)
+  srMorn=29/29 | showaC=3/3 | showa7=4/4 | j2000s=— | chill=— | cityNt=— | oldpop=24/24 | kr2030=— | jp2030=— | idolM=— | idolF=— | lofi=— | kids=—
+
+■ motifFamily 등록 (적용/전체 8종)
+  srMorn=6/8 | showaC=6/8 | showa7=6/8 | j2000s=6/8 | chill=6/8 | cityNt=6/8 | oldpop=6/8 | kr2030=6/8 | jp2030=6/8 | idolM=7/8 | idolF=7/8 | lofi=6/8 | kids=6/8
+
+■ arcModelId (audienceProfile 경유)
+  srMorn=five-phase | showaC=five-phase | showa7=five-phase | j2000s=five-phase | chill=five-phase | cityNt=five-phase | oldpop=five-phase | kr2030=five-phase | jp2030=five-phase | idolM=five-phase | idolF=five-phase | lofi=five-phase | kids=repetition-cycle
+
+■ audienceProfile (전용/general 폴백)
+  srMorn=senior | showaC=senior | showa7=senior | j2000s=general⚠ | chill=general⚠ | cityNt=general⚠ | oldpop=senior | kr2030=kr-2030-emotional | jp2030=jp-2030-melodic | idolM=kr-idol-male | idolF=kr-idol-female | lofi=general⚠ | kids=kids
+
+■ tempoCeiling·BPM 대역
+  srMorn=62-100(4대역) | showaC=62-100(4대역) | showa7=62-100(4대역) | j2000s=60-132(4대역)⚠ | chill=60-132(4대역)⚠ | cityNt=60-132(4대역)⚠ | oldpop=62-100(4대역) | kr2030=68-120(4대역)⚠ | jp2030=65-125(4대역)⚠ | idolM=68-150(5대역)⚠ | idolF=68-150(5대역)⚠ | lofi=60-132(4대역)⚠ | kids=92-128(4대역)⚠
+
+■ vocalQuotaOverride
+  srMorn=기본 6/6/6 | showaC=기본 6/6/6 | showa7=기본 6/6/6 | j2000s=기본 6/6/6 | chill=기본 6/6/6 | cityNt=기본 6/6/6 | oldpop=기본 6/6/6 | kr2030=기본 6/6/6 | jp2030=기본 6/6/6 | idolM=15/0/3 | idolF=0/15/3 | lofi=기본 6/6/6 | kids=기본 6/6/6
+
+■ eraIntent 모드 (워크스페이스 단위)
+  srMorn=strict-decade | showaC=strict-decade | showa7=strict-decade | j2000s=strict-decade | chill=strict-decade | cityNt=strict-decade | oldpop=strict-decade | kr2030=current-implied | jp2030=current-implied | idolM=only-when-referenced | idolF=only-when-referenced | lofi=strict-decade | kids=strict-decade
+
+■ DistinctChoicePolicy (지시문15)
+  srMorn=verified | showaC=verified | showa7=verified | j2000s=verified | chill=verified | cityNt=verified | oldpop=verified | kr2030=advisory⚠ | jp2030=advisory⚠ | idolM=advisory⚠ | idolF=advisory⚠ | lofi=verified | kids=verified
+
+■ PromptAxisPolicy (지시문16)
+  srMorn=verified | showaC=verified | showa7=verified | j2000s=verified | chill=verified | cityNt=verified | oldpop=verified | kr2030=advisory⚠ | jp2030=advisory⚠ | idolM=advisory⚠ | idolF=advisory⚠ | lofi=verified | kids=verified
+
+■ ObjectState 적용 kind (지시문17)
+  srMorn=1/5 검증 | showaC=1/5 검증 | showa7=1/5 검증 | j2000s=1/5 검증 | chill=1/5 검증 | cityNt=1/5 검증 | oldpop=1/5 검증 | kr2030=0/2 검증⚠ | jp2030=0/2 검증⚠ | idolM=적용없음 | idolF=적용없음 | lofi=1/5 검증 | kids=1/5 검증
+
+■ ListeningIntentPolicy (지시문23)
+  srMorn=— | showaC=— | showa7=— | j2000s=— | chill=— | cityNt=— | oldpop=— | kr2030=— | jp2030=— | idolM=— | idolF=— | lofi=— | kids=—
+
+■ eraBuckets 커버율 (시대색 비-neutral 비율)
+  srMorn=86% (25/29) | showaC=67% (2/3) | showa7=100% (4/4) | j2000s=100% (3/3) | chill=0% (0/16) | cityNt=27% (3/11) | oldpop=92% (22/24) | kr2030=37% (7/19) | jp2030=17% (1/6) | idolM=11% (1/9) | idolF=11% (1/9) | lofi=0% (0/14) | kids=0% (0/3)
+
+미정의(✗) 전체 목록 및 영향 ─────────────────────────────
+  (없음)
+
+
+편차 경고(⚠) 전체 목록 ─────────────────────────────────
+
+⚠ preferredGenres (채널 합집합)
+    편차 — 최대 29종 vs 최소 3종 (9.7배). 지시문 20이 손댄 senior-morning/oldpop-lounge만 24~29종, 나머지는 3~22종.
+
+⚠ lyricTheme 후보 (실효/원본) — modern-chill, city-night, lofi-study
+    modern-chill: 아키타입 전용 테마 0개 < 12 → 전체 풀(532개)로 폴백 — lyricThemesForArchetype의 방어 로직
+    city-night: 아키타입 전용 테마 0개 < 12 → 전체 풀(532개)로 폴백 — lyricThemesForArchetype의 방어 로직
+    lofi-study: 아키타입 전용 테마 0개 < 12 → 전체 풀(532개)로 폴백 — lyricThemesForArchetype의 방어 로직
+    편차 — 최대 532개 vs 최소 36개 (14.8배).
+
+⚠ introTexture 풀 (전용/전체폴백) — modern-chill, kr-2030-pop, jp-2030-pop, kr-idol-male, kr-idol-female, lofi-study
+    modern-chill: 전용 인트로 텍스처 9개 (< 10, 폴백 임계선 아래)
+    kr-2030-pop: 전용 인트로 텍스처 6개 (< 10, 폴백 임계선 아래)
+    jp-2030-pop: 전용 인트로 텍스처 6개 (< 10, 폴백 임계선 아래)
+    kr-idol-male: 전용 인트로 텍스처 6개 (< 10, 폴백 임계선 아래)
+    kr-idol-female: 전용 인트로 텍스처 6개 (< 10, 폴백 임계선 아래)
+    lofi-study: 전용 인트로 텍스처 3개 (< 10, 폴백 임계선 아래)
+
+⚠ audienceProfile (전용/general 폴백) — j2000s, modern-chill, city-night, lofi-study
+    j2000s: 전용 오디언스 프로필 없음 — GENERAL_AUDIENCE_PROFILE(twenties/thirtiesForties/general 공용, 청취 미보정)로 폴백
+    modern-chill: 전용 오디언스 프로필 없음 — GENERAL_AUDIENCE_PROFILE(twenties/thirtiesForties/general 공용, 청취 미보정)로 폴백
+    city-night: 전용 오디언스 프로필 없음 — GENERAL_AUDIENCE_PROFILE(twenties/thirtiesForties/general 공용, 청취 미보정)로 폴백
+    lofi-study: 전용 오디언스 프로필 없음 — GENERAL_AUDIENCE_PROFILE(twenties/thirtiesForties/general 공용, 청취 미보정)로 폴백
+
+⚠ tempoCeiling·BPM 대역 — j2000s, modern-chill, city-night, kr-2030-pop, jp-2030-pop, kr-idol-male, kr-idol-female, lofi-study, kids
+    j2000s: BPM 대역이 청취 검증된 senior 전용 분포가 아니라 [60,132]을 4등분한 자동 생성 대역
+    modern-chill: BPM 대역이 청취 검증된 senior 전용 분포가 아니라 [60,132]을 4등분한 자동 생성 대역
+    city-night: BPM 대역이 청취 검증된 senior 전용 분포가 아니라 [60,132]을 4등분한 자동 생성 대역
+    kr-2030-pop: BPM 대역이 청취 검증된 senior 전용 분포가 아니라 [68,120]을 4등분한 자동 생성 대역
+    jp-2030-pop: BPM 대역이 청취 검증된 senior 전용 분포가 아니라 [65,125]을 4등분한 자동 생성 대역
+    kr-idol-male: BPM 대역이 청취 검증된 senior 전용 분포가 아니라 [68,150]을 5등분한 자동 생성 대역
+    kr-idol-female: BPM 대역이 청취 검증된 senior 전용 분포가 아니라 [68,150]을 5등분한 자동 생성 대역
+    lofi-study: BPM 대역이 청취 검증된 senior 전용 분포가 아니라 [60,132]을 4등분한 자동 생성 대역
+    kids: BPM 대역이 청취 검증된 senior 전용 분포가 아니라 [92,128]을 4등분한 자동 생성 대역
+
+⚠ DistinctChoicePolicy (지시문15) — kr-2030-pop, jp-2030-pop, kr-idol-male, kr-idol-female
+    kr-2030-pop(kr-2030): 추정치 — 실측 없음. 첫 세트 측정 후 재조정.
+    jp-2030-pop(jp-2030): 추정치 — 실측 없음. 첫 세트 측정 후 재조정.
+    kr-idol-male(kr-idol-male): 추정치 — 실측 없음. 첫 세트 측정 후 재조정.
+    kr-idol-female(kr-idol-female): 추정치 — 실측 없음. 첫 세트 측정 후 재조정.
+
+⚠ PromptAxisPolicy (지시문16) — kr-2030-pop, jp-2030-pop, kr-idol-male, kr-idol-female
+    kr-2030-pop(kr-2030): 미실측 — provisional. 게이트는 돌되 blocking하지 않는다.
+    jp-2030-pop(jp-2030): 미실측 — provisional. 게이트는 돌되 blocking하지 않는다.
+    kr-idol-male(kr-idol-male): 미실측 — provisional. 게이트는 돌되 blocking하지 않는다.
+    kr-idol-female(kr-idol-female): 미실측 — provisional. 게이트는 돌되 blocking하지 않는다.
+
+⚠ ObjectState 적용 kind (지시문17) — kr-2030-pop, jp-2030-pop
+    kr-2030-pop(kr-2030): kind message,vehicle 정의됐으나 실측(verifiedKinds) 0개 — 추정치 — 실측 없음. message는 core/relationshipContinuity.ts의 실측 unsent-then-reply를 위임하지만 워크스페이스 자체는 아직 verified가 아니다(§B-2 원칙: kind 실측과 워크스페이스 verified는 별개 축).
+    jp-2030-pop(jp-2030): kind message,vehicle 정의됐으나 실측(verifiedKinds) 0개 — 추정치 — 실측 없음.
+
+
+[check:coverage] CONTRACT VIOLATION(✗) 0건 / 편차 경고(⚠) 32건 / 축 20개 × 아키타입 13개
+
+
+측정 곡 수 누적 (지시문 32 §4, scripts/audit.ts --pack 실행마다 누적) ────
+  senior-oldpop    측정 54곡 (3세트) — 이미 verified
+  kr-2030          측정 18곡 (1세트) — ⚠ 승격 조건 충족(≥18곡) — 하루 승인 시 distinctChoicePolicy.ts에서 verified:true로 직접 전환 (자동 승격 아님)
+  jp-2030          측정 0곡 (0세트) — 미달 (기준 18곡)
+  kr-kids          측정 18곡 (1세트) — ⚠ 승격 조건 충족(≥18곡) — 하루 승인 시 distinctChoicePolicy.ts에서 verified:true로 직접 전환 (자동 승격 아님)
+  jp-kids          측정 0곡 (0세트) — 미달 (기준 18곡)
+  kr-idol-male     측정 0곡 (0세트) — 미달 (기준 18곡)
+  kr-idol-female   측정 0곡 (0세트) — 미달 (기준 18곡)
+  en-chillhop      측정 0곡 (0세트) — 미달 (기준 18곡)

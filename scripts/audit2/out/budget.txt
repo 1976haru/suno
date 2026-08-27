@@ -1,0 +1,226 @@
+====================================================================================================
+[check:budget] 워크스페이스/아키타입별 동시 제약 목록 — 지시문 36 TASK D
+출력 전용입니다. 어떤 세트도 이 결과로 막히지 않습니다.
+====================================================================================================
+
+[check:budget] senior-morning (senior-oldpop) / 감성 장시간형
+
+  제약                                    출처                                        제거하는 것
+  ────────────────────────────────────────────────────────────────────────────────────────────────────
+  forbiddenAtoms 8종                         channelSoundFloor                         프로덕션 수단
+  requiredAtoms 3종                          channelSoundFloor                         믹스 폭·필수 질감
+  tempoCeiling 100                          audienceProfile                           템포 상단
+  BPM 대역 4개 (4·6·5·3)                       audienceProfile                           템포 분포
+  hardExclusions 8종                         audienceProfile                           킬링포인트에서도 안 풀리는 배제 요소
+  constraints 8종                            audienceProfile                           보컬·편곡 스타일
+  목표 에너지 2.1 (감성 장시간형)                      listeningIntent                           에너지 상단
+  era primary 50%                           eraIntent                                 장르 선택지
+  era-neutral 상한 6                          eraNeutralPolicy                          발라드 등 시대색 없는 장르 상단
+  팔레트 계열 주 그룹 13곡 이상                        paletteFamilies + setDirector.capCompatibleFamilySongs  음색 다양성(가족 밖 장르 유입)
+  편곡 밀도 sparseMin2/fullMax4                 audienceProfile.arrangementDensityLimits  밀도 분포
+
+  동시 제약 11종
+  ⚠ 경고: 제약이 8종을 넘으면 창작 여지가 좁아질 수 있습니다 (추정 임계값, blocking 아님).
+
+[check:budget] showa-cafe (senior-oldpop) / 감성 장시간형
+
+  제약                                    출처                                        제거하는 것
+  ────────────────────────────────────────────────────────────────────────────────────────────────────
+  forbiddenAtoms 8종                         channelSoundFloor                         프로덕션 수단
+  requiredAtoms 3종                          channelSoundFloor                         믹스 폭·필수 질감
+  tempoCeiling 100                          audienceProfile                           템포 상단
+  BPM 대역 4개 (4·6·5·3)                       audienceProfile                           템포 분포
+  hardExclusions 8종                         audienceProfile                           킬링포인트에서도 안 풀리는 배제 요소
+  constraints 8종                            audienceProfile                           보컬·편곡 스타일
+  목표 에너지 2.1 (감성 장시간형)                      listeningIntent                           에너지 상단
+  era primary 50%                           eraIntent                                 장르 선택지
+  era-neutral 상한 6                          eraNeutralPolicy                          발라드 등 시대색 없는 장르 상단
+  팔레트 계열 주 그룹 13곡 이상                        paletteFamilies + setDirector.capCompatibleFamilySongs  음색 다양성(가족 밖 장르 유입)
+  편곡 밀도 sparseMin2/fullMax4                 audienceProfile.arrangementDensityLimits  밀도 분포
+
+  동시 제약 11종
+  ⚠ 경고: 제약이 8종을 넘으면 창작 여지가 좁아질 수 있습니다 (추정 임계값, blocking 아님).
+
+[check:budget] showa-70s (senior-oldpop) / 감성 장시간형
+
+  제약                                    출처                                        제거하는 것
+  ────────────────────────────────────────────────────────────────────────────────────────────────────
+  forbiddenAtoms 8종                         channelSoundFloor                         프로덕션 수단
+  requiredAtoms 3종                          channelSoundFloor                         믹스 폭·필수 질감
+  tempoCeiling 100                          audienceProfile                           템포 상단
+  BPM 대역 4개 (4·6·5·3)                       audienceProfile                           템포 분포
+  hardExclusions 8종                         audienceProfile                           킬링포인트에서도 안 풀리는 배제 요소
+  constraints 8종                            audienceProfile                           보컬·편곡 스타일
+  목표 에너지 2.1 (감성 장시간형)                      listeningIntent                           에너지 상단
+  era primary 50%                           eraIntent                                 장르 선택지
+  era-neutral 상한 6                          eraNeutralPolicy                          발라드 등 시대색 없는 장르 상단
+  팔레트 계열 주 그룹 13곡 이상                        paletteFamilies + setDirector.capCompatibleFamilySongs  음색 다양성(가족 밖 장르 유입)
+  편곡 밀도 sparseMin2/fullMax4                 audienceProfile.arrangementDensityLimits  밀도 분포
+
+  동시 제약 11종
+  ⚠ 경고: 제약이 8종을 넘으면 창작 여지가 좁아질 수 있습니다 (추정 임계값, blocking 아님).
+
+[check:budget] j2000s (senior-oldpop) / 감성 장시간형
+
+  제약                                    출처                                        제거하는 것
+  ────────────────────────────────────────────────────────────────────────────────────────────────────
+  tempoCeiling 132                          audienceProfile                           템포 상단
+  BPM 대역 4개 (1·1·1·1)                       audienceProfile                           템포 분포
+  목표 에너지 2.1 (감성 장시간형)                      listeningIntent                           에너지 상단
+  era primary 50%                           eraIntent                                 장르 선택지
+  era-neutral 상한 6                          eraNeutralPolicy                          발라드 등 시대색 없는 장르 상단
+  편곡 밀도 sparseMin2/fullMax4                 audienceProfile.arrangementDensityLimits  밀도 분포
+
+  동시 제약 6종
+
+[check:budget] modern-chill (senior-oldpop) / 감성 장시간형
+
+  제약                                    출처                                        제거하는 것
+  ────────────────────────────────────────────────────────────────────────────────────────────────────
+  tempoCeiling 132                          audienceProfile                           템포 상단
+  BPM 대역 4개 (1·1·1·1)                       audienceProfile                           템포 분포
+  목표 에너지 2.1 (감성 장시간형)                      listeningIntent                           에너지 상단
+  era primary 50%                           eraIntent                                 장르 선택지
+  era-neutral 상한 6                          eraNeutralPolicy                          발라드 등 시대색 없는 장르 상단
+  편곡 밀도 sparseMin2/fullMax4                 audienceProfile.arrangementDensityLimits  밀도 분포
+
+  동시 제약 6종
+
+[check:budget] city-night (senior-oldpop) / 감성 장시간형
+
+  제약                                    출처                                        제거하는 것
+  ────────────────────────────────────────────────────────────────────────────────────────────────────
+  tempoCeiling 132                          audienceProfile                           템포 상단
+  BPM 대역 4개 (1·1·1·1)                       audienceProfile                           템포 분포
+  목표 에너지 2.1 (감성 장시간형)                      listeningIntent                           에너지 상단
+  era primary 50%                           eraIntent                                 장르 선택지
+  era-neutral 상한 6                          eraNeutralPolicy                          발라드 등 시대색 없는 장르 상단
+  편곡 밀도 sparseMin2/fullMax4                 audienceProfile.arrangementDensityLimits  밀도 분포
+
+  동시 제약 6종
+
+[check:budget] oldpop-lounge (senior-oldpop) / 감성 장시간형
+
+  제약                                    출처                                        제거하는 것
+  ────────────────────────────────────────────────────────────────────────────────────────────────────
+  forbiddenAtoms 8종                         channelSoundFloor                         프로덕션 수단
+  requiredAtoms 3종                          channelSoundFloor                         믹스 폭·필수 질감
+  tempoCeiling 100                          audienceProfile                           템포 상단
+  BPM 대역 4개 (4·6·5·3)                       audienceProfile                           템포 분포
+  hardExclusions 8종                         audienceProfile                           킬링포인트에서도 안 풀리는 배제 요소
+  constraints 8종                            audienceProfile                           보컬·편곡 스타일
+  목표 에너지 2.1 (감성 장시간형)                      listeningIntent                           에너지 상단
+  era primary 50%                           eraIntent                                 장르 선택지
+  era-neutral 상한 6                          eraNeutralPolicy                          발라드 등 시대색 없는 장르 상단
+  팔레트 계열 주 그룹 13곡 이상                        paletteFamilies + setDirector.capCompatibleFamilySongs  음색 다양성(가족 밖 장르 유입)
+  편곡 밀도 sparseMin2/fullMax4                 audienceProfile.arrangementDensityLimits  밀도 분포
+
+  동시 제약 11종
+  ⚠ 경고: 제약이 8종을 넘으면 창작 여지가 좁아질 수 있습니다 (추정 임계값, blocking 아님).
+
+[check:budget] kr-2030-pop (kr-2030) / 감성 장시간형
+
+  제약                                    출처                                        제거하는 것
+  ────────────────────────────────────────────────────────────────────────────────────────────────────
+  forbiddenAtoms 3종                         channelSoundFloor                         프로덕션 수단
+  requiredAtoms 2종                          channelSoundFloor                         믹스 폭·필수 질감
+  tempoCeiling 120                          audienceProfile                           템포 상단
+  BPM 대역 4개 (1·1·1·1)                       audienceProfile                           템포 분포
+  hardExclusions 4종                         audienceProfile                           킬링포인트에서도 안 풀리는 배제 요소
+  constraints 5종                            audienceProfile                           보컬·편곡 스타일
+  목표 에너지 2.1 (감성 장시간형)                      listeningIntent                           에너지 상단
+  편곡 밀도 sparseMin2/fullMax6                 audienceProfile.arrangementDensityLimits  밀도 분포
+
+  동시 제약 8종
+
+[check:budget] jp-2030-pop (jp-2030) / 감성 장시간형
+
+  제약                                    출처                                        제거하는 것
+  ────────────────────────────────────────────────────────────────────────────────────────────────────
+  forbiddenAtoms 3종                         channelSoundFloor                         프로덕션 수단
+  requiredAtoms 2종                          channelSoundFloor                         믹스 폭·필수 질감
+  tempoCeiling 125                          audienceProfile                           템포 상단
+  BPM 대역 4개 (1·1·1·1)                       audienceProfile                           템포 분포
+  hardExclusions 4종                         audienceProfile                           킬링포인트에서도 안 풀리는 배제 요소
+  constraints 5종                            audienceProfile                           보컬·편곡 스타일
+  목표 에너지 2.1 (감성 장시간형)                      listeningIntent                           에너지 상단
+  편곡 밀도 sparseMin2/fullMax6                 audienceProfile.arrangementDensityLimits  밀도 분포
+
+  동시 제약 8종
+
+[check:budget] kr-idol-male (kr-idol-male) / 감성 장시간형
+
+  제약                                    출처                                        제거하는 것
+  ────────────────────────────────────────────────────────────────────────────────────────────────────
+  forbiddenAtoms 3종                         channelSoundFloor                         프로덕션 수단
+  requiredAtoms 2종                          channelSoundFloor                         믹스 폭·필수 질감
+  tempoCeiling 150                          audienceProfile                           템포 상단
+  BPM 대역 5개 (1·2·4·6·5)                     audienceProfile                           템포 분포
+  hardExclusions 3종                         audienceProfile                           킬링포인트에서도 안 풀리는 배제 요소
+  constraints 5종                            audienceProfile                           보컬·편곡 스타일
+  목표 에너지 2.1 (감성 장시간형)                      listeningIntent                           에너지 상단
+  편곡 밀도 sparseMin0/fullMax10                audienceProfile.arrangementDensityLimits  밀도 분포
+
+  동시 제약 8종
+
+[check:budget] kr-idol-female (kr-idol-female) / 감성 장시간형
+
+  제약                                    출처                                        제거하는 것
+  ────────────────────────────────────────────────────────────────────────────────────────────────────
+  forbiddenAtoms 3종                         channelSoundFloor                         프로덕션 수단
+  requiredAtoms 2종                          channelSoundFloor                         믹스 폭·필수 질감
+  tempoCeiling 150                          audienceProfile                           템포 상단
+  BPM 대역 5개 (1·2·4·6·5)                     audienceProfile                           템포 분포
+  hardExclusions 3종                         audienceProfile                           킬링포인트에서도 안 풀리는 배제 요소
+  constraints 5종                            audienceProfile                           보컬·편곡 스타일
+  목표 에너지 2.1 (감성 장시간형)                      listeningIntent                           에너지 상단
+  편곡 밀도 sparseMin0/fullMax10                audienceProfile.arrangementDensityLimits  밀도 분포
+
+  동시 제약 8종
+
+[check:budget] lofi-study (senior-oldpop) / 감성 장시간형
+
+  제약                                    출처                                        제거하는 것
+  ────────────────────────────────────────────────────────────────────────────────────────────────────
+  tempoCeiling 132                          audienceProfile                           템포 상단
+  BPM 대역 4개 (1·1·1·1)                       audienceProfile                           템포 분포
+  목표 에너지 2.1 (감성 장시간형)                      listeningIntent                           에너지 상단
+  era primary 50%                           eraIntent                                 장르 선택지
+  era-neutral 상한 6                          eraNeutralPolicy                          발라드 등 시대색 없는 장르 상단
+  편곡 밀도 sparseMin2/fullMax4                 audienceProfile.arrangementDensityLimits  밀도 분포
+
+  동시 제약 6종
+
+[check:budget] kids (senior-oldpop) / 감성 장시간형
+
+  제약                                    출처                                        제거하는 것
+  ────────────────────────────────────────────────────────────────────────────────────────────────────
+  tempoCeiling 128                          audienceProfile                           템포 상단
+  BPM 대역 4개 (1·1·1·1)                       audienceProfile                           템포 분포
+  목표 에너지 2.1 (감성 장시간형)                      listeningIntent                           에너지 상단
+  era primary 50%                           eraIntent                                 장르 선택지
+  era-neutral 상한 6                          eraNeutralPolicy                          발라드 등 시대색 없는 장르 상단
+  편곡 밀도 sparseMin2/fullMax4                 audienceProfile.arrangementDensityLimits  밀도 분포
+
+  동시 제약 6종
+
+====================================================================================================
+[check:budget] 요약 — 아키타입별 동시 제약 수 (내림차순)
+====================================================================================================
+  senior-morning   (senior-oldpop ) 11종 ⚠
+  showa-cafe       (senior-oldpop ) 11종 ⚠
+  showa-70s        (senior-oldpop ) 11종 ⚠
+  oldpop-lounge    (senior-oldpop ) 11종 ⚠
+  kr-2030-pop      (kr-2030       )  8종
+  jp-2030-pop      (jp-2030       )  8종
+  kr-idol-male     (kr-idol-male  )  8종
+  kr-idol-female   (kr-idol-female)  8종
+  j2000s           (senior-oldpop )  6종
+  modern-chill     (senior-oldpop )  6종
+  city-night       (senior-oldpop )  6종
+  lofi-study       (senior-oldpop )  6종
+  kids             (senior-oldpop )  6종
+
+  시니어(4개 아키타입) 제약 수: 11~11종 · kr-2030-pop 8종 · kids 6종
+  ⚠ senior 계열이 kr-2030-pop보다 3~3종 더 많습니다.
+

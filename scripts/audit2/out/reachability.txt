@@ -1,0 +1,50 @@
+[check:reachability] 진입점: src/main.tsx, src/App.tsx, src/workers/localGenerationWorker.ts
+[check:reachability] 전체 소스 파일 402개 중 도달 가능 380개 / 도달 불가 22개 (allowlist 22개 · 사유 없음 0개)
+
+도달 불가 (allowlist — 사유 있음, 실패 아님):
+  src/core/audioGate.ts
+    사유: 지시문 11 범위(음원·번들) — 이 환경에 실제 음원 파일이 없어 검증 불가, 09에서는 사유만 기록
+  src/core/blindBenchmark.ts
+    사유: 위와 동일 — 지시문 11 §0에서 HotAIMusic 블라인드 A/B 요건 자체가 명시적으로 폐기됨, 실측 대체 완료
+  src/core/finalExport.ts
+    사유: finalizeBlueprint의 하위 단계였으나 finalizeBlueprint 자신은 이제 도달 가능 — 이 파일 자체는 여전히 별도로 배선된 적 없음(지시문 08 범위, 09는 도달성만 확인)
+  src/core/gateDataContract.ts
+    사유: CLI 전용 계약 모듈 — scripts/checkGateContract.ts(npm run check:gates)와 tests/gateDataContract.test.ts만 소비, 브라우저 진입점 그래프 밖 (지시문 12 TASK B)
+  src/core/idolFemalePartPlan.ts
+    사유: 위와 동일 — kr-idol-female
+  src/core/idolPartPlan.ts
+    사유: 생성(감사 아님) 모듈 — kr-idol-male 실제 per-song 생성 루프 수정 필요, 리스크가 검사 모듈 배선과 다른 차원이라 이 세션에서 의도적으로 보류
+  src/core/lyricBudget.ts
+    사유: 미착수 — 가사 단어수 목표(BPM별 타깃)는 이미 core/compositionScorer.ts의 targetWordRangeFor/core/fullAudit.ts가 실제 배선된 경로로 처리 중이라, 이 모듈이 배선될 자리가 중복 없이 어디인지 아직 확정하지 못함
+  src/core/lyricsAlignment.ts
+    사유: 지시문 09 §2-3 "음원·번들" 목록에 명시 — 위와 동일 사유(지시문 11 범위, 실제 음원 필요)
+  src/core/measuredSongLedger.ts
+    사유: CLI 전용 카운터 순수 계산부 — scripts/audit.ts --pack(누적 기록)과 scripts/checkArchetypeCoverage.ts(표시)만 소비, tests/measuredSongLedger.test.ts로 검증. 이 앱은 아직 verified 승격을 웹 UI 토글이 아니라 하루가 손으로 distinctChoicePolicy.ts를 고치는 방식으로 처리하므로, 이 카운터 자체도 브라우저 진입점 그래프 밖의 CLI 전용 모듈이다 (지시문 32 TASK §4)
+  src/core/musicGenerationProvider.ts
+    사유: 위와 동일
+  src/core/rewriteInstruction.ts
+    사유: GenerationGatePanel.tsx가 재작성 응답 파스백에 필요한 genres/moods/season 컨텍스트를 갖고 있지 않음 — 실측 확인된 아키텍처 갭, 프롭 체인 리팩터링 필요 (이 지시문 범위 밖)
+  src/core/rewriteStageDashboard.ts
+    사유: 위와 동일
+  src/core/rewriteVerification.ts
+    사유: 위와 동일
+  src/core/rewriteWorkspaceRules.ts
+    사유: 위와 동일
+  src/core/sectionGenrePlan.ts
+    사유: 생성 모듈 — 섹션별 장르 블렌딩을 실제 곡 조립에 넣으려면 localGenerator.ts 수정 필요, 위와 동일 이유로 보류
+  src/core/sectionGenrePromptFormats.ts
+    사유: 위와 동일 — sectionGenrePlan의 렌더링 단계
+  src/core/semanticCritic.ts
+    사유: 지시문 11 TASK C — musicGenerationProvider.ts와 동일한 이유·동일한 패턴(계약 + 정직한 UnavailableSemanticCritic 기본 구현). 이 앱에는 임의 LLM을 호출하는 실제 연결이 없어, 지금 억지로 호출부를 만들면 미승인 엔드포인트를 부르거나 성공을 지어내는 것 중 하나가 된다 — "optional/provider-gated"라는 지시문 자신의 표현대로 실제 공급자가 연결되기 전까지는 의도적으로 미배선.
+  src/core/verifiedSettingContract.ts
+    사유: CLI 전용 계약 모듈 — scripts/checkVerifiedSettings.ts(npm run check:settings)와 tests/verifiedSettingContract.test.ts만 소비, 브라우저 진입점 그래프 밖 (지시문 12 TASK C)
+  src/data/conceptCoverageSamples.ts
+    사유: CLI 전용 표본 데이터 — scripts/checkConceptCoverage.ts(npm run check:concept-coverage)만 소비. tests/goldenCases.test.ts류 데이터 파일과 같은 성격으로, 회귀 검사용 표본 50개를 문서화한 것이지 앱이 실행 중 읽는 데이터가 아니다 (지시문 64 TASK C-2)
+  src/data/goldenCases.ts
+    사유: 테스트 전용 회귀 잠금 데이터 — tests/goldenCases.test.ts가 유일한 실제 소비자, tests/fixtures/*.json과 같은 성격
+  src/data/kidsArcModel.ts
+    사유: 의도적 미배선(지시문 08에서 이미 판단) — core/arcModels.ts가 동일 개념(아이 아크 단계)을 실제 배선된 다른 이름 체계(kids-familiar/kids-learning/kids-moving/kids-calm/kids-closing)로 이미 구현 중. 배선하면 두 시스템이 공존하게 되어 "낡은 경로를 남기지 말 것"을 위반함
+  src/data/krIdolSectionPlans.ts
+    사유: sectionGenrePlan이 소비할 데이터 — 소비하는 쪽이 아직 배선되지 않아 함께 보류
+
+사유 없는 도달 불가 파일 없음.

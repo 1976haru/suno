@@ -1,0 +1,48 @@
+=== 지시문 78 — 발성 축 커버리지 ===
+
+아키타입          총  breathy husky   belted  clear   dark    falsetto
+──────────────────────────────────────────────────────────────────────────────
+oldpop-lounge     12  2       3       2       2       2       0       
+showa-70s         10  1       2       2       2       1       0       
+kr-2030-pop       16  2       2       2       5       2       2       
+jp-2030-pop       13  1       2       2       4       2       2       
+kr-idol-male       8  1       1       1       3       1       1       
+kr-idol-female     9  1       2       1       2       1       1       
+en-chillhop       19  4       3       2       5       2       2       
+--- (참고: §1 표 밖의 성인 아키타입) ---
+senior-morning     8  2       1       1       2       0       0       
+showa-cafe         8  1       3       0       1       1       1       
+christmas          7  2       1       1       1       0       0       
+lofi-study         7  3       0       0       2       1       0       
+j2000s             8  1       0       1       4       0       2       
+modern-chill       9  2       1       0       3       1       1       
+city-night        13  1       4       1       3       2       1       
+
+성인 프리셋 23종 · forKids 10종
+발성 정보 없는 성인 프리셋: 0종
+detectVocalGender 판정 불가: 2종 — male-female-duet, mixed-harmony-group (듀엣 1종은 의도된 예외)
+
+--- 프리셋별 축 / prompt 단어 수 ---
+  warm-mature-male       13w  [breathy, husky]
+  low-calm-male          13w  [clear]
+  clear-light-male       11w  [clear]
+  airy-falsetto-male     12w  [breathy, falsetto]
+  smoky-jazz-male        12w  [husky]
+  bright-young-male      12w  [clear]
+  whisper-male           13w  [breathy]
+  soft-female            11w  [breathy]
+  mature-female          10w  [clear]
+  bright-clear-female    10w  [clear]
+  husky-jazz-female      12w  [husky]
+  airy-whisper-female    13w  [breathy]
+  bright-young-female    12w  [clear]
+  soulful-female         10w  [(없음)]
+  belted-male            12w  [belted]
+  belted-female          11w  [belted]
+  dark-resonant-male     11w  [dark]
+  dark-resonant-female   11w  [dark]
+  husky-grain-male       12w  [husky]
+  husky-grain-female     12w  [husky]
+  light-falsetto-female  11w  [falsetto]
+  male-female-duet       13w  [(없음)]
+  mixed-harmony-group    13w  [(없음)]

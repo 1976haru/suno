@@ -1,0 +1,41 @@
+[check:genre-completeness] 전체 376종 검사
+
+── electronic (11종 중 9종 미달) ──
+  en-deep-house-melodic                  미달: vocalPreference
+  en-deep-house-organic                  미달: vocalPreference
+  en-house-garage-swing                  미달: vocalPreference
+  en-deep-house-vocal-anthem             미달: vocalPreference
+  en-deep-house-tech-groove              미달: vocalPreference
+  en-deep-house-soulful                  미달: vocalPreference
+  en-chill-house-emotional               미달: vocalPreference
+  en-chill-deep-house                    미달: vocalPreference
+  en-lounge-house                        미달: vocalPreference
+
+────────────────────────────────────────────────────────────
+완결 367/376  미달 9/376
+
+축별 미달 (참고용):
+  vocalPreference    9/376
+  instruments        0/376
+  rhythm             0/376
+  production         0/376
+  eraNoteKo          0/376
+
+████████████████████████████████████████████████████████████
+[지시문 62 TASK F-1] 전체 376종 — 완료 정의: 아래 두 줄이 0이어야 완료
+  전체 376종 중 8점 미만: 0종
+  전체 376종 중 vocalPreference 없음: 9종
+  전체 평균 점수: 10.37점 (12점 만점)
+
+════════════════════════════════════════════════════════════
+[지시문 61 TASK D-1] 채널 사용 장르 서술 점수 (rhythm/production/vocal/harmony 각 최대 3점, 12점 만점)
+채널 사용 장르 143종 중 8점 미만 0종
+
+
+점수 분포 (채널 사용 장르 전체):
+   9점  88종
+  10점  9종
+  11점  25종
+  12점  21종
+
+[check:genre-completeness] advisory — 통과 처리(exit 0). 우선순위는 하루가 정한다.

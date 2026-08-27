@@ -1,0 +1,40 @@
+[check:vocal-genre-fit] 지시문 63 TASK C
+
+표본: 워크스페이스당 대표 채널 1개 · 15곡
+
+senior-oldpop (senior-morning)
+  장르-보컬 부합률: 11/15  ⚠ 12/15 미만
+  보컬 프리셋 종류: 1종  ⚠ 5종 미만
+    트랙 3: 장르 oldpop-soft-rock-am가 원하는 성별 male ≠ 실제 배정 female
+    트랙 8: 장르 oldpop-brill-building가 원하는 성별 female ≠ 실제 배정 mixed
+    트랙 9: 장르 oldpop-sunlit-strings-pop가 원하는 성별 female ≠ 실제 배정 mixed
+    트랙 10: 장르 jazz-classic-vocal-lounge가 원하는 성별 female ≠ 실제 배정 male
+
+kr-2030 (kr-2030-pop)
+  장르-보컬 부합률: 14/15
+  보컬 프리셋 종류: 0종  ⚠ 5종 미만
+    트랙 2: 장르 kr2030-ost-ballad가 원하는 성별 female ≠ 실제 배정 male
+
+jp-2030 (jp-2030-pop)
+  장르-보컬 부합률: 15/15
+  보컬 프리셋 종류: 0종  ⚠ 5종 미만
+
+kr-kids (kr-kids-song)
+  장르-보컬 부합률: 15/15
+  보컬 프리셋 종류: 7종
+
+jp-kids (jp-kids-song)
+  장르-보컬 부합률: 15/15
+  보컬 프리셋 종류: 5종
+
+kr-idol-male (kr-idol-male)
+  장르-보컬 부합률: 15/15
+  보컬 프리셋 종류: 0종  ⚠ 5종 미만
+
+kr-idol-female (kr-idol-female)
+  장르-보컬 부합률: 15/15
+  보컬 프리셋 종류: 0종  ⚠ 5종 미만
+
+전체 부합률: 100/105 (95%)
+
+[check:vocal-genre-fit] advisory — 12/15 미만은 경고만 남기고 통과 처리(exit 0). 위 ⚠ 항목을 확인하십시오.
