@@ -74,7 +74,20 @@ const COPYRIGHT_TERMS = parseNegativeStyleTerms('famous artist imitation, copied
 export function buildNegativePromptSpec(
   opts: Pick<GenerationOptions, 'avoidWords' | 'channel' | 'negativeStyle'>,
   genres: GenrePack[] = [],
-  relaxedExclusions: readonly string[] = []
+  relaxedExclusions: readonly string[] = [],
+  /**
+   * 지시문 77 (TASK C-4.3) — 컨셉이 지목한 발성의 반대편 배제어
+   * (core/conceptVocalPlan.ts의 conceptVocalExclusionTerms). Suno의
+   * 기본값은 성대를 닫는 현대 팝 발성이라 긍정 지시만으로는 약하다.
+   *
+   * **arrangement(trimmable) 티어의 맨 앞**에 들어간다 — 이 자리가
+   * 핵심이다. buildExcludePrompt의 fitWithinBudget이 이 티어만 예산에
+   * 맞춰 자르므로, 앞에 넣으면 "추가하는 만큼 기존 항목 중 이 곡에
+   * 불필요한 것을 뺀다"(§4.3)가 새 트리밍 코드 없이 기존 예산 로직으로
+   * 그대로 성립한다. safety/copyright/workspace/user 같은 always-keep
+   * 티어에 넣었다면 총량이 그만큼 늘어났을 것이다.
+   */
+  conceptVocalExclusions: readonly string[] = []
 ): NegativePromptSpec {
   const audienceProfile = audienceProfileForChannelArchetype(opts.channel.archetype, opts.channel.audience);
   const relaxable = new Set(audienceProfile.relaxableAtPeak);
@@ -88,9 +101,31 @@ export function buildNegativePromptSpec(
     copyright: [...COPYRIGHT_TERMS],
     workspace: soundFloor?.forbiddenAtoms ? [...soundFloor.forbiddenAtoms] : [],
     vocal: vocalFloor?.forbiddenTraits ? [...vocalFloor.forbiddenTraits] : [],
-    arrangement: parseNegativeStyleTerms(resolveNegativeStyleText(opts, genres)),
+    arrangement: withConceptVocalExclusions(parseNegativeStyleTerms(resolveNegativeStyleText(opts, genres)), conceptVocalExclusions),
     user: parseNegativeStyleTerms(opts.avoidWords)
   };
+}
+
+/**
+ * 지시문 77 (TASK C-4.3) — **총량 중립 스왑.** 발성 배제어를 trimmable
+ * arrangement 티어 맨 앞에 넣고, 같은 개수만큼 그 티어의 **꼬리**를 뺀다.
+ *
+ * 꼬리를 고르는 이유: buildExcludePrompt의 fitWithinBudget이 예산 압박
+ * 시 실제로 먼저 버리는 쪽이 정확히 이 꼬리다 — 이 앱이 이미 갖고 있는
+ * "여기서 뭐가 제일 덜 중요한가"의 유일한 권위 있는 순서를 그대로 따르지,
+ * 그와 모순되는 두 번째 순서를 새로 만들지 않는다.
+ *
+ * 앞에 그냥 붙이기만 했을 때는 실측에서 excludePrompt 평균이 50.0 →
+ * 60.5 단어로 늘었다(예산에 여유가 있어 fitWithinBudget이 아무것도 자르지
+ * 않았기 때문) — §4.3 "총량을 늘리지 말 것"과 §7 회귀 금지 항목을 둘 다
+ * 어긴다. 개수 스왑이 그 실측에 대한 수정이다.
+ */
+function withConceptVocalExclusions(arrangement: string[], conceptVocalExclusions: readonly string[]): string[] {
+  if (!conceptVocalExclusions.length) return arrangement;
+  const additions = conceptVocalExclusions.filter(term => !arrangement.includes(term));
+  if (!additions.length) return arrangement;
+  const keep = Math.max(0, arrangement.length - additions.length);
+  return [...additions, ...arrangement.slice(0, keep)];
 }
 
 /** Reuses the SAME real dedup+subsumption logic buildExcludePrompt already relies on — never a second, independently-drifting copy. */
