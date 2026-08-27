@@ -505,7 +505,10 @@ describe('[Part D] kid vocal presets are registered and mutually distinct', () =
     expect(vocalPresets.filter(p => p.forKids).length).toBe(10);
   });
 
-  it('[Part v3.41 B] exactly 16 presets are not flagged forKids', () => {
-    expect(vocalPresets.filter(p => !p.forKids).length).toBe(16);
+  // 지시문 78 (TASK B) — 성인 풀 16 → 23종(belted/dark/husky 각 남녀 +
+  // 여성 falsetto). forKids 10종은 무변경이 회귀 금지선이다.
+  it('[지시문 78] exactly 23 presets are not flagged forKids', () => {
+    expect(vocalPresets.filter(p => !p.forKids).length).toBe(23);
+    expect(vocalPresets.filter(p => p.forKids).length).toBe(10);
   });
 });

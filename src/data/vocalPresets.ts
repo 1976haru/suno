@@ -466,6 +466,39 @@ export const vocalPresets: VocalPreset[] = [
   }
 ];
 
+/**
+ * 지시문 78 (TASK A) — 보강 **이전**의 prompt 문자열 → 프리셋 id.
+ *
+ * 저장된 팩은 vocalTone에 프리셋의 prompt 원문을 그대로 담는다
+ * (matchVocalPreset이 정확 일치 조회다). TASK A가 16종의 prompt를 전부
+ * 바꿨으므로, 이 표가 없으면 지시문 78 이전에 저장된 모든 팩이 조용히
+ * effectiveVocalPresetId를 잃고 free-text 폴백으로 떨어진다 —
+ * tests/v341.test.ts가 이 자리를 "saved-pack compatibility"라고 이름 붙여
+ * 지키고 있던 계약이다. 새 문구를 정본으로 두되, 옛 문구도 계속 같은
+ * 프리셋으로 해석한다(읽기 전용 별칭 — 어디서도 이 문자열을 생성하지 않는다).
+ */
+const LEGACY_PRESET_PROMPTS: Record<string, string> = {
+  'mature soulful male tenor, soft slightly husky close-mic delivery, gentle and sincere': 'warm-mature-male',
+  'low calm male baritone, restrained emotional delivery, warm late-night tone': 'low-calm-male',
+  'clear light male tenor, clean simple delivery, youthful and sincere': 'clear-light-male',
+  'soft male falsetto, airy head voice, smooth city-pop phrasing, light and floating': 'airy-falsetto-male',
+  'smoky male baritone, relaxed jazz phrasing, lounge microphone warmth, slight rasp': 'smoky-jazz-male',
+  'bright young male voice, clean modern pop delivery, fresh and open tone': 'bright-young-male',
+  'soft male voice just above a whisper, intimate close-mic breath, very gentle and slow': 'whisper-male',
+  'soft warm female alto, gentle breathy delivery, intimate and calm': 'soft-female',
+  'mature elegant female mezzo-soprano, warm restrained delivery, sophisticated tone': 'mature-female',
+  'bright clear female soprano, bell-like clarity, light and uplifting delivery': 'bright-clear-female',
+  'husky female alto, smoky jazz phrasing, laid-back swing feel, warm lower register': 'husky-jazz-female',
+  'soft female voice just above a whisper, airy breath tone, slow intimate delivery': 'airy-whisper-female',
+  'bright young female voice, clean modern pop delivery, fresh and open tone': 'bright-young-female',
+  'soulful female voice, warm gospel-tinged phrasing, expressive but controlled runs': 'soulful-female',
+  'male and female duet, alternating verses, close harmony on the chorus, warm blended tone': 'male-female-duet',
+  'small mixed vocal group, close three-part harmony, soft blended backing, retro group feel': 'mixed-harmony-group'
+};
+
 export function matchVocalPreset(vocalTone: string): VocalPreset | undefined {
-  return vocalPresets.find(preset => preset.prompt === vocalTone);
+  const exact = vocalPresets.find(preset => preset.prompt === vocalTone);
+  if (exact) return exact;
+  const legacyId = LEGACY_PRESET_PROMPTS[vocalTone];
+  return legacyId ? vocalPresets.find(preset => preset.id === legacyId) : undefined;
 }

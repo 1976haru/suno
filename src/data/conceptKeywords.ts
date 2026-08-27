@@ -2164,7 +2164,11 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
       /powerful\s*(?:vocals?|voice|singing|delivery)/i,
       /full[-\s]?voiced/i
     ],
-    vocalPresetWeights: { 'soulful-female': 3 },
+    // 지시문 78 — soulful-female은 belted 계열에서 빠졌다(§3.2: 'controlled
+    // runs'는 절제 축이다). 78 TASK B가 신설한 실제 흉성 투사 2종으로 옮긴다 —
+    // 지시문 77 실측에서 이 규칙이 en-chillhop에 프리셋을 하나도 못 주던
+    // (soulful-female 미등록) 문제도 이걸로 해소된다.
+    vocalPresetWeights: { 'belted-male': 3, 'belted-female': 3 },
     archetypeScope: ADULT_ARCHETYPES
   },
   {
@@ -2180,6 +2184,42 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
       'clear-light-male': 2, 'bright-young-male': 2, 'bright-young-female': 2,
       'bright-clear-female': 2, 'low-calm-male': 1, 'mature-female': 1
     },
+    archetypeScope: ADULT_ARCHETYPES
+  },
+  // 지시문 78 — 청취 피드백이 든 세 단어("공기 반 소리 반 / 허스키 /
+  // 동굴 소리") 중 뒤 둘에 대응하는 규칙. 지시문 77이 만든 축에 계열
+  // 자체가 없어 지목이 불가능했고, 78 TASK B가 그 목소리를 실제로
+  // 만들었으므로 여기서 도달 경로를 연다.
+  {
+    // '거친'/'쉰' 같은 범용 형용사는 목소리 명사와 붙을 때만 매칭한다 —
+    // 단독이면 편곡·가사 문맥에서 오탐한다(vocal-belted-power와 같은 원칙).
+    id: 'vocal-husky-grain',
+    patterns: [
+      /허스키/,
+      /쉰\s*(?:목소리|보컬|음성)/,
+      /거친\s*(?:목소리|보컬|음색|결)/,
+      /husky/i,
+      /raspy?\b/i,
+      /gravell?y/i
+    ],
+    vocalPresetWeights: {
+      'husky-grain-male': 3, 'husky-grain-female': 3,
+      'husky-jazz-female': 2, 'smoky-jazz-male': 2
+    },
+    archetypeScope: ADULT_ARCHETYPES
+  },
+  {
+    // '동굴 소리'는 한국어 실사용 표현이다(§3.2). '어두운'은 단독으로 두면
+    // 가사 분위기 묘사에 걸리므로 목소리 명사와 붙을 때만 매칭한다.
+    id: 'vocal-dark-resonant',
+    patterns: [
+      /동굴\s*(?:소리|목소리|보이스|보컬)/,
+      /어두운\s*(?:목소리|보컬|음색|톤)/,
+      /울림\s*(?:이|있는)?\s*깊/,
+      /dark\s*(?:vocals?|voice|tone|timbre)/i,
+      /cavernous/i
+    ],
+    vocalPresetWeights: { 'dark-resonant-male': 3, 'dark-resonant-female': 3 },
     archetypeScope: ADULT_ARCHETYPES
   }
 ];

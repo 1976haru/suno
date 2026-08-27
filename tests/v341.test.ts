@@ -48,11 +48,13 @@ function baseSong(overrides: Partial<SongIdea> = {}): SongIdea {
 }
 
 describe('[Part B/C] preset pool expansion counts', () => {
-  it('adult pool is exactly 16 (7 male, 7 female, 2 duet/mixed)', () => {
+  // 지시문 78 (TASK B) — 16 → 23종. belted/dark/husky 각 남녀 6종 +
+  // light-falsetto-female. duet/mixed 2종은 그대로다.
+  it('adult pool is exactly 23 (10 male, 11 female, 2 duet/mixed)', () => {
     const adult = vocalPresets.filter(p => !p.forKids);
-    expect(adult).toHaveLength(16);
-    expect(adult.filter(p => p.gender === 'male')).toHaveLength(7);
-    expect(adult.filter(p => p.gender === 'female')).toHaveLength(7);
+    expect(adult).toHaveLength(23);
+    expect(adult.filter(p => p.gender === 'male')).toHaveLength(10);
+    expect(adult.filter(p => p.gender === 'female')).toHaveLength(11);
     expect(adult.filter(p => p.gender === 'duet' || p.gender === 'mixed')).toHaveLength(2);
   });
 
@@ -83,7 +85,20 @@ describe('[Regression] the original 5 adult + 3 kids preset ids/prompts are unch
     'kid-choir': "children's choir of childlike, youthful voices singing together, cheerful call-and-response group singalong"
   };
 
-  it.each(Object.entries({ ...originalAdult, ...originalKids }))('preset "%s" keeps its original prompt text (saved-pack compatibility)', (id, prompt) => {
+  // 지시문 78 (TASK A) — 성인 16종의 prompt는 발성 정보를 넣느라 의도적으로
+  // 바뀌었다(음역대·인상만 있고 성대/공명/호흡이 없어 Suno가 전부 기본
+  // 발성으로 부르던 §1.2 실측의 수정). 이 테스트가 지키던 실제 계약은
+  // "저장된 팩의 vocalTone이 같은 프리셋으로 계속 해석된다"이고, 그것은
+  // vocalPresets.ts의 LEGACY_PRESET_PROMPTS 별칭이 그대로 보장한다 —
+  // 문자열 동일성이 아니라 **해석 동일성**을 검사하도록 바꾼다.
+  // 동요 3종은 한 글자도 바뀌지 않았으므로 문자열까지 그대로 검사한다.
+  it.each(Object.entries(originalAdult))('legacy prompt for "%s" still resolves to the same preset (saved-pack compatibility)', (id, prompt) => {
+    const preset = vocalPresets.find(p => p.id === id);
+    expect(preset, id).toBeDefined();
+    expect(matchVocalPreset(prompt)?.id).toBe(id);
+  });
+
+  it.each(Object.entries(originalKids))('kids preset "%s" keeps its original prompt text byte-for-byte', (id, prompt) => {
     const preset = vocalPresets.find(p => p.id === id);
     expect(preset, id).toBeDefined();
     expect(preset!.prompt).toBe(prompt);
