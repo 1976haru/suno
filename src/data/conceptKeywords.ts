@@ -2101,6 +2101,86 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
     moodWeights: { 'calm-focus': 2 },
     genreWeights: { 'chill-rap': 1, 'lofi-hiphop-study': 1 },
     archetypeScope: ['en-chillhop']
+  },
+  // -------------------------------------------------------------------------
+  // 지시문 77 (TASK B) — 발성(onset) 축. 이 6개 규칙만이 vocalPresetWeights를
+  // 가지며, genreWeights/moodWeights/seasonWeights는 하나도 두지 않는다 —
+  // 발성 지목이 장르·무드·계절 랭킹을 조용히 흔들면 안 된다(§5.2 "장르를
+  // 바꾸지 말 것"의 같은 취지를 규칙 데이터 층에서 미리 막는다).
+  //
+  // archetypeScope는 ADULT_ARCHETYPES(동요 3종 제외 전부)다. 판단 근거:
+  //  ① 발성 어휘 자체는 워크스페이스 중립이다 — "숨소리 섞인"은 en-chillhop
+  //     에서도 lofi-study/showa-cafe/city-night에서도 같은 것을 가리킨다.
+  //     §3.1이 "어느 아키타입까지 열지 판단"하라며 최소 검토 대상으로 든
+  //     en-chillhop/lofi-study/showa-cafe가 전부 여기 포함된다.
+  //  ② 동요(kids)는 제외한다. 지시문 64 TASK B-3이 이 목록을 만든 이유와
+  //     같다 — kids 채널의 suitablePresetsForArchetype은 forKids 프리셋만
+  //     돌려주므로 여기 적힌 성인 프리셋 id는 어차피 하드 필터에서 전부
+  //     떨어지지만, "동요에 성인 어휘를 매칭하지 않는다"를 정규식이 아니라
+  //     구조로 보장한다.
+  // -------------------------------------------------------------------------
+  {
+    // §3.1 주의 — 단독 `숨`은 넣지 않는다(한국어에서 너무 흔하다).
+    // '숨소리'는 그 자체가 발성 어휘라 단독으로 안전하다.
+    id: 'vocal-breathy-onset',
+    patterns: [/숨소리/, /브레시/, /breathy/i],
+    vocalPresetWeights: { 'airy-whisper-female': 3, 'whisper-male': 3, 'soft-female': 2, 'airy-falsetto-male': 2 },
+    archetypeScope: ADULT_ARCHETYPES
+  },
+  {
+    // '에어리'는 어간으로 둔다 — '에어리한/에어리하게/에어리함' 전부 걸린다
+    // (지시문 70 TASK A가 어미 고정형을 어간 기반으로 바꾼 것과 같은 이유).
+    id: 'vocal-airy-tone',
+    patterns: [/에어리/, /airy/i],
+    vocalPresetWeights: { 'airy-whisper-female': 3, 'airy-falsetto-male': 3, 'soft-female': 2, 'whisper-male': 1 },
+    archetypeScope: ADULT_ARCHETYPES
+  },
+  {
+    // §3.1 주의 — 단독 `공기`는 넣지 않는다. '공기 반 소리 반' 전체 구문으로만
+    // 매칭한다(띄어쓰기 흔들림만 허용).
+    id: 'vocal-half-air-half-voice',
+    patterns: [/공기\s*반\s*소리\s*반/, /half\s*air\s*,?\s*half\s*voice/i],
+    vocalPresetWeights: { 'airy-whisper-female': 3, 'whisper-male': 2, 'soft-female': 2, 'airy-falsetto-male': 2 },
+    archetypeScope: ADULT_ARCHETYPES
+  },
+  {
+    // '속삭이'는 어간 — '속삭이는/속삭이며/속삭이듯'이 전부 걸린다(§3.1의
+    // "어미 고정형으로 넣지 말 것"). 'whisper'는 whispered/whispering까지 포함.
+    id: 'vocal-whisper',
+    patterns: [/속삭이/, /속삭임/, /소곤/, /whisper/i],
+    vocalPresetWeights: { 'airy-whisper-female': 3, 'whisper-male': 3, 'soft-female': 1 },
+    archetypeScope: ADULT_ARCHETYPES
+  },
+  {
+    // §3.2 — breathy만 만들면 축이 한쪽으로만 작동한다. 반대편(흉성 투사).
+    // '힘 있는'/'깔끔한' 같은 범용 형용사는 반드시 목소리 명사와 붙을 때만
+    // 매칭한다 — 단독으로 두면 편곡·가사 문맥에서 오탐한다.
+    id: 'vocal-belted-power',
+    patterns: [
+      /힘\s*있는\s*(?:목소리|보컬|보이스|창법|발성|고음)/,
+      /시원하게\s*뻗/,
+      /벨팅/, /파워풀/,
+      /belt(?:ed|ing)/i,
+      /powerful\s*(?:vocals?|voice|singing|delivery)/i,
+      /full[-\s]?voiced/i
+    ],
+    vocalPresetWeights: { 'soulful-female': 3 },
+    archetypeScope: ADULT_ARCHETYPES
+  },
+  {
+    id: 'vocal-clean-plain',
+    patterns: [
+      /담백한\s*(?:목소리|보컬|보이스|창법|발성|톤)/,
+      /깔끔한\s*(?:목소리|보컬|보이스|창법|발성|톤)/,
+      /담담한\s*(?:목소리|보컬|보이스|창법|발성|톤)/,
+      /clean\s*(?:vocals?|voice|singing|delivery)/i,
+      /straightforward\s*(?:vocals?|voice|singing|delivery)/i
+    ],
+    vocalPresetWeights: {
+      'clear-light-male': 2, 'bright-young-male': 2, 'bright-young-female': 2,
+      'bright-clear-female': 2, 'low-calm-male': 1, 'mature-female': 1
+    },
+    archetypeScope: ADULT_ARCHETYPES
   }
 ];
 
