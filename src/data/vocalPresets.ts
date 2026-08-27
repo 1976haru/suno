@@ -186,7 +186,9 @@ export const vocalPresets: VocalPreset[] = [
     // 지시문 76 (TASK B) — alt-rnb·trap-soul이 이 워크스페이스의 코어라 가성 리드가
     // 장르 정의 안에 이미 있다. 프롬프트에 빈티지 크루너/오페라틱/아나운서
     // 어휘가 없어 en-chillhop-vocal-floor의 forbiddenTraits와 충돌하지 않는다.
-    suitedArchetypes: ['showa-cafe', 'j2000s', 'jp-2030-pop', 'kr-idol-male', 'en-chillhop']
+    // 지시문 78 (TASK C) — 'kr-2030-pop' 추가: breathy 축 보강(soft-female과
+    // 함께 남녀 양쪽을 채운다). 바닥 충돌 없음.
+    suitedArchetypes: ['showa-cafe', 'j2000s', 'jp-2030-pop', 'kr-idol-male', 'en-chillhop', 'kr-2030-pop']
   },
   {
     id: 'smoky-jazz-male',
@@ -228,7 +230,10 @@ export const vocalPresets: VocalPreset[] = [
     gender: 'female',
     // 지시문 76 (TASK B) — 이미 lofi-study에 붙어 있는 현대 침착형 음색이고,
     // 프롬프트에 시대 표지(크루너·아나운서)가 없다.
-    suitedArchetypes: ['senior-morning', 'oldpop-lounge', 'christmas', 'lofi-study', 'en-chillhop']
+    // 지시문 78 (TASK C) — 'kr-2030-pop' 추가: 이 아키타입의 breathy 축이
+    // 0종이었다(§1 실측). kr-2030-vocal-floor의 requiredTraits(natural
+    // conversational phrasing)와 직접 맞고 forbiddenTraits에 걸리지 않는다.
+    suitedArchetypes: ['senior-morning', 'oldpop-lounge', 'christmas', 'lofi-study', 'en-chillhop', 'kr-2030-pop']
   },
   {
     id: 'mature-female',
@@ -277,7 +282,9 @@ export const vocalPresets: VocalPreset[] = [
     // 지시문 72 (TASK A) — 'en-chillhop' 추가: trap-soul("sparse... doubled
     // intimate vocal")/lofi-hiphop-study("optional soft hook vocal kept low")의
     // 창법 결과 잘 맞는 음색.
-    suitedArchetypes: ['lofi-study', 'modern-chill', 'kr-idol-female', 'en-chillhop']
+    // 지시문 78 (TASK C) — 'city-night' 추가: 이 아키타입의 breathy 축이
+    // 0종이었다. 야간 드라이브 결과 직접 맞는 음색이다.
+    suitedArchetypes: ['lofi-study', 'modern-chill', 'kr-idol-female', 'en-chillhop', 'city-night']
   },
   {
     id: 'bright-young-female',
@@ -320,7 +327,16 @@ export const vocalPresets: VocalPreset[] = [
     description: '후렴에서 성대를 단단히 닫고 시원하게 뻗어 올리는 목소리예요.',
     prompt: 'full-voiced male tenor, firm glottal closure, sustained chest projection into the chorus',
     gender: 'male',
-    suitedArchetypes: []
+    // 지시문 78 (TASK C) — senior-oldpop-vocal-floor의 forbiddenTraits는
+    // 'aggressive belting'이지 흉성 투사 자체가 아니다. 이 prompt에는
+    // aggressive/belting 어휘가 없고 'unforced natural delivery'(같은 바닥의
+    // requiredTraits)와도 부딪히지 않아 showa-70s/oldpop-lounge에 붙인다.
+    // kr-2030/jp-2030/en-chillhop 바닥의 'operatic projection'과도 다르다 —
+    // 오페라 발성이 아니라 흉성 지지 기반 투사다.
+    // senior-morning/christmas에는 붙이지 않았다 — 그 두 채널은 아침·연말의
+    // 잔잔한 결이라 남성 풀보이스가 채널 정체성과 어긋난다(대신 같은 축의
+    // belted-female을 붙였다 — 그쪽은 이미 soulful-female이 있는 자리다).
+    suitedArchetypes: ['showa-70s', 'oldpop-lounge', 'city-night', 'j2000s', 'kr-2030-pop', 'jp-2030-pop', 'kr-idol-male', 'en-chillhop']
   },
   {
     id: 'belted-female',
@@ -329,7 +345,12 @@ export const vocalPresets: VocalPreset[] = [
     description: '후렴에서 흉성으로 밀어 올려 음량이 실제로 커지는 목소리예요.',
     prompt: 'full-voiced female alto, firm glottal closure, chest-driven projection lifting the chorus',
     gender: 'female',
-    suitedArchetypes: []
+    // 지시문 78 (TASK C) — belted-male과 같은 바닥 판정. senior-morning/
+    // christmas에도 붙인다: 이미 soulful-female(가스펠 결)이 있는 자리라
+    // 흉성 투사가 채널 정체성 밖이 아니다. en-chillhop은 코어에
+    // en-deep-house-soulful/en-deep-house-vocal-anthem이 있어 'full sung
+    // chorus hook carrying the emotional peak'가 장르 정의 안에 이미 있다.
+    suitedArchetypes: ['senior-morning', 'showa-70s', 'oldpop-lounge', 'christmas', 'kr-2030-pop', 'jp-2030-pop', 'kr-idol-female', 'en-chillhop']
   },
   {
     // §3.2 — 기존 low-calm-male은 **음역이 낮을 뿐** 공명은 warm/clean이다
@@ -341,7 +362,10 @@ export const vocalPresets: VocalPreset[] = [
     description: '후두를 낮춰 동굴처럼 울리는 어두운 목소리예요.',
     prompt: 'male baritone with lowered larynx, deep pharyngeal resonance, dark cavernous tone',
     gender: 'male',
-    suitedArchetypes: []
+    // 지시문 78 (TASK C) — 어느 바닥의 forbiddenTraits에도 해당 어휘가 없다.
+    // 야간·저조도 결의 아키타입 위주로 붙였다(city-night/lofi-study/
+    // modern-chill/en-chillhop의 trap-soul·deep house).
+    suitedArchetypes: ['showa-70s', 'oldpop-lounge', 'city-night', 'lofi-study', 'modern-chill', 'kr-2030-pop', 'jp-2030-pop', 'kr-idol-male', 'en-chillhop']
   },
   {
     // §3.2 "저음과 어두움은 다른 축이다" — alto(저음역이 아님)인데 공명이
@@ -352,7 +376,10 @@ export const vocalPresets: VocalPreset[] = [
     description: '음역은 높아도 공명이 낮게 깔려 어둡게 울리는 목소리예요.',
     prompt: 'female alto with lowered larynx, deep pharyngeal resonance, dark velvet tone',
     gender: 'female',
-    suitedArchetypes: []
+    // 지시문 78 (TASK C) — showa-70s는 dark-resonant-male이 이미 축을
+    // 채우므로 중복 배정하지 않았다. showa-cafe는 husky-jazz-female의
+    // 어두운 대응이 없던 자리다.
+    suitedArchetypes: ['showa-cafe', 'oldpop-lounge', 'city-night', 'kr-2030-pop', 'jp-2030-pop', 'kr-idol-female', 'en-chillhop']
   },
   {
     // §3.2 — 기존 허스키 3종(warm-mature-male / smoky-jazz-male /
@@ -364,7 +391,11 @@ export const vocalPresets: VocalPreset[] = [
     description: '성대 마찰이 섞인 거친 결의 목소리예요 — 장르를 가리지 않아요.',
     prompt: 'male voice with audible fold rasp, dry grainy texture, plainspoken and direct',
     gender: 'male',
-    suitedArchetypes: []
+    // 지시문 78 (TASK C) — 장르 중립 허스키. 기존 3종이 전부 재즈·라운지
+    // 문맥이라 붙일 수 없던 kr-2030-pop/jp-2030-pop/kr-idol-male에 이 축을
+    // 처음으로 넣는다. kids 바닥의 'husky or smoky texture'에 걸리므로
+    // 동요 2종에는 절대 붙이지 않는다.
+    suitedArchetypes: ['showa-70s', 'oldpop-lounge', 'city-night', 'modern-chill', 'kr-2030-pop', 'jp-2030-pop', 'kr-idol-male', 'en-chillhop']
   },
   {
     id: 'husky-grain-female',
@@ -373,7 +404,9 @@ export const vocalPresets: VocalPreset[] = [
     description: '다듬지 않은 거친 결이 그대로 남은 목소리예요 — 장르를 가리지 않아요.',
     prompt: 'female voice with audible fold rasp, worn grainy edge, direct and unpolished',
     gender: 'female',
-    suitedArchetypes: []
+    // 지시문 78 (TASK C) — husky-grain-male과 같은 판정. showa-70s는
+    // husky-grain-male이 축을 채운다.
+    suitedArchetypes: ['showa-cafe', 'oldpop-lounge', 'city-night', 'kr-2030-pop', 'jp-2030-pop', 'kr-idol-female', 'en-chillhop']
   },
   {
     // §3.2 "여성 falsetto는 남성과 생리적으로 다르므로 같은 문구를 성별만
@@ -386,7 +419,12 @@ export const vocalPresets: VocalPreset[] = [
     description: '파사지오 위에서 성대를 얇게 붙여 내는 가볍고 투명한 가성이에요.',
     prompt: 'light female falsetto above the passaggio, thin fold contact, weightless clarity',
     gender: 'female',
-    suitedArchetypes: []
+    // 지시문 78 (TASK C) — senior-oldpop 바닥의 'very young bright tone'과
+    // 인접하게 읽힐 여지가 있어 senior-morning/showa-cafe/showa-70s/
+    // oldpop-lounge/christmas에는 **붙이지 않았다**(§4.2 '걸리면 붙이지 말고
+    // 보고할 것'). falsetto는 §6.1의 5개 필수 축이 아니라 이 제외가
+    // 커버리지 목표를 깨지 않는다.
+    suitedArchetypes: ['j2000s', 'city-night', 'modern-chill', 'kr-2030-pop', 'jp-2030-pop', 'kr-idol-female', 'en-chillhop']
   },
   {
     id: 'male-female-duet',
