@@ -225,6 +225,15 @@ export function compactVocalAtom(value: string) {
     : lower.includes('bright') ? 'bright'
     : lower.includes('confident') ? 'confident'
     : lower.includes('elegant') ? 'elegant'
+    // 지시문 78 — 신설 프리셋 7종이 들어오면서 이 사다리가 낡았다: belted 2종과
+    // dark-resonant-female이 전부 'soft'로 떨어져 clear-light-male/belted-male,
+    // belted-female/dark-resonant-female이 같은 compact atom을 갖게 됐다
+    // (tests/diversityLinter.test.ts가 실제로 잡아낸 회귀 — 그 테스트 자기
+    // 주석이 말하는 "compact 함수가 프리셋 증가를 못 따라가는" 버그 클래스다).
+    // 기존 항목보다 뒤에 두어 기존 16종의 판정은 한 글자도 바뀌지 않는다.
+    : lower.includes('full-voiced') ? 'full-voiced'
+    : lower.includes('cavernous') || lower.includes('pharyngeal') ? 'dark'
+    : lower.includes('rasp') ? 'grainy'
     : 'soft';
   const delivery = lower.includes('close') ? 'close-mic'
     : lower.includes('restrained') ? 'restrained'

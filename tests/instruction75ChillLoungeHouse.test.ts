@@ -190,8 +190,11 @@ describe('[지시문75 TASK D] 등록', () => {
     // 지시문 76 (TASK B)이 en-chillhop만 8 → 12로 늘렸다(주 3회 운영에서
     // 장르보다 보컬이 먼저 병목이 된다는 §1.3 실측). 나머지 셋은 그때도
     // 회귀 금지선이라 여기서 계속 고정한다.
-    expect(suitablePresetsForArchetype('oldpop-lounge')).toHaveLength(6);
-    expect(suitablePresetsForArchetype('kr-2030-pop')).toHaveLength(7);
+    // 지시문 78 — 성인 아키타입의 수치는 그 지시문이 **의도적으로** 올렸다
+    // (belted/dark 축이 전 워크스페이스 0종이던 실측의 수정, §6.2 "아키타입별
+    // 8종 이상"). 동요 10종은 78의 회귀 금지선이기도 하므로 그대로 고정한다.
+    expect(suitablePresetsForArchetype('oldpop-lounge')).toHaveLength(12);
+    expect(suitablePresetsForArchetype('kr-2030-pop')).toHaveLength(16);
     expect(suitablePresetsForArchetype('kr-kids-song')).toHaveLength(10);
   });
 

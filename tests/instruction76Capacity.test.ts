@@ -102,8 +102,10 @@ describe('[지시문76 TASK B] 보컬 프리셋', () => {
   });
 
   it('다른 아키타입 수는 그대로다 (§7 회귀 금지)', () => {
-    expect(suitablePresetsForArchetype('oldpop-lounge')).toHaveLength(6);
-    expect(suitablePresetsForArchetype('kr-2030-pop')).toHaveLength(7);
+    // 지시문 78 — 성인 두 아키타입은 그 지시문이 의도적으로 올렸다(§6.2).
+    // 동요 10종은 78에서도 회귀 금지선이라 그대로다.
+    expect(suitablePresetsForArchetype('oldpop-lounge')).toHaveLength(12);
+    expect(suitablePresetsForArchetype('kr-2030-pop')).toHaveLength(16);
     expect(suitablePresetsForArchetype('kr-kids-song')).toHaveLength(10);
   });
 

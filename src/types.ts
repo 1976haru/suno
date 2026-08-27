@@ -1557,7 +1557,7 @@ export interface SongIdea {
    * 있기 때문이다. 값이 있다고 해서 vocalPresetSource가 'concept'인 것은
    * 아니다(그 둘의 차이가 곧 "무시됐다"는 신호다).
    */
-  conceptVocalFamilyId?: 'breathy' | 'belted' | 'clean';
+  conceptVocalFamilyId?: 'breathy' | 'belted' | 'clean' | 'husky' | 'dark';
   /**
    * v5.11 (TASK L) — this track's actual assigned genre id(s) (from
    * core/genreRotation.ts's genresForTrack, usually length 1, length 2 for
@@ -2162,7 +2162,7 @@ export interface PreassignedSongSlot {
    * 있기 때문이다. 값이 있다고 해서 vocalPresetSource가 'concept'인 것은
    * 아니다(그 둘의 차이가 곧 "무시됐다"는 신호다).
    */
-  conceptVocalFamilyId?: 'breathy' | 'belted' | 'clean';
+  conceptVocalFamilyId?: 'breathy' | 'belted' | 'clean' | 'husky' | 'dark';
   /** v5.11 (TASK L) — this trackNo's actual assigned genre id(s), already sanitized; mirrors SongIdea.effectiveGenreIds's own doc comment. */
   effectiveGenreIds: string[];
   /** v5.13 (TASK: kidsAgeTierId wiring) — mirrors SongIdea.effectiveKidsAgeTierId's own doc comment; whole-pack-resolved (same value on every slot for a kids archetype), not per-track. */

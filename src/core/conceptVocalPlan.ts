@@ -41,7 +41,7 @@ import { vocalTypeMatchesPresetGender, type VocalType } from './vocalPlan';
  * 기술적 실체는 성대 폐쇄가 불완전한 것, 즉 soft glottal onset이고, 그게
  * 없으면 Suno가 단순히 볼륨이 작은 목소리로 해석한다)에 대응한다.
  */
-export type VocalFamilyId = 'breathy' | 'belted' | 'clean';
+export type VocalFamilyId = 'breathy' | 'belted' | 'clean' | 'husky' | 'dark';
 
 export interface VocalFamily {
   id: VocalFamilyId;
@@ -91,6 +91,27 @@ export const VOCAL_FAMILIES: Record<VocalFamilyId, VocalFamily> = {
     excludeTerms: ['breathy half-voice', 'whispered delivery', 'airy unsupported tone'],
     conflictingGenreWording: /\b(?:whisper|breathy|hushed|half-whispered|murmured|spoken-word|barely above a whisper)\b/i
   },
+  // 지시문 78 — 신설 2계열. §0의 청취 피드백이 든 세 단어 중 "공기 반 소리
+  // 반"만 지시문 77이 지목할 수 있었고 "허스키"·"동굴 소리"는 이 축에 계열
+  // 자체가 없어 여전히 지목 불가였다. 78이 그 목소리를 만들었으니 라우팅도
+  // 함께 연다 — 프리셋만 늘리고 도달 경로를 안 만들면 이 저장소가 반복해 온
+  // "재료는 있는데 경로가 없다"(지시문 68·72·77 §1.4)가 그대로 재현된다.
+  husky: {
+    id: 'husky',
+    labelKo: '허스키한 발성',
+    onsetClauses: ['audible fold rasp', 'dry grain left in the tone'],
+    redundantClausePattern: /^(?:.*(?:husky|smoky|slight rasp|grainy).*)$/i,
+    excludeTerms: ['glassy clean tone', 'polished studio smoothness', 'pitch-perfect sheen'],
+    conflictingGenreWording: /(?:bell-like|pristine|crystalline|pure clean tone|choirboy)/i
+  },
+  dark: {
+    id: 'dark',
+    labelKo: '어두운 공명 발성',
+    onsetClauses: ['lowered larynx', 'deep pharyngeal resonance'],
+    redundantClausePattern: /^(?:.*(?:dark cavernous|dark velvet|late-night tone).*)$/i,
+    excludeTerms: ['bright forward placement', 'thin nasal tone', 'high lifted larynx'],
+    conflictingGenreWording: /(?:bright airy vocal|sunlit|sparkling top|high bright lead)/i
+  },
   clean: {
     id: 'clean',
     labelKo: '담백한 발성',
@@ -109,9 +130,8 @@ export const VOCAL_FAMILIES: Record<VocalFamilyId, VocalFamily> = {
  * scripts/checkConceptVocalAxis.ts의 출력에 남는다.
  *
  * 미매핑(의도적):
- *  - husky-jazz-female / smoky-jazz-male — 허스키·스모키는 성대 폐쇄
- *    정도가 아니라 성대 접촉면의 거칠기(rasp)다. breathy도 belted도
- *    아니고 "담백"과도 무관하다.
+ *  - soulful-female — 지시문 78 §3.2: 'controlled runs, flexible chest-to-head
+ *    mix'는 레지스터 전환 축이라 belted(흉성 투사)도 clean도 아니다.
  *  - warm-mature-male — "mature soulful male tenor"(흉성 계열)와 "soft
  *    slightly husky close-mic delivery, gentle"(비투사 계열)이 한 프리셋
  *    안에서 서로 반대 방향을 가리킨다.
@@ -124,8 +144,20 @@ export const VOCAL_FAMILY_BY_PRESET_ID: Record<string, VocalFamilyId> = {
   'whisper-male': 'breathy',          // "soft male voice just above a whisper, intimate close-mic breath, very gentle and slow"
   'soft-female': 'breathy',           // "soft warm female alto, gentle breathy delivery, intimate and calm"
   'airy-falsetto-male': 'breathy',    // "soft male falsetto, airy head voice, smooth city-pop phrasing, light and floating"
-  // belted — 흉성 투사/가스펠 런이 명시된 계열.
-  'soulful-female': 'belted',         // "soulful female voice, warm gospel-tinged phrasing, expressive but controlled runs"
+  // belted — 지시문 78 TASK B의 신설 2종. 지시문 77은 soulful-female을 이
+  // 계열로 뒀지만, 78 §3.2가 그 프리셋의 'controlled runs, flexible
+  // chest-to-head mix'는 절제·레지스터 축이지 흉성 투사가 아니라고 확정해
+  // 여기서 뺐다 — soulful-female은 이제 의도적 미매핑이다.
+  'belted-male': 'belted',            // "full-voiced male tenor, firm glottal closure, sustained chest projection into the chorus"
+  'belted-female': 'belted',          // "full-voiced female alto, firm glottal closure, chest-driven projection lifting the chorus"
+  // dark — 지시문 78 TASK B 신설.
+  'dark-resonant-male': 'dark',       // "male baritone with lowered larynx, deep pharyngeal resonance, dark cavernous tone"
+  'dark-resonant-female': 'dark',     // "female alto with lowered larynx, deep pharyngeal resonance, dark velvet tone"
+  // husky — 장르 중립 2종(지시문 78 신설) + 재즈 문맥 2종(기존).
+  'husky-grain-male': 'husky',        // "male voice with audible fold rasp, dry grainy texture, plainspoken and direct"
+  'husky-grain-female': 'husky',      // "female voice with audible fold rasp, worn grainy edge, direct and unpolished"
+  'husky-jazz-female': 'husky',       // "husky female alto, audible fold rasp, smoky jazz phrasing, laid-back swing feel"
+  'smoky-jazz-male': 'husky',         // "smoky male baritone, ... lounge microphone warmth, audible fold rasp"
   // clean — "clean/clear/restrained/fresh and open"이 명시된 계열.
   'clear-light-male': 'clean',        // "clear light male tenor, clean simple delivery, youthful and sincere"
   'bright-young-male': 'clean',       // "bright young male voice, clean modern pop delivery, fresh and open tone"
