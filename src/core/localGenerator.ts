@@ -11,7 +11,7 @@ import { resolvePackagingLanguage } from './packagingLanguage';
 import { buildLocalizedTitle, buildTitleDisplay, localizedTitleSeed } from './titleLocalization';
 import { buildPersonaStylePrompt, buildSoundSignature, coldOpenHasNoInstrumentalIntro, compactMoneyChord, openingDurationText, PERSONA_STYLE_LIMIT, resolveEffectiveMoneyChordId } from './soundSignature';
 import { applyMoneyChordLean, buildCustomProgressionPlan, buildFamilyProgressionPlan, buildGenreAwareProgressionPlan, buildProgressionPlan, buildUserChosenProgressionPlan, leanEligibleIndices, leanProtectedIndices, moneyChordLeanFor, usesMoneyChordQuota, usesUserChosenProgressionPlan } from './moneyChordPlan';
-import { applyDuetSectionVocalTags, applyFlagshipVocalOrder, buildAdultVocalTraitPlan, buildVocalPlan, buildVocalTechniquePlanByGenre, buildVocalVariantPlan, detectVocalGenderPresence, ensureVocalMetaTag, kidsVocalTextFor, leaningAdultVocalQuota, leaningGenderFor, resolveFlagshipVocalOrder, resolveVocalMetaTag, usesVocalQuota, vocalTypeMatchesPresetGender, type VocalType } from './vocalPlan';
+import { applyDuetSectionVocalTags, applyFlagshipVocalOrder, buildAdultVocalTraitPlan, buildVocalPlan, buildVocalTechniquePlanByGenre, buildVocalVariantPlan, detectVocalGenderPresence, ensureVocalMetaTag, kidsVocalTextFor, leaningAdultVocalQuota, leaningGenderFor, resolveFlagshipVocalOrder, resolveVocalMetaTag, usesVocalQuota, vocalTypeMatchesPresetGender, type VocalType, isVocalToneBalanced } from './vocalPlan';
 import { resolveBaseVocalQuota } from './vocalQuotaFromGenre';
 import { buildKidsPresetPlan, kidsPresetVocalText } from './kidsVocalPresetPlan';
 import { DEFAULT_KIDS_AGE_TIER_ID } from '../data/kidsAgeTiers';
@@ -1464,6 +1464,32 @@ export function generateLocalBlueprint(
   // discrete preset applies) whenever opts.vocalTone is free text with no
   // recognizable preset match.
   const wholePackMatchedVocalPreset = matchVocalPreset(opts.vocalTone?.trim() ?? '');
+  // 지시문 79 (TASK C-3) — "사용자가 실제로 고른" 팩 전체 프리셋.
+  //
+  // 판단 근거: wholePackMatchedVocalPreset은 opts.vocalTone을 프리셋과
+  // 대조한 결과인데, utils/generation.ts의 createInitialOptions가
+  // vocalTone을 **항상 channel.defaultVocal로 초기화**한다. 그래서 채널
+  // 기본값이 어떤 프리셋의 prompt와 일치하는 3개 채널
+  // (good-morning-memory-radio / chill-hours / city-night-drive)에서는
+  // 사용자가 보컬을 한 번도 건드리지 않아도 'tone-match'가 성립했고,
+  // 우선순위가 tone-match > concept이라 지시문 77의 컨셉 발성 라우팅이
+  // **그 3채널에서 항상 무력화**됐다(실측: 5개 계열 × 3채널 = 15칸 전부
+  // 배정 0건, 2차 감사 항목 4).
+  //
+  // types.ts의 vocalPresetSource 자기 doc comment는 우선순위 근거를
+  // "**사용자의 명시적 선택**이 항상 컨셉 추론을 이긴다"로 적었다 —
+  // 그 문장의 전제가 깨져 있었던 것이지 우선순위 자체가 틀린 게 아니다.
+  // 그래서 우선순위는 그대로 두고, "명시적 선택"의 판정만 이 저장소가
+  // 이미 그 목적으로 만들어 둔 core/vocalPlan.ts의 isVocalToneBalanced로
+  // 바꾼다(그 함수 자신의 doc comment: "createInitialOptions가 항상
+  // channel.defaultVocal로 seed하므로 !opts.vocalTone은 언제나 false다" —
+  // Step2Plan.tsx에서 실측된 같은 유형의 결함을 고치며 만들어진 함수다).
+  //
+  // 문구 조립(withPresetArticulation)에는 계속 wholePackMatchedVocalPreset을
+  // 쓴다 — 채널 기본값도 그 채널의 목소리를 서술하는 것은 맞고, 그쪽은
+  // "누가 골랐는가"가 아니라 "어떻게 들리는가"의 문제이기 때문이다.
+  const explicitWholePackVocalPreset = isVocalToneBalanced(opts) ? undefined : wholePackMatchedVocalPreset;
+
   // 지시문 77 (TASK A-2.2) — core/batchPreallocation.ts의 동일 추가와 정확히
   // 같은 이유·같은 우선순위(그 파일 자신의 doc comment 참고). 두 경로가
   // 서로 다른 발성 결정을 내리면 안 된다.
@@ -1970,12 +1996,12 @@ export function generateLocalBlueprint(
     // 지시문 49 (TASK A) — core/batchPreallocation.ts의 동일 추가와 정확히
     // 같은 이유(그 파일 자신의 doc comment 참고): effectiveVocalPresetId를
     // 채우는 것과 같은 두 변수를 같은 우선순위로 라벨링한다.
-    const conceptPresetForTrack = !vocalType || vocalPresetOverride || wholePackMatchedVocalPreset
+    const conceptPresetForTrack = !vocalType || vocalPresetOverride || explicitWholePackVocalPreset
       ? undefined
       : conceptVocalPresetPlan?.[idx];
     const vocalPresetSource: 'plan' | 'tone-match' | 'auto' | 'concept' | undefined = !vocalType
       ? undefined
-      : (vocalPresetOverride ? 'plan' : (wholePackMatchedVocalPreset ? 'tone-match' : (conceptPresetForTrack ? 'concept' : 'auto')));
+      : (vocalPresetOverride ? 'plan' : (explicitWholePackVocalPreset ? 'tone-match' : (conceptPresetForTrack ? 'concept' : 'auto')));
     // TASK v3.41 Part A2/D — same rotation index batchPreallocation.ts's
     // preallocateSongSlots uses for the same opts/trackNo (kids only — see
     // TASK v3.72 TASK B for the adult path below).
@@ -2579,7 +2605,7 @@ export function generateLocalBlueprint(
       // 지시문 63 (TASK B) — mirrors batchPreallocation.ts's identical
       // kidsPresetForTrack fold-in (same reasoning: see that file's own doc
       // comment).
-      ...((vocalPresetOverride ?? wholePackMatchedVocalPreset ?? conceptPresetForTrack ?? kidsPresetForTrack) ? { effectiveVocalPresetId: (vocalPresetOverride ?? wholePackMatchedVocalPreset ?? conceptPresetForTrack ?? kidsPresetForTrack)!.id } : {}),
+      ...((vocalPresetOverride ?? explicitWholePackVocalPreset ?? conceptPresetForTrack ?? wholePackMatchedVocalPreset ?? kidsPresetForTrack) ? { effectiveVocalPresetId: (vocalPresetOverride ?? explicitWholePackVocalPreset ?? conceptPresetForTrack ?? wholePackMatchedVocalPreset ?? kidsPresetForTrack)!.id } : {}),
       ...(conceptVocalIntent ? { conceptVocalFamilyId: conceptVocalIntent.familyId } : {}),
       ...(vocalPresetSource ? { vocalPresetSource } : {}),
       effectiveGenreIds: sanitizeGenreIdsForArchetype(trackGenres.map(g => g.id), archetype).valid,

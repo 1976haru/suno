@@ -30,8 +30,7 @@ import {
   usesVocalQuota,
   vocalTypeMatchesPresetGender,
   type VocalGender,
-  type VocalType
-} from './vocalPlan';
+  type VocalType, isVocalToneBalanced } from './vocalPlan';
 import { matchVocalPreset, vocalPresets, type VocalPreset } from '../data/vocalPresets';
 import { applyVocalOnsetPhrasing, articulationFamilyForPreset, buildConceptVocalPresetPlan, conceptVocalExclusionTerms, resolveConceptVocalIntent } from './conceptVocalPlan';
 import { resolveBaseVocalQuota } from './vocalQuotaFromGenre';
@@ -517,6 +516,32 @@ export function preallocateSongSlots(
   // v5.11 (TASK L) — mirrors localGenerator.ts's identical addition (same
   // reasoning: see SongIdea.effectiveVocalPresetId's own doc comment).
   const wholePackMatchedVocalPreset = matchVocalPreset(opts.vocalTone?.trim() ?? '');
+  // 지시문 79 (TASK C-3) — "사용자가 실제로 고른" 팩 전체 프리셋.
+  //
+  // 판단 근거: wholePackMatchedVocalPreset은 opts.vocalTone을 프리셋과
+  // 대조한 결과인데, utils/generation.ts의 createInitialOptions가
+  // vocalTone을 **항상 channel.defaultVocal로 초기화**한다. 그래서 채널
+  // 기본값이 어떤 프리셋의 prompt와 일치하는 3개 채널
+  // (good-morning-memory-radio / chill-hours / city-night-drive)에서는
+  // 사용자가 보컬을 한 번도 건드리지 않아도 'tone-match'가 성립했고,
+  // 우선순위가 tone-match > concept이라 지시문 77의 컨셉 발성 라우팅이
+  // **그 3채널에서 항상 무력화**됐다(실측: 5개 계열 × 3채널 = 15칸 전부
+  // 배정 0건, 2차 감사 항목 4).
+  //
+  // types.ts의 vocalPresetSource 자기 doc comment는 우선순위 근거를
+  // "**사용자의 명시적 선택**이 항상 컨셉 추론을 이긴다"로 적었다 —
+  // 그 문장의 전제가 깨져 있었던 것이지 우선순위 자체가 틀린 게 아니다.
+  // 그래서 우선순위는 그대로 두고, "명시적 선택"의 판정만 이 저장소가
+  // 이미 그 목적으로 만들어 둔 core/vocalPlan.ts의 isVocalToneBalanced로
+  // 바꾼다(그 함수 자신의 doc comment: "createInitialOptions가 항상
+  // channel.defaultVocal로 seed하므로 !opts.vocalTone은 언제나 false다" —
+  // Step2Plan.tsx에서 실측된 같은 유형의 결함을 고치며 만들어진 함수다).
+  //
+  // 문구 조립(withPresetArticulation)에는 계속 wholePackMatchedVocalPreset을
+  // 쓴다 — 채널 기본값도 그 채널의 목소리를 서술하는 것은 맞고, 그쪽은
+  // "누가 골랐는가"가 아니라 "어떻게 들리는가"의 문제이기 때문이다.
+  const explicitWholePackVocalPreset = isVocalToneBalanced(opts) ? undefined : wholePackMatchedVocalPreset;
+
   // 지시문 77 (TASK A-2.2) — 컨셉 자유 텍스트의 발성 지목. kids는 제외한다
   // (동요 프리셋 풀은 별도이고, 규칙 자체도 ADULT_ARCHETYPES scope다).
   // 여기서는 "무엇을 원하는가"만 해석하고, 실제 배정은 vocalPlan(성별
@@ -1023,12 +1048,12 @@ export function preallocateSongSlots(
     // 지시문 77 (TASK A-2.2) — 컨셉이 지목한 이 트랙의 프리셋. 사용자의
     // 명시적 선택(vocalPresetOverride='plan', wholePackMatchedVocalPreset=
     // 'tone-match') 아래, 기본 폴백('auto') 위에 들어간다.
-    const conceptPresetForTrack = !vocalType || vocalPresetOverride || wholePackMatchedVocalPreset
+    const conceptPresetForTrack = !vocalType || vocalPresetOverride || explicitWholePackVocalPreset
       ? undefined
       : conceptVocalPresetPlan?.[idx];
     const vocalPresetSource: 'plan' | 'tone-match' | 'auto' | 'concept' | undefined = !vocalType
       ? undefined
-      : (vocalPresetOverride ? 'plan' : (wholePackMatchedVocalPreset ? 'tone-match' : (conceptPresetForTrack ? 'concept' : 'auto')));
+      : (vocalPresetOverride ? 'plan' : (explicitWholePackVocalPreset ? 'tone-match' : (conceptPresetForTrack ? 'concept' : 'auto')));
     // v3.80 (TASK E) — appends vocalTechniquePlan[idx] only when
     // adultVocalTraitPlan[idx] is actually the text in use — mirrors
     // localGenerator.ts's identical guard (see its own doc comment): never
@@ -1288,7 +1313,7 @@ export function preallocateSongSlots(
       // (vocalPresetOverride/wholePackMatchedVocalPreset은 kids에서 항상
       // undefined이므로 셋이 겹칠 일이 없다), 그 반대(비-kids)는 예전과
       // 동일하게 vocalPresetOverride ?? wholePackMatchedVocalPreset만 본다.
-      ...((vocalPresetOverride ?? wholePackMatchedVocalPreset ?? conceptPresetForTrack ?? kidsPresetForTrack) ? { effectiveVocalPresetId: (vocalPresetOverride ?? wholePackMatchedVocalPreset ?? conceptPresetForTrack ?? kidsPresetForTrack)!.id } : {}),
+      ...((vocalPresetOverride ?? explicitWholePackVocalPreset ?? conceptPresetForTrack ?? wholePackMatchedVocalPreset ?? kidsPresetForTrack) ? { effectiveVocalPresetId: (vocalPresetOverride ?? explicitWholePackVocalPreset ?? conceptPresetForTrack ?? wholePackMatchedVocalPreset ?? kidsPresetForTrack)!.id } : {}),
       ...(conceptVocalIntent ? { conceptVocalFamilyId: conceptVocalIntent.familyId } : {}),
       ...(vocalPresetSource ? { vocalPresetSource } : {}),
       // v5.13 (TASK: kidsAgeTierId wiring) — mirrors effectiveMoneyChordId/
