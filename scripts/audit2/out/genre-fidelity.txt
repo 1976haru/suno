@@ -1,0 +1,1 @@
+Usage: npx tsx scripts/checkGenreFidelity.ts --pack <path-to-pack.json> [--json]

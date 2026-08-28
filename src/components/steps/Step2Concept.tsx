@@ -12,6 +12,7 @@ import {
 import { genreLabelsKo, moodLabelsKo, seasonLabelsKo } from '../../data/koreanLabels';
 import { vocalPresets, matchVocalPreset } from '../../data/vocalPresets';
 import { DEFAULT_ADULT_VOCAL_QUOTA, DEFAULT_KIDS_VOCAL_QUOTA, leaningAdultVocalQuota, leaningGenderFor, scaleVocalQuota, vocalLabel, type VocalQuota } from '../../core/vocalPlan';
+import { evaluateConceptChannelFit } from '../../core/conceptChannelFit';
 import { deriveVocalQuotaFromGenrePlan } from '../../core/vocalQuotaFromGenre';
 import { recommendVocalPlan, suitablePresetsForArchetype } from '../../core/vocalRecommender';
 import { recommendMoneyChordPlan } from '../../core/moneyChordRecommender';
@@ -272,6 +273,14 @@ export default function Step2Concept({
   // the exact vocalTone value "no selection" already means
   // (channel.defaultVocal — see vocalPlan.ts's leaningGenderFor) rather than
   // adding a new options field.
+  // 지시문 79 (TASK A-2) — 컨셉↔채널 부적합 판정. core/batchPreallocation.ts와
+  // core/localGenerator.ts가 곡 warnings에 쓰는 것과 **같은 함수를 같은
+  // 인자로** 부른다(2차 감사 유형 F: 화면과 생성이 다른 입력으로 같은 값을
+  // 계산하던 결함의 재발 방지).
+  const conceptChannelFit = useMemo(
+    () => evaluateConceptChannelFit(opts.customConcept, channelArchetype, opts.genreIds),
+    [opts.customConcept, channelArchetype, opts.genreIds]
+  );
   const BALANCED_VOCAL_CHOICE_ID = '__balanced__';
   // v5.9 (quota/tone separation) — mirrors core/batchPreallocation.ts's/
   // core/localGenerator.ts's own baseVocalQuota priority exactly: a channel's
@@ -1698,6 +1707,15 @@ export default function Step2Concept({
           style={{ marginTop: 8 }}
         />
         <CharCounter value={opts.customConcept} limit={INPUT_LIMITS.customConcept} />
+        {/* 지시문 79 (TASK A-2) — 컨셉↔채널 부적합을 **생성 전에** 알린다.
+            생성 후 곡 warnings로만 알리면 이미 15곡을 뽑은 뒤다. 판정은
+            core/conceptChannelFit.ts의 evaluateConceptChannelFit 하나이며,
+            core/batchPreallocation.ts·localGenerator.ts가 곡 경고에 쓰는
+            것과 정확히 같은 함수·같은 인자다 — 화면과 생성이 다른 기준을
+            들지 않는다. 막지 않는다(경고만) — 사용자가 그대로 진행할 수 있다. */}
+        {conceptChannelFit.reasonsKo.map(reason => (
+          <p key={reason} className="warning">⚠ {reason}</p>
+        ))}
       </div>
 
       {/* 지시문 54 (TASK A) — 하루: "썸네일이나 플레이리스트 입력하는 곳이

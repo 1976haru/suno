@@ -1,0 +1,25 @@
+[check:genre-utilization] 컨셉 표본 10개 × 14개 아키타입
+
+아키타입              채널ID                        채널 장르   사용됨   활용률
+──────────────────────────────────────────────────────────────────────────────────────────
+kr-2030-pop          after-work-band-pop               8      8    100%
+senior-morning       good-morning-memory-radio        29     21     72%
+oldpop-lounge        oldpop-lounge-main               24     13     54%
+modern-chill         chill-hours                       3      3    100%
+city-night           city-night-drive                 11     11    100%
+lofi-study           lofi-study-main                  14     14    100%
+kr-kids-song         follow-along-action-song          3      3    100%
+jp-kids-song         teasobi-hiroba                    3      3    100%
+kr-idol-female       daylight-city-kpop                5      5    100%
+jp-2030-pop          reiwa-way-home-jpop               3      3    100%
+kr-idol-male         stage-night                       7      7    100%
+kids                 little-singalong-radio            3      3    100%
+showa-70s            showa-seventies                   4      4    100%
+en-chillhop          headphones-down-low               5      5    100%
+
+한 번도 안 쓰인 장르 (채널 장르 중):
+  senior-morning: acoustic-pop, chanson, retro-soul-pop, oldpop-adult-contemporary-80s, oldpop-british-beat, jazz-swing-crooner-ballroom, oldpop-rainy-ballad-blues, oldpop-six-eight-slow-ballad
+  oldpop-lounge: chanson, jazz-hotel-lounge-jazz, jazz-torch-vocal-jazz, jazz-soft-vocal-trio, oldpop-standards-torch, oldpop-evening-lamp-ballad, oldpop-slow-waltz-memory, retro-soul-pop, rnb-old-school-romance-rnb, oldpop-doowop-ballad, oldpop-doowop-uptempo
+
+50% 미만 아키타입: 0/14
+[check:genre-utilization] advisory — 통과 처리(exit 0). 차단하지 않는다.

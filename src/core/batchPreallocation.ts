@@ -93,6 +93,7 @@ import { computePerceivedEnergy } from './perceivedEnergy';
 import { PERCEIVED_ENERGY_POLICY } from '../data/perceivedEnergyPolicy';
 import { getGenreById, isGenreEligibleForArchetype } from '../data/genreLibrary';
 import { genreSanitizationWarningKo, sanitizeGenreIdsForArchetype } from './genreSelection';
+import { conceptChannelFitWarningKo, evaluateConceptChannelFit } from './conceptChannelFit';
 
 export type { PreassignedSongSlot };
 
@@ -186,7 +187,15 @@ export function preallocateSongSlots(
     opts = { ...opts, genreIds: genreSanitization.valid };
     genres = genreSanitization.valid.map(id => getGenreById(id)).filter((genre): genre is NonNullable<typeof genre> => Boolean(genre));
   }
-  const genreWarningKo = genreSanitizationWarningKo(genreSanitization.removed, archetype);
+  // 지시문 79 (TASK A-2) — 컨셉↔채널 부적합 경고. genreWarningKo와 **같은
+  // 전달 통로**(슬롯 0번의 genreWarning)를 쓴다 — 세트 단위 사실이므로
+  // 트랙마다 반복하지 않는다. 감점은 없다(경고만).
+  const conceptFitWarningKo = conceptChannelFitWarningKo(
+    evaluateConceptChannelFit(opts.customConcept, archetype, opts.genreIds ?? [])
+  );
+  const genreWarningKo = [genreSanitizationWarningKo(genreSanitization.removed, archetype), conceptFitWarningKo]
+    .filter(Boolean)
+    .join(' ') || undefined;
   const seedBase = seedForBlueprint(opts);
   const seed = hashSeed(seedBase);
   // TASK v3.60 (TASK C) — this pre-pass feeds the realtime/Batch/bridge

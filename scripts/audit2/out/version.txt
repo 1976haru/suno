@@ -1,0 +1,2 @@
+[check:version] package.json version=0.21.0 · CHANGELOG 최상단=0.21.0
+✅ 통과 — 버전 문자열이 단일 출처(package.json)와 일치합니다.

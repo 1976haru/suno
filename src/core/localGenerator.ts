@@ -55,6 +55,7 @@ import { ARRANGEMENT_VOCABULARY } from '../data/arrangementVocabulary';
 import { buildGenreRotationPlan, genresForTrack } from './genreRotation';
 import { getGenreById } from '../data/genreLibrary';
 import { genreSanitizationWarningKo, sanitizeGenreIdsForArchetype } from './genreSelection';
+import { conceptChannelFitWarningKo, evaluateConceptChannelFit } from './conceptChannelFit';
 import { conceptLyricImages, conceptStyleText, promptPriorityForTrack, resolveConceptInfluence, safeConceptSummaryForDisplay, variedVocalText } from './conceptDiversity';
 import {
   composeLyrics,
@@ -1176,7 +1177,14 @@ export function generateLocalBlueprint(
     opts = { ...opts, genreIds: genreSanitization.valid };
     genres = genreSanitization.valid.map(id => getGenreById(id)).filter((genre): genre is NonNullable<typeof genre> => Boolean(genre));
   }
-  const genreWarningKo = genreSanitizationWarningKo(genreSanitization.removed, archetype);
+  // 지시문 79 (TASK A-2) — batchPreallocation.ts와 같은 판정·같은 전달 통로.
+  // 경고만 남기고 감점하지 않는다.
+  const conceptFitWarningKo = conceptChannelFitWarningKo(
+    evaluateConceptChannelFit(opts.customConcept, archetype, opts.genreIds ?? [])
+  );
+  const genreWarningKo = [genreSanitizationWarningKo(genreSanitization.removed, archetype), conceptFitWarningKo]
+    .filter(Boolean)
+    .join(' ') || undefined;
   const generationPack = generationPacks.find(pack => pack.id === opts.audience);
   const concept = opts.customConcept || `${opts.channel.name} ${season.label} playlist with ${genres.map(g => g.label).join(' + ')}`;
   const conceptInfluence = resolveConceptInfluence(opts.customConcept);

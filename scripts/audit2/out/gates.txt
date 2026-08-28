@@ -1,0 +1,127 @@
+[check:gates] 34채널 × 워크스페이스별 대표 컨셉 3개 × 관문 37종
+
+✗ CONTRACT VIOLATION  morning-showa-cafe / "70년대 추억이 느껴지는 올드팝"
+    bpm-stddev    BPM 표준편차 — 기대 ≥ 10 | 실측 9.8
+    이 채널의 데이터: 근사 달성가능 표준편차 9.0 (범위 폭 18의 절반)
+    필요: ≥ 10 (breadth=variety, 근사치)
+    → 후보 장르들의 템포 범위가 좁아 요구 표준편차를 물리적으로 만들 수 없습니다 (근사치).
+
+✗ CONTRACT VIOLATION  morning-showa-cafe / "70년대 추억이 느껴지는 올드팝"
+    bpm-range    BPM 범위 폭 — 기대 ≥ 30 | 실측 71~100 (폭 29)
+    이 채널의 데이터: 후보 장르 템포 범위 합 폭 18 (오디언스 62~100)
+    필요: 폭 30 이상 (breadth=variety)
+    → 후보 장르들의 템포 범위가 좁아 요구 폭을 물리적으로 만들 수 없습니다.
+
+--- cross-style 조합 advisory (blocking 아님, 참고용) ---
+△ ADVISORY  showa-seventies / "60년대 올드팝"
+    era-primary-share    1950s-60s 장르 비중 — 기대 50% 이상 (era-neutral 제외) | 실측 0%
+    → 이 채널의 후보 장르 풀에 해당 시대 장르가 부족해 요구 비중을 수학적으로 채울 수 없습니다 (곡당 상한 5곡 기준).
+
+△ ADVISORY  city-night-drive / "60년대 올드팝"
+    era-primary-share    1950s-60s 장르 비중 — 기대 50% 이상 (era-neutral 제외) | 실측 0%
+    → 이 채널의 후보 장르 풀에 해당 시대 장르가 부족해 요구 비중을 수학적으로 채울 수 없습니다 (곡당 상한 5곡 기준).
+
+△ ADVISORY  city-night-drive / "70년대 추억이 느껴지는 올드팝"
+    era-primary-share    1970s 장르 비중 — 기대 50% 이상 (era-neutral 제외) | 실측 40%
+    → 이 채널의 후보 장르 풀에 해당 시대 장르가 부족해 요구 비중을 수학적으로 채울 수 없습니다 (곡당 상한 5곡 기준).
+
+--- 지원하지 않는 조합 (unsupported — CONTRACT VIOLATION 집계 제외) ---
+○ UNSUPPORTED  millennium-jpop / "60년대 올드팝"
+    → 이 채널(j2000s)은 1950s-60s를 표현할 근거가 없음 — 실측 genre 풀 2000s 100%, 1950s-60s/1970s 0% — 밀레니엄 J-pop(Y2K)은 쇼와 올드팝과 장르 계보가 다른 채널. 80년대 시티팝은 2000s 리바이벌과 정서적으로 인접해 cross-style, 60·70년대 서구/한국 올드팝은 이 채널의 장르 데이터로 표현할 근거가 전혀 없음
+    대안 채널: morning-showa-cafe, showa-seventies
+
+○ UNSUPPORTED  millennium-jpop / "70년대 추억이 느껴지는 올드팝"
+    → 이 채널(j2000s)은 1970s를 표현할 근거가 없음 — 실측 genre 풀 2000s 100%, 1950s-60s/1970s 0% — 밀레니엄 J-pop(Y2K)은 쇼와 올드팝과 장르 계보가 다른 채널. 80년대 시티팝은 2000s 리바이벌과 정서적으로 인접해 cross-style, 60·70년대 서구/한국 올드팝은 이 채널의 장르 데이터로 표현할 근거가 전혀 없음
+    대안 채널: morning-showa-cafe, showa-seventies
+
+○ UNSUPPORTED  chill-hours / "60년대 올드팝"
+    → 이 채널(modern-chill)은 1950s-60s를 표현할 근거가 없음 — 실측 genre 풀이 사실상 전부 era-neutral(로파이/칠아웃) — 특정 연대를 주장하지 않는 채널 정체성 자체가 목적이라 시대 컨셉과 근본적으로 불성립
+    대안 채널: morning-showa-cafe, showa-seventies, good-morning-memory-radio
+
+○ UNSUPPORTED  chill-hours / "70년대 추억이 느껴지는 올드팝"
+    → 이 채널(modern-chill)은 1970s를 표현할 근거가 없음 — 실측 genre 풀이 사실상 전부 era-neutral(로파이/칠아웃) — 특정 연대를 주장하지 않는 채널 정체성 자체가 목적이라 시대 컨셉과 근본적으로 불성립
+    대안 채널: morning-showa-cafe, showa-seventies, good-morning-memory-radio
+
+○ UNSUPPORTED  lofi-focus-main / "60년대 올드팝"
+    → 이 채널(modern-chill)은 1950s-60s를 표현할 근거가 없음 — 실측 genre 풀이 사실상 전부 era-neutral(로파이/칠아웃) — 특정 연대를 주장하지 않는 채널 정체성 자체가 목적이라 시대 컨셉과 근본적으로 불성립
+    대안 채널: morning-showa-cafe, showa-seventies, good-morning-memory-radio
+
+○ UNSUPPORTED  lofi-focus-main / "70년대 추억이 느껴지는 올드팝"
+    → 이 채널(modern-chill)은 1970s를 표현할 근거가 없음 — 실측 genre 풀이 사실상 전부 era-neutral(로파이/칠아웃) — 특정 연대를 주장하지 않는 채널 정체성 자체가 목적이라 시대 컨셉과 근본적으로 불성립
+    대안 채널: morning-showa-cafe, showa-seventies, good-morning-memory-radio
+
+○ UNSUPPORTED  lofi-study-main / "60년대 올드팝"
+    → 이 채널(lofi-study)은 1950s-60s를 표현할 근거가 없음 — 지시문 31 신설 채널(글로벌/영어/20대) — 시니어 올드팝 워크스페이스에 archetypeIds로만 묶여 있을 뿐 실제로는 완전히 다른 청자층. 실측 genre 풀도 era-neutral 100%
+    대안 채널: morning-showa-cafe, showa-seventies, good-morning-memory-radio
+
+○ UNSUPPORTED  lofi-study-main / "70년대 추억이 느껴지는 올드팝"
+    → 이 채널(lofi-study)은 1970s를 표현할 근거가 없음 — 지시문 31 신설 채널(글로벌/영어/20대) — 시니어 올드팝 워크스페이스에 archetypeIds로만 묶여 있을 뿐 실제로는 완전히 다른 청자층. 실측 genre 풀도 era-neutral 100%
+    대안 채널: morning-showa-cafe, showa-seventies, good-morning-memory-radio
+
+○ UNSUPPORTED  little-singalong-radio / "60년대 올드팝"
+    → 이 채널(kids)은 1950s-60s를 표현할 근거가 없음 — 동요 채널 — 시니어 올드팝 워크스페이스에 묶여 있을 뿐 청자층과 장르 정체성이 완전히 다름. 실측 genre 풀 era-neutral 100%
+    대안 채널: good-morning-memory-radio, morning-showa-cafe
+
+○ UNSUPPORTED  little-singalong-radio / "70년대 추억이 느껴지는 올드팝"
+    → 이 채널(kids)은 1970s를 표현할 근거가 없음 — 동요 채널 — 시니어 올드팝 워크스페이스에 묶여 있을 뿐 청자층과 장르 정체성이 완전히 다름. 실측 genre 풀 era-neutral 100%
+    대안 채널: good-morning-memory-radio, morning-showa-cafe
+
+○ UNSUPPORTED  headphones-down-low / "60년대 올드팝"
+    → 이 채널(en-chillhop)은 1950s-60s를 표현할 근거가 없음 — 지시문 71 신설 워크스페이스(글로벌/영어/20대, 칠랩·힙합·딥하우스) — 실측 genre 풀도 era-neutral/2010s-2020s 100%, 특정 연대를 주장하지 않는 채널 정체성. supported/crossStyle 둘 다 빈 배열이 정확한 값이며(modern-chill/lofi-study와 동일 패턴), 랩/하우스 BPM 대역 분리(지시문 71 TASK E)와는 무관한 축이다.
+    대안 채널: good-morning-memory-radio, morning-showa-cafe, showa-seventies
+
+○ UNSUPPORTED  headphones-down-low / "70년대 추억이 느껴지는 올드팝"
+    → 이 채널(en-chillhop)은 1970s를 표현할 근거가 없음 — 지시문 71 신설 워크스페이스(글로벌/영어/20대, 칠랩·힙합·딥하우스) — 실측 genre 풀도 era-neutral/2010s-2020s 100%, 특정 연대를 주장하지 않는 채널 정체성. supported/crossStyle 둘 다 빈 배열이 정확한 값이며(modern-chill/lofi-study와 동일 패턴), 랩/하우스 BPM 대역 분리(지시문 71 TASK E)와는 무관한 축이다.
+    대안 채널: good-morning-memory-radio, morning-showa-cafe, showa-seventies
+
+○ UNSUPPORTED  after-hours-deep-house / "60년대 올드팝"
+    → 이 채널(en-chillhop)은 1950s-60s를 표현할 근거가 없음 — 지시문 71 신설 워크스페이스(글로벌/영어/20대, 칠랩·힙합·딥하우스) — 실측 genre 풀도 era-neutral/2010s-2020s 100%, 특정 연대를 주장하지 않는 채널 정체성. supported/crossStyle 둘 다 빈 배열이 정확한 값이며(modern-chill/lofi-study와 동일 패턴), 랩/하우스 BPM 대역 분리(지시문 71 TASK E)와는 무관한 축이다.
+    대안 채널: good-morning-memory-radio, morning-showa-cafe, showa-seventies
+
+○ UNSUPPORTED  after-hours-deep-house / "70년대 추억이 느껴지는 올드팝"
+    → 이 채널(en-chillhop)은 1970s를 표현할 근거가 없음 — 지시문 71 신설 워크스페이스(글로벌/영어/20대, 칠랩·힙합·딥하우스) — 실측 genre 풀도 era-neutral/2010s-2020s 100%, 특정 연대를 주장하지 않는 채널 정체성. supported/crossStyle 둘 다 빈 배열이 정확한 값이며(modern-chill/lofi-study와 동일 패턴), 랩/하우스 BPM 대역 분리(지시문 71 TASK E)와는 무관한 축이다.
+    대안 채널: good-morning-memory-radio, morning-showa-cafe, showa-seventies
+
+○ UNSUPPORTED  city-lights-crossfade / "60년대 올드팝"
+    → 이 채널(en-chillhop)은 1950s-60s를 표현할 근거가 없음 — 지시문 71 신설 워크스페이스(글로벌/영어/20대, 칠랩·힙합·딥하우스) — 실측 genre 풀도 era-neutral/2010s-2020s 100%, 특정 연대를 주장하지 않는 채널 정체성. supported/crossStyle 둘 다 빈 배열이 정확한 값이며(modern-chill/lofi-study와 동일 패턴), 랩/하우스 BPM 대역 분리(지시문 71 TASK E)와는 무관한 축이다.
+    대안 채널: good-morning-memory-radio, morning-showa-cafe, showa-seventies
+
+○ UNSUPPORTED  city-lights-crossfade / "70년대 추억이 느껴지는 올드팝"
+    → 이 채널(en-chillhop)은 1970s를 표현할 근거가 없음 — 지시문 71 신설 워크스페이스(글로벌/영어/20대, 칠랩·힙합·딥하우스) — 실측 genre 풀도 era-neutral/2010s-2020s 100%, 특정 연대를 주장하지 않는 채널 정체성. supported/crossStyle 둘 다 빈 배열이 정확한 값이며(modern-chill/lofi-study와 동일 패턴), 랩/하우스 BPM 대역 분리(지시문 71 TASK E)와는 무관한 축이다.
+    대안 채널: good-morning-memory-radio, morning-showa-cafe, showa-seventies
+
+○ UNSUPPORTED  tokyo-night-headphones / "60년대 올드팝"
+    → 이 채널(en-chillhop)은 1950s-60s를 표현할 근거가 없음 — 지시문 71 신설 워크스페이스(글로벌/영어/20대, 칠랩·힙합·딥하우스) — 실측 genre 풀도 era-neutral/2010s-2020s 100%, 특정 연대를 주장하지 않는 채널 정체성. supported/crossStyle 둘 다 빈 배열이 정확한 값이며(modern-chill/lofi-study와 동일 패턴), 랩/하우스 BPM 대역 분리(지시문 71 TASK E)와는 무관한 축이다.
+    대안 채널: good-morning-memory-radio, morning-showa-cafe, showa-seventies
+
+○ UNSUPPORTED  tokyo-night-headphones / "70년대 추억이 느껴지는 올드팝"
+    → 이 채널(en-chillhop)은 1970s를 표현할 근거가 없음 — 지시문 71 신설 워크스페이스(글로벌/영어/20대, 칠랩·힙합·딥하우스) — 실측 genre 풀도 era-neutral/2010s-2020s 100%, 특정 연대를 주장하지 않는 채널 정체성. supported/crossStyle 둘 다 빈 배열이 정확한 값이며(modern-chill/lofi-study와 동일 패턴), 랩/하우스 BPM 대역 분리(지시문 71 TASK E)와는 무관한 축이다.
+    대안 채널: good-morning-memory-radio, morning-showa-cafe, showa-seventies
+
+○ UNSUPPORTED  harbour-line-house / "60년대 올드팝"
+    → 이 채널(en-chillhop)은 1950s-60s를 표현할 근거가 없음 — 지시문 71 신설 워크스페이스(글로벌/영어/20대, 칠랩·힙합·딥하우스) — 실측 genre 풀도 era-neutral/2010s-2020s 100%, 특정 연대를 주장하지 않는 채널 정체성. supported/crossStyle 둘 다 빈 배열이 정확한 값이며(modern-chill/lofi-study와 동일 패턴), 랩/하우스 BPM 대역 분리(지시문 71 TASK E)와는 무관한 축이다.
+    대안 채널: good-morning-memory-radio, morning-showa-cafe, showa-seventies
+
+○ UNSUPPORTED  harbour-line-house / "70년대 추억이 느껴지는 올드팝"
+    → 이 채널(en-chillhop)은 1970s를 표현할 근거가 없음 — 지시문 71 신설 워크스페이스(글로벌/영어/20대, 칠랩·힙합·딥하우스) — 실측 genre 풀도 era-neutral/2010s-2020s 100%, 특정 연대를 주장하지 않는 채널 정체성. supported/crossStyle 둘 다 빈 배열이 정확한 값이며(modern-chill/lofi-study와 동일 패턴), 랩/하우스 BPM 대역 분리(지시문 71 TASK E)와는 무관한 축이다.
+    대안 채널: good-morning-memory-radio, morning-showa-cafe, showa-seventies
+
+통과 81 / 위반 1  (총 102쌍, 지원하지 않는 조합 제외 후 검사 대상 82쌍, CONTRACT VIOLATION 2건, cross-style advisory 3건, 지원하지 않는 조합 20건, 미등록 관문 0개)
+
+[check:gates TASK D-1] 머니코드 회전 풀 계약 — 정본 아키타입 13개
+
+✓ senior-morning   풀 6종 (시그니처 doowop), 균등 배분 시 최대 3곡/진행
+✓ showa-cafe       풀 6종 (시그니처 royalRoad), 균등 배분 시 최대 3곡/진행
+✓ showa-70s        풀 6종 (시그니처 showaModern), 균등 배분 시 최대 3곡/진행
+✓ j2000s           풀 6종 (시그니처 komuro), 균등 배분 시 최대 3곡/진행
+✓ modern-chill     풀 6종 (시그니처 jazzColor), 균등 배분 시 최대 3곡/진행
+✓ city-night       풀 6종 (시그니처 cityPop), 균등 배분 시 최대 3곡/진행
+✓ oldpop-lounge    풀 6종 (시그니처 doowop), 균등 배분 시 최대 3곡/진행
+✓ kr-2030-pop      풀 6종 (시그니처 default), 균등 배분 시 최대 3곡/진행
+✓ jp-2030-pop      풀 6종 (시그니처 cityPop), 균등 배분 시 최대 3곡/진행
+✓ kr-idol-male     풀 9종 (시그니처 emotional), 균등 배분 시 최대 2곡/진행
+✓ kr-idol-female   풀 9종 (시그니처 emotional), 균등 배분 시 최대 2곡/진행
+✓ lofi-study       풀 6종 (시그니처 jazzColor), 균등 배분 시 최대 3곡/진행
+✓ kids             풀 6종 (시그니처 kidsSimple), 균등 배분 시 최대 3곡/진행
+
+[TASK D-1] 통과 13 / CONTRACT VIOLATION 0

@@ -1,0 +1,14 @@
+[check:vocal-technique] 지시문 65 TASK D · 지시문 66 TASK D
+
+① 창법 어휘 없는 장르: 0/376
+  전 장르에 창법 어휘가 있다.
+
+② 같은 창법 어휘가 4종 넘게 반복: 0건
+
+③ 계열 풀에 매칭되지 않는 장르: 18/376
+  christmas-soft-pop, synthwave-mellow, oldpop-baroque-pop, oldpop-europop-glow, oldpop-yacht-west-coast, oldpop-soft-duet-80s, oldpop-standards-torch, oldpop-gentle-lullaby-pop, oldpop-slow-waltz-memory, oldpop-italian-canzone, kr2030-y2k-retro, jp2030-anime-cinematic, jp2030-heisei-nostalgia, jp2030-neo-citypop, jpop-2000s-band, boom-bap-mellow, future-funk, bedroom-pop
+
+④ 장르+계열 창법 합계 4개 미만: 6/376
+  christmas-soft-pop(1), synthwave-mellow(2), oldpop-baroque-pop(3), oldpop-yacht-west-coast(3), oldpop-soft-duet-80s(3), jpop-2000s-band(3)
+
+[check:vocal-technique] advisory — 통과 처리(exit 0).
