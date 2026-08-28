@@ -93,6 +93,7 @@ import { PERCEIVED_ENERGY_POLICY } from '../data/perceivedEnergyPolicy';
 import { getGenreById, isGenreEligibleForArchetype } from '../data/genreLibrary';
 import { genreSanitizationWarningKo, sanitizeGenreIdsForArchetype } from './genreSelection';
 import { conceptChannelFitWarningKo, evaluateConceptChannelFit } from './conceptChannelFit';
+import { applyEnChillhopBandLock } from './enChillhopBand';
 
 export type { PreassignedSongSlot };
 
@@ -257,7 +258,17 @@ export function preallocateSongSlots(
   // function's point per its own docstring), so tracks 1-3 get the same
   // local k=3 contest the synchronous path uses, not a plain single-hook pick.
   const packContext: OpeningPackContext = { dominantGenreIds: opts.genreIds ?? [], dominantMoodIds: opts.moodIds ?? [] };
-  const genrePool = Array.from(new Set((opts.genreIds ?? genres.map(genre => genre.id)).filter(Boolean)));
+  // 지시문 79 (TASK C-3) — en-chillhop 대역 잠금을 이 경로에도 적용한다.
+  // 지시문 71 TASK E / 76 TASK A의 규칙이 core/setDirector.ts 안에만 있어,
+  // Step2Plan을 거치지 않고 바로 생성하는 경로에서는 한 세트에 64 BPM과
+  // 127 BPM이 함께 나왔다(실측 25세트 중 9세트). 규칙은 그대로 두고
+  // core/enChillhopBand.ts의 공통 함수를 두 경로가 함께 부른다.
+  // en-chillhop이 아니면 입력 그대로다.
+  const genrePool = applyEnChillhopBandLock(
+    Array.from(new Set((opts.genreIds ?? genres.map(genre => genre.id)).filter(Boolean))),
+    opts.channel.archetype,
+    `${opts.customConcept ?? ''} ${opts.projectTitle ?? ''}`
+  );
   const genreAllocation = allocationForAxis(opts.diversityAllocations, 'genre');
   /**
    * 지시문 10 (TASK A-3) — real measured bug: this is the actual genre pool

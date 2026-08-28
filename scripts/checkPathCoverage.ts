@@ -24,6 +24,10 @@ import { generateLocalBlueprint } from '../src/core/localGenerator';
 import { preallocateSongSlots } from '../src/core/batchPreallocation';
 import { directSetLocal } from '../src/core/setDirector';
 import { minTotalSectionsForBpm } from '../src/core/bpmLengthControl';
+// 섹션 수는 core/quality.ts의 하한 검사가 쓰는 것과 **같은 파서**로 센다 —
+// 자체 정규식을 쓰면 `[verse 1: male vocal]` 같은 듀엣 태그를 보컬 지시
+// 태그로 오인해 과소 집계한다(실측으로 걸렸다).
+import { countLyricSections } from '../src/core/instrumentalSectionFill';
 import { vocalPresets } from '../src/data/vocalPresets';
 import { makeOptions } from '../tests/fixtures';
 import type { ChannelProfile, GenerationOptions, SongIdea } from '../src/types';
@@ -102,8 +106,7 @@ function checkSectionFloor() {
       const bpm = Number((song as unknown as { bpm?: number }).bpm ?? 0);
       const floor = minTotalSectionsForBpm(bpm);
       if (!floor) continue;
-      const marks = [...String(song.lyrics ?? '').matchAll(/^\[([^\]]+)\]/gm)].map(m => m[1].trim());
-      const sections = marks.filter(m => !/vocal$|^female|^male|^duet|^mixed/i.test(m)).length;
+      const sections = countLyricSections(String(song.lyrics ?? ''));
       total += 1;
       if (sections < floor) below += 1;
     }

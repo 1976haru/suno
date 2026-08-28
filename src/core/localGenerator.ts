@@ -56,6 +56,8 @@ import { buildGenreRotationPlan, genresForTrack } from './genreRotation';
 import { getGenreById } from '../data/genreLibrary';
 import { genreSanitizationWarningKo, sanitizeGenreIdsForArchetype } from './genreSelection';
 import { conceptChannelFitWarningKo, evaluateConceptChannelFit } from './conceptChannelFit';
+import { applyEnChillhopBandLock } from './enChillhopBand';
+import { fillInstrumentalSectionsForBpm } from './instrumentalSectionFill';
 import { conceptLyricImages, conceptStyleText, promptPriorityForTrack, resolveConceptInfluence, safeConceptSummaryForDisplay, variedVocalText } from './conceptDiversity';
 import {
   composeLyrics,
@@ -847,7 +849,17 @@ export function rebuildStylePromptsForPersonaMode(
   // v5.13 — now passes the real resolved tier instead of always omitting it.
   const arcPlan = buildArcPlanForProfile(blueprint.songs.length, audienceProfile.arcModelId, resolvedKidsAgeTierId);
   const tempoBandPlan = tempoBands ? reorderByArcIntensity(buildTempoBandPlan(tempoBands, blueprint.songs.length, seed), arcPlan, band => band.low) : [];
-  const genrePool = Array.from(new Set((opts.genreIds ?? genres.map(genre => genre.id)).filter(Boolean)));
+  // 지시문 79 (TASK C-3) — en-chillhop 대역 잠금을 이 경로에도 적용한다.
+  // 지시문 71 TASK E / 76 TASK A의 규칙이 core/setDirector.ts 안에만 있어,
+  // Step2Plan을 거치지 않고 바로 생성하는 경로에서는 한 세트에 64 BPM과
+  // 127 BPM이 함께 나왔다(실측 25세트 중 9세트). 규칙은 그대로 두고
+  // core/enChillhopBand.ts의 공통 함수를 두 경로가 함께 부른다.
+  // en-chillhop이 아니면 입력 그대로다.
+  const genrePool = applyEnChillhopBandLock(
+    Array.from(new Set((opts.genreIds ?? genres.map(genre => genre.id)).filter(Boolean))),
+    opts.channel.archetype,
+    `${opts.customConcept ?? ''} ${opts.projectTitle ?? ''}`
+  );
   const autoGenrePlan = buildGenreRotationPlan(genrePool, blueprint.songs.length, seed);
   const genrePlan = applyAxisAllocation(autoGenrePlan, opts.diversityAllocations, 'genre', genrePool, seed);
   const autoIntroTexturePlan = buildIntroTexturePlan(opts.channel.archetype, blueprint.songs.length, seed, opts.introUniqueness);
@@ -1273,7 +1285,17 @@ export function generateLocalBlueprint(
         moneyChordLean.tempo === 'lower' ? 'lower' : 'higher'
       )
     : tempoBandPlanBase;
-  const genrePool = Array.from(new Set((opts.genreIds ?? genres.map(genre => genre.id)).filter(Boolean)));
+  // 지시문 79 (TASK C-3) — en-chillhop 대역 잠금을 이 경로에도 적용한다.
+  // 지시문 71 TASK E / 76 TASK A의 규칙이 core/setDirector.ts 안에만 있어,
+  // Step2Plan을 거치지 않고 바로 생성하는 경로에서는 한 세트에 64 BPM과
+  // 127 BPM이 함께 나왔다(실측 25세트 중 9세트). 규칙은 그대로 두고
+  // core/enChillhopBand.ts의 공통 함수를 두 경로가 함께 부른다.
+  // en-chillhop이 아니면 입력 그대로다.
+  const genrePool = applyEnChillhopBandLock(
+    Array.from(new Set((opts.genreIds ?? genres.map(genre => genre.id)).filter(Boolean))),
+    opts.channel.archetype,
+    `${opts.customConcept ?? ''} ${opts.projectTitle ?? ''}`
+  );
   const autoGenrePlan = buildGenreRotationPlan(genrePool, opts.songCount, seed);
   const genrePlan = applyAxisAllocation(autoGenrePlan, opts.diversityAllocations, 'genre', genrePool, seed);
   // v3.82 (TASK A) — mirrors batchPreallocation.ts's identical flagship
@@ -2039,7 +2061,13 @@ export function generateLocalBlueprint(
     // generated pack never passes through that function, so its lyrics
     // always started with the section tag ([short intro], etc.) and no
     // vocal tag at all. Same tag resolution, applied directly here instead.
-    const lyrics = ensureVocalMetaTag(applyDuetSectionVocalTags(composedLyrics, vocalGender), resolveVocalMetaTag(vocalType, vocalGender, vocalDescriptionText));
+    // 지시문 79 (TASK C-3) — BPM 구간별 섹션 하한을 로컬 경로에도 적용한다
+    // (§core/instrumentalSectionFill.ts의 doc comment: 지시문 74 TASK A가
+    // 슬롯·브릿지·채점 세 곳에 배선하고 로컬만 빠뜨렸다). 보컬 섹션은
+    // 건드리지 않고 간주 전용 섹션만 덧붙인다 — 브릿지 지시문이 에이전트에게
+    // 요구하는 것과 같은 방식이다. 95 BPM 이하는 무변경.
+    const lyricsWithFloor = fillInstrumentalSectionsForBpm(composedLyrics, tempo);
+    const lyrics = ensureVocalMetaTag(applyDuetSectionVocalTags(lyricsWithFloor, vocalGender), resolveVocalMetaTag(vocalType, vocalGender, vocalDescriptionText));
     // TASK v3.48.1 — narrative genres still get one auxiliary hook device,
     // but the auto plan filters out devices already described by the
     // arrangement narrative so the two cues do not fight each other.

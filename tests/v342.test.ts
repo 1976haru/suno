@@ -6,6 +6,7 @@ import { hookDevices } from '../src/data/hookDevices';
 import { buildStructureTemplatePlan } from '../src/core/lyricEngine';
 import { moneyChordPresets } from '../src/data/moneyChords';
 import { arrangementNarrativeForGenres } from '../src/core/promptComposer';
+import { isInstrumentalFillTag } from '../src/core/instrumentalSectionFill';
 import { channelPresets, genrePacks, moodPacks, seasonPacks, makeOptions } from './fixtures';
 
 // TASK v3.42 — regression coverage for the "곡 간 유사성 해소 + 킬링 포인트
@@ -238,11 +239,18 @@ describe('[v3.70 TASK B] section count and pre-chorus repetition — real listen
   // identifies the singer, it isn't one of composeLyrics's own structure
   // sections, so it must not count toward the section-count target here.
   const VOCAL_META_TAG = /^\[(male vocal|female vocal|children'?s choir|duet vocal|group vocal)\]$/i;
+  // 지시문 79 (TASK C-3) — 지시문 74 TASK A의 BPM 섹션 하한이 로컬 경로에도
+  // 배선되면서 96 BPM 이상 트랙에는 간주 전용 섹션이 덧붙는다. 74가
+  // "sectionRangeForBpm(템플릿 **보컬 뼈대** 범위)은 값·경계 모두 그대로
+  // 둔다"고 명시했듯 그 간주는 뼈대가 아니다 — 이 테스트가 지키는 것이 바로
+  // 그 뼈대(composeLyrics 자신의 구조 섹션)이므로 위 vocal-meta 태그와 같은
+  // 이유로 함께 제외한다. 판정은 core/instrumentalSectionFill.ts의
+  // isInstrumentalFillTag 하나를 쓴다(목록을 두 곳에 두지 않는다).
   function sectionTags(lyrics: string): string[] {
     return lyrics
       .split('\n')
       .map(l => l.trim())
-      .filter(l => /^\[.+\]$/.test(l) && !VOCAL_META_TAG.test(l));
+      .filter(l => /^\[.+\]$/.test(l) && !VOCAL_META_TAG.test(l) && !isInstrumentalFillTag(l));
   }
 
   it('every non-cold-open track in a real 15-song pack renders 6-8 section tags (never more)', () => {
