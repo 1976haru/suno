@@ -134,15 +134,24 @@ describe('시니어 기준선 스냅샷 (TASK G1 §5)', () => {
   // 창법을 매곡 싣도록 바꿨다(TASK B, v3.80의 era 전용 buildVocalTechniquePlan을
   // genre 전용으로 교체). 매곡 새 절 하나가 추가돼 min/avg/max 모두 오르는
   // 건 이 지시문이 의도한 변화의 직접 결과다 — §9 실측, 추정 아님.
-  it('프롬프트 길이 min/avg/max — 725/844/949 허용 ±20', () => {
+  // 지시문 79 (TASK C-3) — 725/844/949 -> 729/818/922 (실측 재조정):
+  // 지시문 78 TASK A가 프리셋 prompt에 넣은 발성 어휘가 프리셋 선택
+  // 경로에서 한 번도 stylePrompt에 도달하지 않던 결함(실측 408곡 중 0곡)을
+  // 고치면서, core/localGenerator.ts의 withPresetArticulation이 보컬 원자의
+  // **전달 방식 절 하나를 프리셋 자신의 발성 절로 교체**한다. 절 개수는
+  // 그대로이고(교체이지 추가가 아니다) 새 절이 기존 절보다 짧아
+  // 글자 수만 소폭 내려간다 — 단어 수는 116.3 -> 116.1로 사실상 불변이라
+  // 지시문 79 §5의 "stylePrompt 평균 단어 수 증가 없음"을 지킨다.
+  // 회귀가 아니라 이 지시문이 의도한 변화의 직접 결과다(§실측, 추정 아님).
+  it('프롬프트 길이 min/avg/max — 729/818/922 허용 ±20', () => {
     const lengths = bp.songs.map(s => s.stylePrompt.length);
     const avg = lengths.reduce((a, b) => a + b, 0) / lengths.length;
-    expect(Math.min(...lengths)).toBeGreaterThanOrEqual(705);
-    expect(Math.min(...lengths)).toBeLessThanOrEqual(745);
-    expect(avg).toBeGreaterThanOrEqual(824);
-    expect(avg).toBeLessThanOrEqual(864);
-    expect(Math.max(...lengths)).toBeGreaterThanOrEqual(929);
-    expect(Math.max(...lengths)).toBeLessThanOrEqual(969);
+    expect(Math.min(...lengths)).toBeGreaterThanOrEqual(709);
+    expect(Math.min(...lengths)).toBeLessThanOrEqual(749);
+    expect(avg).toBeGreaterThanOrEqual(798);
+    expect(avg).toBeLessThanOrEqual(838);
+    expect(Math.max(...lengths)).toBeGreaterThanOrEqual(902);
+    expect(Math.max(...lengths)).toBeLessThanOrEqual(942);
   });
 
   it('고유 제목 18/18', () => {

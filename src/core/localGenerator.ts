@@ -20,7 +20,7 @@ import { applySlotOrderOverride } from './slotOrderOverride';
 import { AI_DISCLOSURE_LINE, sanitizePublicYoutubeTags } from './exportCompliance';
 import { isKidsArchetype } from '../utils/channelArchetype';
 import { matchVocalPreset, vocalPresets, type VocalPreset } from '../data/vocalPresets';
-import { applyVocalOnsetPhrasing, buildConceptVocalPresetPlan, conceptVocalExclusionTerms, resolveConceptVocalIntent } from './conceptVocalPlan';
+import { applyVocalOnsetPhrasing, articulationFamilyForPreset, buildConceptVocalPresetPlan, conceptVocalExclusionTerms, resolveConceptVocalIntent } from './conceptVocalPlan';
 import { eraBucketForGenreId, ERA_FORBIDDEN_DESCRIPTORS } from '../data/eraExclusions';
 import { PROXIMITY_POOL } from '../data/vocalTraits';
 import { buildHookDevicePlan, hookDeviceIdsForNarrative } from './hookDevicePlan';
@@ -1763,6 +1763,47 @@ export function generateLocalBlueprint(
   // 같아진다 — adultVocalTraitPlan(아래 §1534, vocalPlan 전체에 대해 이미
   // 무조건 계산됨)이 만든 곡별 변주를 preset.prompt의 정체성 구절(첫 구절)
   // 뒤에 붙여 쓴다.
+  /**
+   * 지시문 79 (TASK C-3) — 프리셋을 골랐을 때 그 프리셋의 발성 어휘를
+   * 최종 문구에 실어 보낸다. 실측(2차 감사 항목 5): 지시문 78 TASK A가
+   * 프리셋 prompt에 넣은 성대·호흡·공명 어휘가 프리셋 선택 경로에서
+   * 408곡 중 0곡에 도달했다 — presetVariantVocalText는 prompt의 **첫 절만**
+   * anchor로 쓰고 나머지를 버리며, adultVocalTraitPlan 경로는 prompt를
+   * 아예 읽지 않기 때문이다.
+   *
+   * 컨셉 경로가 이미 쓰는 applyVocalOnsetPhrasing을 그대로 재사용한다 —
+   * 같은 함수라 **절 개수가 늘지 않는다**(stylePrompt 단어 수 불변, 지시문
+   * 74 TASK C의 압축을 되돌리지 않는다). 프리셋에 발성 어휘가 없으면
+   * (articulationFamilyForPreset이 undefined) 문구를 그대로 둔다.
+   */
+  function withPresetArticulation(text: string, preset: VocalPreset | undefined): string {
+    const family = articulationFamilyForPreset(preset);
+    if (!family) return text;
+    const parts = text.split(',').map(part => part.trim()).filter(Boolean);
+    // 이미 그 발성 표현을 말하고 있으면 그대로 둔다.
+    if (parts.some(part => family.onsetClauses.some(clause => part.toLowerCase().includes(clause.toLowerCase())))) return text;
+    // **바꿔 끼울 자리가 실제로 있을 때만** 적용한다. VocalFamily의 자기
+    // doc comment가 규정한 동작 그대로다 — "redundantClausePattern에 걸리는
+    // 기존 절을 먼저 빼고 그 자리에 넣는다". 걸리는 절이 없는데도 넣으면
+    // applyVocalOnsetPhrasing이 절 개수를 맞추려고 **맨 뒤를 자르고**, 그
+    // 자리에 있던 공간감 절(soft plate / chamber ambience)이나 듀엣 태그가
+    // 사라진다 — 실측으로 tests/v380.test.ts(트랙 2-3 앰비언스 대비)와
+    // tests/v353Diversity.test.ts(시작 문구 다양성)가 깨졌다. 자리가 없으면
+    // 문구를 건드리지 않는 쪽이 맞다.
+    // 우선 계열이 "겹친다"고 규정한 절을 찾는다. 없으면 **전달 방식 절**
+    // (buildAdultVocalTraitPlan의 2번째 절 — "bright forward delivery",
+    // "restrained understated reading" 같은 표현)을 바꾼다. 그 자리가
+    // 발성을 서술하는 자리라 의미가 가장 가깝고, 정체성 절(0번)·공간감 절
+    // (마지막)·듀엣 태그를 건드리지 않아 위 두 테스트의 불변식이 유지된다.
+    // 절이 3개 미만이면 바꿀 여유가 없으므로 그대로 둔다.
+    const redundantIdx = parts.findIndex((part, i) => i > 0 && family.redundantClausePattern.test(part));
+    const swappableIdx = redundantIdx >= 0 ? redundantIdx : (parts.length >= 3 ? 1 : -1);
+    if (swappableIdx < 0) return text;
+    const next = [...parts];
+    next[swappableIdx] = family.onsetClauses[0];
+    return next.join(', ');
+  }
+
   function presetVariantVocalText(preset: VocalPreset, idx: number): string {
     const anchor = preset.prompt.split(',')[0]?.trim() || preset.prompt;
     const traitText = adultVocalTraitPlan?.[idx];
@@ -1952,11 +1993,11 @@ export function generateLocalBlueprint(
                   ? kidsPresetVocalText(kidsPresetPlan[idx]!, opts.lyricLanguage, kidsPresetOccurrenceIndex(kidsPresetPlan[idx]!.id))
                   : kidsVocalTextFor(vocalType, opts.lyricLanguage, vocalVariantPlan ? vocalVariantPlan[idx] : 0, opts.channel.archetype, undefined)))
           : (vocalPresetOverride
-              ? presetVariantVocalText(vocalPresetOverride, idx)
+              ? withPresetArticulation(presetVariantVocalText(vocalPresetOverride, idx), vocalPresetOverride)
               : (conceptPresetForTrack
                   // 지시문 77 (TASK C) — batchPreallocation.ts의 동일 처리 참고.
                   ? applyVocalOnsetPhrasing(presetVariantVocalText(conceptPresetForTrack, idx), conceptVocalIntent!.family)
-                  : (adultVocalTraitPlan?.[idx] ?? fallbackVocalText))))
+                  : withPresetArticulation(adultVocalTraitPlan?.[idx] ?? fallbackVocalText, wholePackMatchedVocalPreset))))
       : variedVocalText(fallbackVocalText, idx, trackGenres[0], opts.channel.archetype);
     // TASK v3.41 Part A1 — vocalType already IS the explicit gender for a
     // kids-quota song; otherwise falls back to the matched preset's own
@@ -2316,8 +2357,19 @@ export function generateLocalBlueprint(
           // floorClause보다 앞이다 — floor는 이 자리에서 원래 "완전 보장이
           // 아니라 최선 노력"이라고 자기 주석이 명시한 항목이고, onset은
           // 이 곡에 대한 사용자의 명시적 컨셉 지목이다.
-          const onsetClause = conceptVocalIntent && conceptPresetForTrack
-            ? segments.find(segment => conceptVocalIntent.family.onsetClauses.some(clause => clause.toLowerCase() === segment.toLowerCase()))
+          // 지시문 79 (TASK C-3) — 컨셉 지목뿐 아니라 **사용자가 고른
+          // 프리셋 자신의 발성 어휘**도 같은 자리에서 보호한다. 실측: 위
+          // withPresetArticulation이 문구에 어휘를 넣어도, 이 "앞 2개" 컷이
+          // 그대로 잘라내 stylePrompt 도달률이 10.5%에 머물렀다 —
+          // 지시문 77 TASK C가 컨셉 경로에서 고친 것과 **완전히 같은 결함**이
+          // 프리셋 선택 경로에 남아 있었다. 우선순위 자리는 그대로 쓰고
+          // (genderClause·flagshipClause 순서는 tests/v380.test.ts가 검증한다),
+          // onsetClause의 출처만 컨셉 → 프리셋 순으로 넓힌다.
+          const articulationFamily = conceptVocalIntent && conceptPresetForTrack
+            ? conceptVocalIntent.family
+            : articulationFamilyForPreset(vocalPresetOverride ?? wholePackMatchedVocalPreset);
+          const onsetClause = articulationFamily
+            ? segments.find(segment => articulationFamily.onsetClauses.some(clause => segment.toLowerCase().includes(clause.toLowerCase())))
             : undefined;
           const priority = [genderClause, flagshipClause, onsetClause, floorClause, segments[0]].filter((value, i, arr): value is string => Boolean(value) && arr.indexOf(value) === i);
           const kept = priority.slice(0, 2);

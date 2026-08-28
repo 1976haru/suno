@@ -321,6 +321,20 @@ export default function Step2Concept({
       : vocalQuotaModeResolved === 'balanced'
         ? flatDefaultQuota
         : genreDerivedQuota;
+
+  // 지시문 79 (TASK C-3) — 2차 감사 §1의 실제 원인 수정. 이 카드 설명은
+  // genreDerivedQuota.reasonKo를 그대로 썼는데, 그 문장의 숫자는 성별
+  // 쏠림(leaningAdultVocalQuota)을 적용하기 **전** 값이다. 사용자가 보컬
+  // 프리셋을 고르거나 [다시 추천]을 누르면 opts.vocalTone이 채널 기본값에서
+  // 바뀌어 쏠림이 켜지고, 그때부터 이 문장(남 6 · 여 5 · 혼성 4)과 실제
+  // 생성(남 8 · 여 3 · 듀엣 4)이 어긋났다.
+  //
+  // 계산은 건드리지 않는다 — 장르 요약 문구(genreSummaryKo)만 재사용하고,
+  // 숫자는 이 화면이 이미 갖고 있는 resolvedVocalQuotaPreview(아래에서
+  // "성별 배정" 줄이 쓰는 바로 그 값, 생성 경로의 resolvedVocalQuota와
+  // 같은 계산)로 다시 조립한다. 용어도 이 화면의 나머지와 같은 "듀엣"으로
+  // 통일한다(감사 유형 F: 같은 필드를 화면마다 다르게 부르던 문제).
+  // 이 값은 아래 resolvedVocalQuotaPreview 정의 뒤에서 만들어진다.
   const balancedQuotaPreview = scaleVocalQuota(activeDefaultQuotaForChannel, opts.songCount);
   const isBalancedVocalTone = !opts.vocalTone?.trim() || opts.vocalTone.trim() === opts.channel.defaultVocal;
   // TASK v4.13 (§5-2) — "선택 시 실제 계산된 쿼터를 보여주십시오": same
@@ -336,6 +350,9 @@ export default function Step2Concept({
   const resolvedVocalQuotaPreview = selectedVocalLeaning
     ? leaningAdultVocalQuota(activeDefaultQuotaForChannel, opts.songCount, selectedVocalLeaning)
     : balancedQuotaPreview;
+  const genreQuotaDescriptionKo = genreDerivedQuota.genreSummaryKo
+    ? `선택하신 장르 구성(${genreDerivedQuota.genreSummaryKo})에서 계산했습니다 — 남성 ${resolvedVocalQuotaPreview.male}곡 · 여성 ${resolvedVocalQuotaPreview.female}곡 · 듀엣 ${resolvedVocalQuotaPreview.mixed}곡.`
+    : `선택하신 장르에 성별 선호 정보가 없어 남성 ${resolvedVocalQuotaPreview.male}곡 · 여성 ${resolvedVocalQuotaPreview.female}곡 · 듀엣 ${resolvedVocalQuotaPreview.mixed}곡으로 배정합니다.`;
   // v5.9 (quota/tone separation) — tone-preset recognition (matchVocalPreset,
   // or a detectable gender/duet/mixed phrase via leaningGenderFor) is now its
   // own signal, independent of whether the quota above actually leaned. A
@@ -1254,7 +1271,7 @@ export default function Step2Concept({
                   id: 'genre',
                   label: '장르에 맞춰 배정',
                   sublabel: '기본',
-                  description: genreDerivedQuota.reasonKo,
+                  description: genreQuotaDescriptionKo,
                   icon: '🧬'
                 },
                 {

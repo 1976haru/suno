@@ -45,8 +45,16 @@ function atomsSharedByEverySong(stylePrompts: string[]): string[] {
  *    reasoning as the duration/hook-repeat exemptions above — a floor the
  *    concept can never remove is supposed to be pack-wide-shared, not a
  *    melodic-design variety signal this test is checking.
+ *  - 지시문 79 (TASK C-3) — 프리셋의 발성 절(soft glottal onset / forward
+ *    mask resonance / clean fold closure …). 위 첫 항목("vocal descriptor
+ *    text")과 **같은 범주**다: 팩 전체가 보컬 프리셋 하나를 쓰면 그
+ *    프리셋의 발성도 전 곡이 공유하는 것이 정상이며, 사용자가 고른 그
+ *    하나의 음색이 곧 이 팩의 정체성이다. 지시문 78 TASK A가 프리셋마다
+ *    넣은 이 어휘가 stylePrompt에 실제로 도달하기 시작하면서(그전에는
+ *    408곡 중 0곡) 이 목록에 새로 걸리게 됐다 — 멜로디 설계 다양성
+ *    신호가 아니므로 기존 vocal 예외와 함께 제외한다.
  */
-const EXEMPT_SHARED_ATOM_PATTERN = /\b(vocal|male|female|tenor|baritone|contralto|mezzo|alto|husky|breathy|soulful|close-mic|duet|3:10-3:35|repeated chorus hook|repeats chorus|hook repeats \d+x|warm analog studio sound|acoustic instruments carry the arrangement|narrow warm stereo image)\b/i;
+const EXEMPT_SHARED_ATOM_PATTERN = /\b(vocal|male|female|tenor|baritone|contralto|mezzo|alto|husky|breathy|soulful|close-mic|duet|glottal|fold closure|fold rasp|mask resonance|breath pressure|larynx|pharyngeal|chest projection|unforced onset|dry grain|3:10-3:35|repeated chorus hook|repeats chorus|hook repeats \d+x|warm analog studio sound|acoustic instruments carry the arrangement|narrow warm stereo image)\b/i;
 
 function nonExemptSharedAtoms(stylePrompts: string[]): string[] {
   return atomsSharedByEverySong(stylePrompts).filter(atom => !EXEMPT_SHARED_ATOM_PATTERN.test(atom));
