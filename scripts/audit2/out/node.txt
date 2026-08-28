@@ -1,0 +1,1 @@
+[check:node] 통과 — scripts/audit.ts 에서 정적으로 도달하는 파일 중 node에서 해석 불가한 파일 없음.

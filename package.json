@@ -56,7 +56,9 @@
     "perf:budget": "vitest run tests/performanceBudget.test.ts --reporter=verbose",
     "measure:checks": "tsx scripts/measureCheckCost.ts",
     "check:concept-vocal-axis": "tsx scripts/checkConceptVocalAxis.ts",
-    "check:vocal-articulation": "tsx scripts/checkVocalArticulationAxis.ts"
+    "check:vocal-articulation": "tsx scripts/checkVocalArticulationAxis.ts",
+    "check:concept-channel-fit": "tsx scripts/checkConceptChannelFit.ts",
+    "check:path-coverage": "tsx scripts/checkPathCoverage.ts"
   },
   "dependencies": {
     "@vitejs/plugin-react": "6.0.3",

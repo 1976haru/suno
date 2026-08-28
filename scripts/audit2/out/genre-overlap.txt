@@ -1,0 +1,18 @@
+[check:genre-overlap] senior 계열(senior-morning ∪ oldpop-lounge) 39종
+
+유사도 0.9 이상 (사실상 동일 — 통합 후보) (0쌍)
+  (없음)
+
+유사도 0.7~0.9 (통합 검토) (5쌍)
+  jazz-brush-ballad-jazz ↔ jazz-torch-vocal-jazz  0.79  [tempo 1.00 · era 1.00 · instr 0.75 · rhythm 1.00 · prod 0.40 · vocal 0.50 · style 0.76]  (tempo 82-128 vs 82-128, era 1950s/1960s vs 1950s/1960s)
+  jazz-classic-vocal-lounge ↔ jazz-soft-vocal-trio  0.76  [tempo 1.00 · era 1.00 · instr 0.80 · rhythm 1.00 · prod 0.43 · vocal 0.11 · style 0.78]  (tempo 82-128 vs 82-128, era 1950s/1960s vs 1950s/1960s)
+  jazz-classic-vocal-lounge ↔ jazz-swing-crooner-ballroom  0.74  [tempo 1.00 · era 0.50 · instr 0.80 · rhythm 1.00 · prod 0.40 · vocal 0.67 · style 0.72]  (tempo 82-128 vs 82-128, era 1950s/1960s vs 1950s)
+  jazz-torch-vocal-jazz ↔ jazz-soft-vocal-trio  0.73  [tempo 1.00 · era 1.00 · instr 0.60 · rhythm 0.50 · prod 0.67 · vocal 0.67 · style 0.82]  (tempo 82-128 vs 82-128, era 1950s/1960s vs 1950s/1960s)
+  jazz-classic-vocal-lounge ↔ jazz-torch-vocal-jazz  0.70  [tempo 1.00 · era 1.00 · instr 0.75 · rhythm 0.50 · prod 0.60 · vocal 0.11 · style 0.82]  (tempo 82-128 vs 82-128, era 1950s/1960s vs 1950s/1960s)
+
+유사도 0.7 미만 (구분됨) — 736쌍 (개별 목록 생략, 총 741쌍 중)
+
+[요약] 전체 쌍 741 · 0.9+ 0 · 0.7~0.9 5 · 0.7미만 736
+0.9 이상만 통합하면: 39종 → 대표 선정 후 예상 감소는 TASK B에서 계산(연결된 쌍을 그룹으로 묶어야 함).
+
+전체 유사도 행렬을 docs\genre-overlap-matrix.json에 저장했다.

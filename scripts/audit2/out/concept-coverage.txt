@@ -1,0 +1,152 @@
+[check:concept-coverage] 지시문 64 TASK C
+
+표본 70개
+
+[senior-morning] "퇴근길 버스에서 창밖 보며 듣는 노래"
+  매칭: kr2030-after-work, krkids-animal-vehicle, jpkids-food-vehicle, place-bus, place-bus-kr2030, place-bus-kridol, place-window-outside, situ-off-work-senior, situ-off-work-idol · 계절: late-summer-open
+[senior-morning] "비 오는 날 카페에서"
+  매칭: cafe, rain · 계절: autumn-rain
+[senior-morning] "첫사랑이 생각나는 밤"
+  매칭: romantic, time-night · 계절: late-summer-open
+[senior-morning] "잠들기 전 조용히"
+  매칭: situ-before-sleep · 계절: late-summer-open
+[senior-morning] "아침 햇살 드는 창가에서"
+  매칭: cafe, morning · 계절: late-summer-open
+[senior-morning] "오래된 사진첩을 넘기며"
+  매칭: situ-old-photo-album · 계절: late-summer-open
+[senior-morning] "혼자 걷는 저녁 산책길"
+  매칭: alone-drive-walk, time-evening, situ-walk-evening · 계절: late-summer-open
+[senior-morning] "은퇴하고 나서 듣는 노래"
+  매칭: situ-retirement · 계절: late-summer-open
+[senior-morning] "손주 재롱 보며 웃는 오후"
+  매칭: time-afternoon, situ-grandchildren · 계절: late-summer-open
+[senior-morning] "동창회 다녀온 밤"
+  매칭: time-night, situ-class-reunion · 계절: late-summer-open
+[senior-morning] "텃밭 가꾸는 이른 아침"
+  매칭: morning, time-early-morning · 계절: late-summer-open
+[senior-morning] "라디오 듣던 옛날 생각"
+  매칭: situ-listening-radio · 계절: late-summer-open
+[senior-morning] "병원 대기실에서 기다리며"
+  매칭: krkids-roleplay-story, place-hospital · 계절: late-summer-open
+[senior-morning] "지하철역 계단을 오르며"
+  매칭: kr2030-dawn-night, place-subway, place-station, place-stairs · 계절: late-summer-open
+[senior-morning] "골목길 다방에서 커피 한 잔"
+  매칭: cafe, kr2030-studio-seoul, place-alley, place-teahouse · 계절: late-summer-open
+[senior-morning] "설거지하며 흥얼거리는 노래"
+  매칭: situ-dishwashing · 계절: late-summer-open
+[senior-morning] "해질녘 다리 위에서"
+  매칭: place-bridge, time-dusk · 계절: late-summer-open
+[senior-morning] "고향집 마당에 앉아서"
+  매칭: place-hometown-house, place-garden-yard · 계절: late-summer-open
+[senior-morning] "결혼기념일 저녁 식탁에서"
+  매칭: time-evening, situ-wedding-anniversary · 계절: late-summer-open
+[senior-morning] "주말 아침 늦잠 자고 일어나서"
+  매칭: morning, time-weekend, situ-waking-up · 계절: late-summer-open
+[kr-2030-pop] "퇴근길 버스에서 창밖 보며 듣는 노래"
+  매칭: kr2030-after-work, krkids-animal-vehicle, jpkids-food-vehicle, place-bus, place-bus-kr2030, place-bus-kridol, place-window-outside, situ-off-work-senior, situ-off-work-idol · 계절: late-summer-open
+[kr-2030-pop] "야근하고 막차 타고 집에 가는 길"
+  매칭: kr2030-after-work, kr2030-dawn-night, situ-overtime-senior, situ-overtime-idol, enchillhop-jp-last-train · 계절: late-summer-open
+[kr-2030-pop] "원룸에서 혼밥하며 듣는 노래"
+  매칭: kr2030-studio-seoul, situ-eating-alone · 계절: late-summer-open
+[kr-2030-pop] "서른 앞두고 새벽에 잠 안 올 때"
+  매칭: kr2030-dawn-night, kr2030-thirty-something, time-dawn · 계절: late-summer-open
+[kr-2030-pop] "이직 준비하며 불안한 저녁"
+  매칭: time-evening, situ-job-change · 계절: late-summer-open
+[kr-2030-pop] "금요일 밤 혼자 마시는 맥주"
+  매칭: alone-drive-walk, time-night, time-friday, kr2030-solo-drink · 계절: late-summer-open
+[kr-2030-pop] "싸이월드 감성 드라이브"
+  매칭: alone-drive-walk, kr2030-y2k-nostalgia, kr2030-summer-drive, kridol-night-drive · 계절: late-summer-open
+[kr-2030-pop] "월요일 아침 출근길"
+  매칭: morning, kr2030-after-work, time-monday · 계절: late-summer-open
+[kr-2030-pop] "헤어지고 혼자 걷는 밤거리"
+  매칭: alone-drive-walk, kr2030-dawn-night, kridol-night-drive, time-night, situ-breakup-senior · 계절: late-summer-open
+[kr-2030-pop] "휴가 가는 날 아침 공항"
+  매칭: morning, situ-vacation, kr2030-trip-vacation · 계절: late-summer-open
+[kr-idol-male] "퇴근길 버스에서 창밖 보며 듣는 노래"
+  매칭: kr2030-after-work, krkids-animal-vehicle, jpkids-food-vehicle, place-bus, place-bus-kr2030, place-bus-kridol, place-window-outside, situ-off-work-senior, situ-off-work-idol · 계절: late-summer-open
+[kr-idol-male] "무대에 오르기 직전 연습실"
+  매칭: kridol-stage-performance, kridol-practice-room · 계절: late-summer-open
+[kr-idol-male] "데뷔를 앞둔 연습생의 밤"
+  매칭: kridol-comeback-debut, kridol-practice-room, time-night · 계절: late-summer-open
+[kr-idol-male] "컴백 준비하는 새벽"
+  매칭: kr2030-dawn-night, kridol-comeback-debut, time-dawn · 계절: late-summer-open
+[kr-idol-male] "자신감 넘치는 무대 퍼포먼스"
+  매칭: kridol-stage-performance, kridol-confidence-challenge, krkidolf-confidence-choice · 계절: late-summer-open
+[kr-idol-male] "야간 도시를 달리는 드라이브"
+  매칭: alone-drive-walk, kr2030-summer-drive, kridol-night-drive · 계절: late-summer-open
+[kr-idol-male] "랩과 힙합이 어울리는 곡"
+  매칭: kridol-rap-hiphop, enchillhop-hiphop-general · 계절: late-summer-open
+[kr-idol-male] "이별 후 무너지는 감정 발라드"
+  매칭: ballad, kridol-ballad-genre, situ-breakup-senior · 계절: late-summer-open
+[kr-idol-male] "한계를 넘는 도전의 순간"
+  매칭: kridol-confidence-challenge · 계절: late-summer-open
+[kr-idol-male] "레트로 펑크 댄스 무대"
+  매칭: kridol-stage-performance, kridol-dance-genre, kridol-retro-funk-genre · 계절: late-summer-open
+[kr-kids-song] "아침에 일어나서 양치하는 노래"
+  매칭: morning, krkids-daily-habit, situ-waking-up · 계절: late-summer-open
+[kr-kids-song] "숫자랑 색깔 배우는 노래"
+  매칭: krkids-counting-color · 계절: late-summer-open
+[kr-kids-song] "동물원에서 동물 소리 흉내내기"
+  매칭: krkids-animal-vehicle · 계절: late-summer-open
+[kr-kids-song] "병원 놀이 하는 아이들"
+  매칭: krkids-roleplay-story, place-hospital · 계절: late-summer-open
+[kr-kids-song] "영어 알파벳 배우는 노래"
+  매칭: krkids-bilingual, jpkids-english-learning · 계절: late-summer-open
+[kr-kids-song] "낮잠 자기 전 자장가"
+  매칭: krkids-sleep-calm, situ-before-sleep · 계절: late-summer-open
+[kr-kids-song] "율동하며 따라 부르는 노래"
+  매칭: krkids-action · 계절: late-summer-open
+[kr-kids-song] "손 씻고 이 닦는 시간"
+  매칭: krkids-daily-habit · 계절: late-summer-open
+[kr-kids-song] "기차랑 버스 소리 흉내내기"
+  매칭: krkids-animal-vehicle, jpkids-food-vehicle, place-bus, place-bus-kr2030, place-bus-kridol, place-train · 계절: late-summer-open
+[kr-kids-song] "놀이터에서 신나게 뛰노는 오후"
+  매칭: bright-upbeat, place-playground, time-afternoon, krkids-playground · 계절: late-summer-open
+[oldpop-lounge] "70년대 재즈 감성"
+  매칭: oldpop-70s, jazz · 계절: late-summer-open · 장르군: 11/18곡 (61%)
+[oldpop-lounge] "70년대 소울 감성"
+  매칭: oldpop-70s, rnb-soul · 계절: late-summer-open · 장르군: 11/18곡 (61%)
+[oldpop-lounge] "70년대 R&B 감성"
+  매칭: oldpop-70s, rnb-soul · 계절: late-summer-open · 장르군: 11/18곡 (61%)
+[senior-morning] "60년대 두왑"
+  매칭: oldpop-60s, doo-wop · 계절: late-summer-open · 장르군: 11/18곡 (61%)
+[oldpop-lounge] "80년대 발라드"
+  매칭: oldpop-80s, ballad, kridol-ballad-genre · 계절: late-summer-open · 장르군: 11/18곡 (61%)
+[senior-morning] "보사노바 위주로"
+  매칭: bossa-nova · 계절: late-summer-open · 장르군: 11/18곡 (61%)
+[oldpop-lounge] "모타운 사운드"
+  매칭: motown · 계절: late-summer-open · 장르군: 11/18곡 (61%)
+[oldpop-lounge] "필리 소울"
+  매칭: rnb-soul, philly-soul · 계절: late-summer-open · 장르군: 18/18곡 (100%)
+[senior-morning] "재즈 라운지"
+  매칭: jazz · 계절: late-summer-open · 장르군: 18/18곡 (100%)
+[senior-morning] "어쿠스틱 포크"
+  매칭: folk · 계절: late-summer-open · 장르군: 11/18곡 (61%)
+[showa-cafe] "시티팝"
+  매칭: city-pop, jp2030-citypop · 계절: late-summer-open · 장르군: 11/18곡 (61%)
+[oldpop-lounge] "디스코"
+  매칭: disco · 계절: late-summer-open · 장르군: 11/18곡 (61%)
+[senior-morning] "60년대 브리티시 비트"
+  매칭: oldpop-60s, british-beat · 계절: late-summer-open · 장르군: 11/18곡 (61%)
+[senior-morning] "스무스 재즈"
+  매칭: jazz · 계절: late-summer-open · 장르군: 18/18곡 (100%)
+[oldpop-lounge] "70년대 소프트록"
+  매칭: oldpop-70s, soft-rock · 계절: late-summer-open · 장르군: 11/18곡 (61%)
+[oldpop-lounge] "가스펠 소울"
+  매칭: rnb-soul, gospel-soul · 계절: late-summer-open · 장르군: 18/18곡 (100%)
+[senior-morning] "샹송"
+  매칭: chanson · 계절: late-summer-open · 장르군: 11/18곡 (61%)
+[oldpop-lounge] "올드스쿨 R&B"
+  매칭: rnb-soul, old-school-rnb · 계절: late-summer-open · 장르군: 18/18곡 (100%)
+[senior-morning] "두왑 하모니"
+  매칭: doo-wop · 계절: late-summer-open · 장르군: 11/18곡 (61%)
+[senior-morning] "컨트리 팝"
+  매칭: country · 계절: late-summer-open · 장르군: 11/18곡 (61%)
+
+--- 요약 ---
+① 매칭률: 70/70 (100%)
+② 워크스페이스 적합 장르 매칭: 70/70 (100%)
+③ 계절 오배정: 0건
+④ 장르 키워드군 60% 이상 달성 (지시문 67 TASK D): 20/20
+
+[check:concept-coverage] advisory — exit 0.

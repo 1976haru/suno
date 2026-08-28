@@ -1,0 +1,45 @@
+[check:archetype] 실측 31곳 / allowlist 총계 48곳
+
+  src/core/albumAudit.ts — 1곳 [allowlist(1, 지시문 16)]
+    L235: if (opts?.channel?.archetype === 'kr-idol-male' || opts?.channel?.archetype === 'kr-idol-female') {
+  src/core/localGenerator.ts — 13곳 [allowlist(13, 지시문 16)]
+    L174: if (opts.channel.archetype === 'kr-kids-song') return 'en-ko';
+    L175: if (opts.channel.archetype === 'jp-kids-song') return 'en-ja';
+    L176: if (opts.channel.archetype === 'jp-2030-pop') return 'en-ja';
+    L178: opts.channel.archetype === 'kr-2030-pop' ||
+    L179: opts.channel.archetype === 'kr-idol-male' ||
+    L180: opts.channel.archetype === 'kr-idol-female'
+    L550: if (archetype === 'kr-2030-pop') return kr2030Motifs;
+    L551: if (archetype === 'jp-2030-pop') return jp2030Motifs;
+    L552: if (archetype === 'kr-idol-male' || archetype === 'kr-idol-female') return krIdolMotifs;
+    L557: if (archetype === 'kr-2030-pop') return kr2030Situations;
+    L558: if (archetype === 'jp-2030-pop') return jp2030Situations;
+    L559: if (archetype === 'kr-idol-male' || archetype === 'kr-idol-female') return krIdolSituations;
+    L656: return archetype === 'lofi-study' ? 'hum-intro' : 'hook-forward';
+  src/core/lyricEngine.ts — 4곳 [allowlist(4, 지시문 16)]
+    L771: if (archetype === 'kr-2030-pop') return kr2030Pools;
+    L772: if (archetype === 'kr-idol-male' || archetype === 'kr-idol-female') return krIdolPools;
+    L775: if (language === 'japanese') return archetype === 'jp-2030-pop' ? jp2030Pools : jaPools;
+    L1651: if (archetype === 'showa-cafe' || archetype === 'showa-70s' || archetype === 'j2000s' || isKidsArche
+  src/core/lyricMetrics.ts — 3곳 [allowlist(3, 지시문 16)]
+    L219: if (archetype === 'kr-kids-song') return KOREAN_HANGUL_RATIO_MIN_KR_KIDS;
+    L220: if (archetype === 'kr-2030-pop') return KOREAN_HANGUL_RATIO_MIN_KR_2030;
+    L221: if (archetype === 'kr-idol-male' || archetype === 'kr-idol-female') return KOREAN_HANGUL_RATIO_MIN_K
+  src/core/moneyChordPlan.ts — 1곳 [allowlist(6, 지시문 16)]
+    L485: const isKrIdol = archetype === 'kr-idol-male' || archetype === 'kr-idol-female';
+  src/core/releaseReadiness.ts — 7곳 [allowlist(7, 지시문 16)]
+    L576: const isSeniorOldpop = archetype === 'senior-morning';
+    L624: if (archetype === 'kr-2030-pop') {
+    L659: if (archetype === 'jp-2030-pop') {
+    L689: if (archetype === 'kr-kids-song' || archetype === 'jp-kids-song') {
+    L690: const isJp = archetype === 'jp-kids-song';
+    L740: if (archetype === 'kr-idol-male' || archetype === 'kr-idol-female') {
+    L741: const isMale = archetype === 'kr-idol-male';
+  src/utils/channelArchetype.ts — 2곳 [allowlist(2, N/A — 영구 허용 (정책 registry가 참조하는 정식 정의))]
+    L16: return archetype === 'kids' || archetype === 'kr-kids-song' || archetype === 'jp-kids-song';
+    L27: return archetype === 'en-chillhop';
+
+⚠ allowlist 선언보다 실제가 적음 (개선됨 — allowlist count를 낮추십시오):
+  src/core/moneyChordPlan.ts: 선언 6 → 실측 1
+
+✅ 통과 — 실측 31곳 ≤ allowlist 총계 48곳, 미등록 0개

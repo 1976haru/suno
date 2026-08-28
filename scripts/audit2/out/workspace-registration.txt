@@ -1,0 +1,193 @@
+[check:workspace-registration] 8개 워크스페이스 × 18개 등록축 (advisory, 항상 exit 0)
+
+
+■ senior-oldpop (primary archetype: senior-morning, workspaceForArchetype 역참조: senior-oldpop)
+  ○ workspaces/index.ts (WorkspaceDefinition) — archetypeIds=[senior-morning, showa-cafe, christmas, lofi-study, kids, showa-70s, j2000s, modern-chill, city-night, oldpop-lounge] ready=true
+  ○ presets.ts (채널 프리셋) — 1개 채널 프리셋 (archetype=senior-morning)
+  ○ genreLibrary/index.ts (코어 장르) — 코어 장르 49종
+  ○ genreWorkspaceOwnership.ts (장르 소유권) — 소유/참조 장르 327종
+  ○ channelVocalFloor.ts — 있음
+  ○ channelSoundFloor.ts — 있음
+  ○ workspaceEraFloor.ts (N/A 허용) — 바닥 있음
+  ○ workspaceQualityPolicies.ts — 있음
+  ○ archetypeAudienceProfiles.ts + audienceProfiles.ts — senior
+  ○ moneyChords.ts — 풀 6종, 시그니처=doowop
+  ○ hookBanks/index.ts — 시니어와 동일(의도된 공유)
+  ○ introTextures.ts — 전용 14개 (전체 폴백 시 14개)
+  ○ killingPointWorkspaceSets.ts — 시니어 기본 세트(의도됨)
+  ○ lyricThemes.ts (테마 풀) — 전용 테마 110개
+  ○ conceptKeywords.ts (archetypeScope 규칙) — archetypeScope 포함 규칙 35개
+  ○ vocalPresets.ts (보컬 프리셋) — 8개 프리셋 (warm-mature-male, low-calm-male, soft-female, mature-female, soulful-female, belted-female, male-female-duet, mixed-harmony-group)
+  ○ conceptCompatibility.ts (N/A 허용) — 등록됨 (supported=[1950s-60s,1970s,1980s], cross-style=[timeless])
+  ✗ 코어 장르 컨셉 지목 가능성 — 코어 49종 중 지목 불가 3종: oldpop-doowop-ballad, oldpop-doowop-uptempo, oldpop-six-eight-slow-ballad
+
+■ kr-2030 (primary archetype: kr-2030-pop, workspaceForArchetype 역참조: kr-2030)
+  ○ workspaces/index.ts (WorkspaceDefinition) — archetypeIds=[kr-2030-pop] ready=true
+  ○ presets.ts (채널 프리셋) — 4개 채널 프리셋 (archetype=kr-2030-pop)
+  ○ genreLibrary/index.ts (코어 장르) — 코어 장르 8종
+  ○ genreWorkspaceOwnership.ts (장르 소유권) — 소유/참조 장르 11종
+  ○ channelVocalFloor.ts — 있음
+  ○ channelSoundFloor.ts — 있음
+  ○ workspaceEraFloor.ts (N/A 허용) — 바닥 없음(의도적일 수 있음, N/A)
+  ○ workspaceQualityPolicies.ts — 있음
+  ○ archetypeAudienceProfiles.ts + audienceProfiles.ts — kr-2030-emotional
+  ○ moneyChords.ts — 풀 6종, 시그니처=default
+  ○ hookBanks/index.ts — 전용 어휘 있음
+  ✗ introTextures.ts — 전용 6개 (전체 폴백 시 30개)
+  ○ killingPointWorkspaceSets.ts — 전용 세트 12종
+  ○ lyricThemes.ts (테마 풀) — 전용 테마 46개
+  ○ conceptKeywords.ts (archetypeScope 규칙) — archetypeScope 포함 규칙 45개
+  ○ vocalPresets.ts (보컬 프리셋) — 16개 프리셋 (clear-light-male, airy-falsetto-male, bright-young-male, soft-female, mature-female, bright-clear-female, bright-young-female, soulful-female, belted-male, belted-female, dark-resonant-male, dark-resonant-female, husky-grain-male, husky-grain-female, light-falsetto-female, male-female-duet)
+  ○ conceptCompatibility.ts (N/A 허용) — 없음(기본 supported로 처리, N/A일 수 있음)
+  ✗ 코어 장르 컨셉 지목 가능성 — 코어 8종 중 지목 불가 1종: kr2030-noir-deep-house
+
+■ jp-2030 (primary archetype: jp-2030-pop, workspaceForArchetype 역참조: jp-2030)
+  ○ workspaces/index.ts (WorkspaceDefinition) — archetypeIds=[jp-2030-pop] ready=true
+  ○ presets.ts (채널 프리셋) — 3개 채널 프리셋 (archetype=jp-2030-pop)
+  ○ genreLibrary/index.ts (코어 장르) — 코어 장르 7종
+  ○ genreWorkspaceOwnership.ts (장르 소유권) — 소유/참조 장르 7종
+  ○ channelVocalFloor.ts — 있음
+  ○ channelSoundFloor.ts — 있음
+  ○ workspaceEraFloor.ts (N/A 허용) — 바닥 없음(의도적일 수 있음, N/A)
+  ○ workspaceQualityPolicies.ts — 있음
+  ○ archetypeAudienceProfiles.ts + audienceProfiles.ts — jp-2030-melodic
+  ○ moneyChords.ts — 풀 6종, 시그니처=cityPop
+  ○ hookBanks/index.ts — 전용 어휘 있음
+  ✗ introTextures.ts — 전용 6개 (전체 폴백 시 30개)
+  ○ killingPointWorkspaceSets.ts — 전용 세트 12종
+  ○ lyricThemes.ts (테마 풀) — 전용 테마 46개
+  ○ conceptKeywords.ts (archetypeScope 규칙) — archetypeScope 포함 규칙 44개
+  ○ vocalPresets.ts (보컬 프리셋) — 13개 프리셋 (clear-light-male, airy-falsetto-male, bright-young-male, bright-clear-female, bright-young-female, belted-male, belted-female, dark-resonant-male, dark-resonant-female, husky-grain-male, husky-grain-female, light-falsetto-female, male-female-duet)
+  ○ conceptCompatibility.ts (N/A 허용) — 없음(기본 supported로 처리, N/A일 수 있음)
+  ○ 코어 장르 컨셉 지목 가능성 — 코어 7종 전부 컨셉 규칙으로 지목 가능
+
+■ kr-kids (primary archetype: kr-kids-song, workspaceForArchetype 역참조: kr-kids)
+  ○ workspaces/index.ts (WorkspaceDefinition) — archetypeIds=[kr-kids-song] ready=true
+  ○ presets.ts (채널 프리셋) — 3개 채널 프리셋 (archetype=kr-kids-song)
+  ○ genreLibrary/index.ts (코어 장르) — 코어 장르 7종
+  ○ genreWorkspaceOwnership.ts (장르 소유권) — 소유/참조 장르 7종
+  ○ channelVocalFloor.ts — 있음
+  ✗ channelSoundFloor.ts — 없음
+  ○ workspaceEraFloor.ts (N/A 허용) — 바닥 없음(의도적일 수 있음, N/A)
+  ○ workspaceQualityPolicies.ts — 있음
+  ○ archetypeAudienceProfiles.ts + audienceProfiles.ts — kr-kids
+  ○ moneyChords.ts — 풀 6종, 시그니처=kidsSimple
+  ○ hookBanks/index.ts — 전용 어휘 있음
+  ✗ introTextures.ts — 전용 0개 (전체 폴백 시 30개)
+  ○ killingPointWorkspaceSets.ts — kids 전용 세트 경로 (N/A)
+  ○ lyricThemes.ts (테마 풀) — 전용 테마 50개
+  ○ conceptKeywords.ts (archetypeScope 규칙) — archetypeScope 포함 규칙 28개
+  ○ vocalPresets.ts (보컬 프리셋) — 10개 프리셋 (kid-boy, kid-girl, kid-choir, kid-boy-elementary, kid-girl-elementary, kid-duet, kid-choir-unison, kid-choir-round, kid-lead-with-choir, kid-chant-clap)
+  ○ conceptCompatibility.ts (N/A 허용) — 없음(기본 supported로 처리, N/A일 수 있음)
+  ○ 코어 장르 컨셉 지목 가능성 — 코어 7종 전부 컨셉 규칙으로 지목 가능
+
+■ jp-kids (primary archetype: jp-kids-song, workspaceForArchetype 역참조: jp-kids)
+  ○ workspaces/index.ts (WorkspaceDefinition) — archetypeIds=[jp-kids-song] ready=true
+  ○ presets.ts (채널 프리셋) — 3개 채널 프리셋 (archetype=jp-kids-song)
+  ○ genreLibrary/index.ts (코어 장르) — 코어 장르 7종
+  ○ genreWorkspaceOwnership.ts (장르 소유권) — 소유/참조 장르 7종
+  ○ channelVocalFloor.ts — 있음
+  ✗ channelSoundFloor.ts — 없음
+  ○ workspaceEraFloor.ts (N/A 허용) — 바닥 없음(의도적일 수 있음, N/A)
+  ○ workspaceQualityPolicies.ts — 있음
+  ○ archetypeAudienceProfiles.ts + audienceProfiles.ts — jp-kids
+  ○ moneyChords.ts — 풀 6종, 시그니처=kidsSimple
+  ○ hookBanks/index.ts — 전용 어휘 있음
+  ✗ introTextures.ts — 전용 0개 (전체 폴백 시 30개)
+  ○ killingPointWorkspaceSets.ts — kids 전용 세트 경로 (N/A)
+  ○ lyricThemes.ts (테마 풀) — 전용 테마 50개
+  ○ conceptKeywords.ts (archetypeScope 규칙) — archetypeScope 포함 규칙 28개
+  ○ vocalPresets.ts (보컬 프리셋) — 10개 프리셋 (kid-boy, kid-girl, kid-choir, kid-boy-elementary, kid-girl-elementary, kid-duet, kid-choir-unison, kid-choir-round, kid-lead-with-choir, kid-chant-clap)
+  ○ conceptCompatibility.ts (N/A 허용) — 없음(기본 supported로 처리, N/A일 수 있음)
+  ○ 코어 장르 컨셉 지목 가능성 — 코어 7종 전부 컨셉 규칙으로 지목 가능
+
+■ kr-idol-male (primary archetype: kr-idol-male, workspaceForArchetype 역참조: kr-idol-male)
+  ○ workspaces/index.ts (WorkspaceDefinition) — archetypeIds=[kr-idol-male] ready=true
+  ○ presets.ts (채널 프리셋) — 3개 채널 프리셋 (archetype=kr-idol-male)
+  ○ genreLibrary/index.ts (코어 장르) — 코어 장르 9종
+  ○ genreWorkspaceOwnership.ts (장르 소유권) — 소유/참조 장르 9종
+  ○ channelVocalFloor.ts — 있음
+  ○ channelSoundFloor.ts — 있음
+  ○ workspaceEraFloor.ts (N/A 허용) — 바닥 없음(의도적일 수 있음, N/A)
+  ○ workspaceQualityPolicies.ts — 있음
+  ○ archetypeAudienceProfiles.ts + audienceProfiles.ts — kr-idol-male
+  ○ moneyChords.ts — 풀 9종, 시그니처=emotional
+  ○ hookBanks/index.ts — 전용 어휘 있음
+  ✗ introTextures.ts — 전용 6개 (전체 폴백 시 30개)
+  ○ killingPointWorkspaceSets.ts — 전용 세트 12종
+  ○ lyricThemes.ts (테마 풀) — 전용 테마 46개
+  ○ conceptKeywords.ts (archetypeScope 규칙) — archetypeScope 포함 규칙 48개
+  ○ vocalPresets.ts (보컬 프리셋) — 8개 프리셋 (low-calm-male, clear-light-male, airy-falsetto-male, bright-young-male, belted-male, dark-resonant-male, husky-grain-male, male-female-duet)
+  ○ conceptCompatibility.ts (N/A 허용) — 없음(기본 supported로 처리, N/A일 수 있음)
+  ✗ 코어 장르 컨셉 지목 가능성 — 코어 9종 중 지목 불가 2종: kridol-melodic-rap, kridol-hard-rap
+
+■ kr-idol-female (primary archetype: kr-idol-female, workspaceForArchetype 역참조: kr-idol-female)
+  ○ workspaces/index.ts (WorkspaceDefinition) — archetypeIds=[kr-idol-female] ready=true
+  ○ presets.ts (채널 프리셋) — 3개 채널 프리셋 (archetype=kr-idol-female)
+  ○ genreLibrary/index.ts (코어 장르) — 코어 장르 9종
+  ○ genreWorkspaceOwnership.ts (장르 소유권) — 소유/참조 장르 9종
+  ○ channelVocalFloor.ts — 있음
+  ○ channelSoundFloor.ts — 있음
+  ○ workspaceEraFloor.ts (N/A 허용) — 바닥 없음(의도적일 수 있음, N/A)
+  ○ workspaceQualityPolicies.ts — 있음
+  ○ archetypeAudienceProfiles.ts + audienceProfiles.ts — kr-idol-female
+  ○ moneyChords.ts — 풀 9종, 시그니처=emotional
+  ○ hookBanks/index.ts — 전용 어휘 있음
+  ✗ introTextures.ts — 전용 6개 (전체 폴백 시 30개)
+  ○ killingPointWorkspaceSets.ts — 전용 세트 12종
+  ○ lyricThemes.ts (테마 풀) — 전용 테마 46개
+  ○ conceptKeywords.ts (archetypeScope 규칙) — archetypeScope 포함 규칙 53개
+  ○ vocalPresets.ts (보컬 프리셋) — 9개 프리셋 (bright-clear-female, husky-jazz-female, airy-whisper-female, bright-young-female, belted-female, dark-resonant-female, husky-grain-female, light-falsetto-female, male-female-duet)
+  ○ conceptCompatibility.ts (N/A 허용) — 없음(기본 supported로 처리, N/A일 수 있음)
+  ✗ 코어 장르 컨셉 지목 가능성 — 코어 9종 중 지목 불가 2종: kridol-melodic-rap, kridol-hard-rap
+
+■ en-chillhop (primary archetype: en-chillhop, workspaceForArchetype 역참조: en-chillhop)
+  ○ workspaces/index.ts (WorkspaceDefinition) — archetypeIds=[en-chillhop] ready=true
+  ○ presets.ts (채널 프리셋) — 5개 채널 프리셋 (archetype=en-chillhop)
+  ○ genreLibrary/index.ts (코어 장르) — 코어 장르 15종
+  ○ genreWorkspaceOwnership.ts (장르 소유권) — 소유/참조 장르 15종
+  ○ channelVocalFloor.ts — 있음
+  ○ channelSoundFloor.ts — 있음
+  ○ workspaceEraFloor.ts (N/A 허용) — 바닥 없음(의도적일 수 있음, N/A)
+  ○ workspaceQualityPolicies.ts — 있음
+  ○ archetypeAudienceProfiles.ts + audienceProfiles.ts — en-chillhop
+  ○ moneyChords.ts — 풀 6종, 시그니처=jazzColor
+  ○ hookBanks/index.ts — 전용 어휘 있음
+  ○ introTextures.ts — 전용 10개 (전체 폴백 시 10개)
+  ○ killingPointWorkspaceSets.ts — 전용 세트 12종
+  ○ lyricThemes.ts (테마 풀) — 전용 테마 70개
+  ○ conceptKeywords.ts (archetypeScope 규칙) — archetypeScope 포함 규칙 46개
+  ○ vocalPresets.ts (보컬 프리셋) — 19개 프리셋 (low-calm-male, clear-light-male, airy-falsetto-male, bright-young-male, whisper-male, soft-female, bright-clear-female, husky-jazz-female, airy-whisper-female, bright-young-female, belted-male, belted-female, dark-resonant-male, dark-resonant-female, husky-grain-male, husky-grain-female, light-falsetto-female, male-female-duet, mixed-harmony-group)
+  ○ conceptCompatibility.ts (N/A 허용) — 등록됨 (supported=[없음], cross-style=[없음])
+  ○ 코어 장르 컨셉 지목 가능성 — 코어 15종 전부 컨셉 규칙으로 지목 가능
+
+
+누락 요약 ─────────────────────────────────────────
+
+  senior-oldpop: 1건
+    - 코어 장르 컨셉 지목 가능성 (코어 49종 중 지목 불가 3종: oldpop-doowop-ballad, oldpop-doowop-uptempo, oldpop-six-eight-slow-ballad)
+
+  kr-2030: 2건
+    - introTextures.ts (전용 6개 (전체 폴백 시 30개))
+    - 코어 장르 컨셉 지목 가능성 (코어 8종 중 지목 불가 1종: kr2030-noir-deep-house)
+
+  jp-2030: 1건
+    - introTextures.ts (전용 6개 (전체 폴백 시 30개))
+
+  kr-kids: 2건
+    - channelSoundFloor.ts (없음)
+    - introTextures.ts (전용 0개 (전체 폴백 시 30개))
+
+  jp-kids: 2건
+    - channelSoundFloor.ts (없음)
+    - introTextures.ts (전용 0개 (전체 폴백 시 30개))
+
+  kr-idol-male: 2건
+    - introTextures.ts (전용 6개 (전체 폴백 시 30개))
+    - 코어 장르 컨셉 지목 가능성 (코어 9종 중 지목 불가 2종: kridol-melodic-rap, kridol-hard-rap)
+
+  kr-idol-female: 2건
+    - introTextures.ts (전용 6개 (전체 폴백 시 30개))
+    - 코어 장르 컨셉 지목 가능성 (코어 9종 중 지목 불가 2종: kridol-melodic-rap, kridol-hard-rap)
+
+[check:workspace-registration] en-chillhop 누락 0건 / 전체 누락 12건 (advisory — 생성을 막지 않습니다)

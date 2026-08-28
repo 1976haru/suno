@@ -1,0 +1,21 @@
+[check:concept-language] 지시문 69 TASK E
+
+CONCEPT_KEYWORD_RULES 전체 — 총 274개
+  한국어 패턴 보유 : 274개 (100%)
+  영어  패턴 보유 : 185개 (68%)
+  일본어 패턴 보유 : 89개 (32%)
+
+CONCEPT_KEYWORD_RULES 중 axis:'genre' — 총 40개
+  한국어 패턴 보유 : 40개 (100%)
+  영어  패턴 보유 : 40개 (100%)
+  일본어 패턴 보유 : 20개 (50%)
+
+SITUATION_FRAME_RULES — 총 9개
+  한국어 패턴 보유 : 9개 (100%)
+  영어  패턴 보유 : 9개 (100%)
+  일본어 패턴 보유 : 9개 (100%)
+
+일본어 패턴 없는 규칙 id (185개):
+  chuseok, oldpop, warm-gentle, kr2030-after-work, kr2030-dawn-night, kr2030-thirty-something, kr2030-studio-seoul, kr2030-y2k-nostalgia, kr2030-summer-drive, krkids-daily-habit, krkids-counting-color, krkids-animal-vehicle, krkids-roleplay-story, krkids-bilingual, krkids-sleep-calm, krkids-action, krkids-enrollment, krkids-graduation, krkids-childrens-day, krkids-teacher-parents-day, krkids-recital, krkids-picnic, kridol-stage-performance, kridol-comeback-debut, kridol-confidence-challenge, kridol-night-drive, kridol-practice-room, kridol-rap-hiphop, kridol-dance-genre, kridol-ballad-genre, kridol-retro-funk-genre, kridol-latin-genre, krkidolf-confidence-choice, krkidolf-friends-solidarity, krkidolf-daylight-rooftop, krkidolf-after-party, krkidolf-season-turning, place-bus, place-bus-kr2030, place-bus-kridol, place-subway, place-alley, place-park, place-beach, place-rooftop, place-bridge, place-kitchen, place-living-room, place-bedroom, place-window-outside, place-stairs, place-hospital, place-bookstore, place-library, place-playground, place-dormitory, place-office, place-factory, place-lighthouse, place-mountain-trail, place-amusement-park, place-church, place-hometown-house, place-neighborhood, place-garden-yard, time-dawn, time-noon, time-midnight, time-weekend, time-monday, time-tuesday, time-wednesday, time-thursday, time-friday, time-saturday, time-sunday, time-first-day, time-birthday, time-lunch-time, time-rush-hour, time-teatime, time-all-night, time-pre-dawn, time-late-afternoon, time-weekday, time-holiday-off, time-long-weekend, time-new-semester, time-late-evening, situ-off-work-senior, situ-off-work-idol, situ-commute-general, situ-overtime-senior, situ-overtime-idol, situ-walk-evening, situ-drive-evening-senior, situ-enrollment, situ-reunion, situ-breakup-senior, situ-confession, situ-eating-alone, situ-dishwashing, situ-exercise, situ-bath, situ-before-sleep, situ-waking-up, situ-vacation, situ-travel, situ-homecoming, situ-grocery-shopping, situ-job-change, situ-propose-marriage, situ-newlywed, situ-first-meeting, situ-farewell, situ-greeting-arrival, situ-packing, situ-daily-routine-senior, situ-window-seat-transit, emo-regret, emo-gratitude, emo-overwhelmed, emo-languid, emo-comfortable, emo-wistful, emo-fulfilled, emo-composed, emo-tender-longing, emo-emptiness, emo-bittersweet-taste, emo-heart-pounding, emo-relief, emo-lost-helpless, emo-poignant, emo-mournful, emo-affectionate-warmth, emo-pathos, emo-touched, emo-warm-fuzzy, emo-choked-up, emo-bittersweet-relief, emo-lighthearted-relief, emo-restless-impatience, emo-tranquility, emo-yearning, emo-lethargy, emo-sorrow-grief, emo-proud-of-life, emo-fresh-determination, kr2030-solo-drink, kr2030-trip-vacation, krkids-playground, enchillhop-chill-rap, enchillhop-boom-bap, enchillhop-jazz-rap, enchillhop-lofi-hiphop, enchillhop-trap-soul, enchillhop-hiphop-general, enchillhop-deep-house, enchillhop-house-beat, enchillhop-deep-house-melodic, enchillhop-chill-house-emotional, enchillhop-chill-deep-house, enchillhop-lounge-house, enchillhop-deep-house-organic, enchillhop-deep-house-vocal, enchillhop-deep-house-tech, enchillhop-deep-house-soulful, enchillhop-garage-swing, enchillhop-jp-city-night, enchillhop-jp-last-train, enchillhop-jp-convenience-night, enchillhop-jp-shopping-arcade, enchillhop-jp-bayside-drive, enchillhop-jp-karaoke-night, enchillhop-night-city-mood, enchillhop-headphone-solo, vocal-breathy-onset, vocal-airy-tone, vocal-half-air-half-voice, vocal-whisper, vocal-belted-power, vocal-clean-plain, vocal-husky-grain, vocal-dark-resonant
+
+[check:concept-language] advisory — exit 0.

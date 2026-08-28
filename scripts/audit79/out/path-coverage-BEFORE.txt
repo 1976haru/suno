@@ -1,0 +1,35 @@
+[check:path-coverage] 지시문 79 TASK C-2 — 정책 × 생성 경로 적용 현황
+경로 정의: docs/generation-paths.md
+
+
+BPM 구간별 섹션 하한  (지시문 74 TASK A)
+  미적용  A-로컬         96 BPM 이상 246곡 중 하한 미달 230곡 (93.5%)
+  적용됨  B/C-슬롯       96 BPM 이상 슬롯 246개 중 sectionCountRange가 하한을 담지 못함 0개
+
+세트 내 대역 혼재 방지  (지시문 76 TASK A)
+  미적용  B/C-슬롯       en-chillhop 25세트 중 저속(<=70)+고속(>=120) 공존 9세트
+  적용됨  D-미리보기       en-chillhop 25세트 중 공존 0세트
+
+컨셉 → 보컬 프리셋 라우팅  (지시문 77)
+  미적용  B/C-슬롯       지목된 135칸 중 프리셋 배정 0건 22칸 (good-morning-memory-radio, morning-showa-cafe, showa-seventies, millennium-jpop, chill-hours, lofi-focus-main, lofi-study-main, city-night-drive)
+  미적용  A-로컬         지목된 135칸 중 프리셋 배정 0건 22칸 (good-morning-memory-radio, morning-showa-cafe, showa-seventies, millennium-jpop, chill-hours, lofi-focus-main, lofi-study-main, city-night-drive)
+
+발성 어휘의 stylePrompt 도달  (지시문 78 TASK A)
+  미적용  A-로컬         프리셋 선택 324곡 중 그 프리셋의 발성 어휘가 stylePrompt에 도달 0곡 (0.0%, 기준 50% 이상)
+
+절 단위 중복 검사  (지시문 74 TASK C)
+  미적용  A-로컬         2448곡 중 중복 절 경고 694곡 (28.3%, 기준 5% 이하)
+
+인트로 자기모순 검사  (지시문 74 TASK C)
+  미적용  A-로컬         2448곡 중 인트로 모순 경고 282곡 (11.5%, 기준 5% 이하)
+
+검사 9칸 (정책 6종 × 경로) — 미적용 7건
+  · BPM 구간별 섹션 하한 / A-로컬 — 96 BPM 이상 246곡 중 하한 미달 230곡 (93.5%)
+  · 세트 내 대역 혼재 방지 / B/C-슬롯 — en-chillhop 25세트 중 저속(<=70)+고속(>=120) 공존 9세트
+  · 컨셉 → 보컬 프리셋 라우팅 / B/C-슬롯 — 지목된 135칸 중 프리셋 배정 0건 22칸 (good-morning-memory-radio, morning-showa-cafe, showa-seventies, millennium-jpop, chill-hours, lofi-focus-main, lofi-study-main, city-night-drive)
+  · 컨셉 → 보컬 프리셋 라우팅 / A-로컬 — 지목된 135칸 중 프리셋 배정 0건 22칸 (good-morning-memory-radio, morning-showa-cafe, showa-seventies, millennium-jpop, chill-hours, lofi-focus-main, lofi-study-main, city-night-drive)
+  · 발성 어휘의 stylePrompt 도달 / A-로컬 — 프리셋 선택 324곡 중 그 프리셋의 발성 어휘가 stylePrompt에 도달 0곡 (0.0%, 기준 50% 이상)
+  · 절 단위 중복 검사 / A-로컬 — 2448곡 중 중복 절 경고 694곡 (28.3%, 기준 5% 이하)
+  · 인트로 자기모순 검사 / A-로컬 — 2448곡 중 인트로 모순 경고 282곡 (11.5%, 기준 5% 이하)
+
+[check:path-coverage] advisory — 통과 처리(exit 0).

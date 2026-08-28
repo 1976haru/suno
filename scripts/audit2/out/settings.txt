@@ -1,0 +1,22 @@
+[check:settings] 34채널 × 등록 설정 9종
+
+--- N/A (설계상 미적용 — 6건) ---
+○ N/A  millennium-jpop / channel-sound-floor
+    사유: j2000s는 이 워크스페이스의 다른 아키타입과 프로덕션 성격이 달라(모던/디지털 편성 또는 동요) ChannelSoundFloor.archetypeIds에서 의도적으로 제외됨 — data/channelSoundFloor.ts 자신의 문서 참조
+
+○ N/A  chill-hours / channel-sound-floor
+    사유: modern-chill는 이 워크스페이스의 다른 아키타입과 프로덕션 성격이 달라(모던/디지털 편성 또는 동요) ChannelSoundFloor.archetypeIds에서 의도적으로 제외됨 — data/channelSoundFloor.ts 자신의 문서 참조
+
+○ N/A  lofi-focus-main / channel-sound-floor
+    사유: modern-chill는 이 워크스페이스의 다른 아키타입과 프로덕션 성격이 달라(모던/디지털 편성 또는 동요) ChannelSoundFloor.archetypeIds에서 의도적으로 제외됨 — data/channelSoundFloor.ts 자신의 문서 참조
+
+○ N/A  lofi-study-main / channel-sound-floor
+    사유: lofi-study는 이 워크스페이스의 다른 아키타입과 프로덕션 성격이 달라(모던/디지털 편성 또는 동요) ChannelSoundFloor.archetypeIds에서 의도적으로 제외됨 — data/channelSoundFloor.ts 자신의 문서 참조
+
+○ N/A  city-night-drive / channel-sound-floor
+    사유: city-night는 이 워크스페이스의 다른 아키타입과 프로덕션 성격이 달라(모던/디지털 편성 또는 동요) ChannelSoundFloor.archetypeIds에서 의도적으로 제외됨 — data/channelSoundFloor.ts 자신의 문서 참조
+
+○ N/A  little-singalong-radio / channel-sound-floor
+    사유: kids는 이 워크스페이스의 다른 아키타입과 프로덕션 성격이 달라(모던/디지털 편성 또는 동요) ChannelSoundFloor.archetypeIds에서 의도적으로 제외됨 — data/channelSoundFloor.ts 자신의 문서 참조
+
+적용 75 / 유실 0 / N/A 6

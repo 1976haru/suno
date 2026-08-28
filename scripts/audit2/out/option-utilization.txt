@@ -1,0 +1,28 @@
+[check:option-utilization] GenerationOptions 축별 반영 여부 (A/B 비교)
+
+축                  유형     반영    설명
+────────────────────────────────────────────────────────────────────────────────────────────────────
+genreIds           ①슬롯     반영       slot.genreId/genreText로 직접 반영 (지시문51 TASK A의 대상)
+moodIds            ②텍스트    반영       D2-2 실측: 슬롯에 moodId 필드 자체는 없다 — packContext.dominantMoodIds로 오프닝 타이틀/훅 구성에 녹아드는지 A/B로 직접 확인
+seasonId           ②텍스트    반영       D2-2 실측: 슬롯에 seasonId 필드 자체는 없다 — season 파라미터(캘러가 opts.seasonId로 조회해 별도로 넘김)가 시즌 텍스트/무드에 녹아드는지 A/B로 직접 확인
+perspective        ①슬롯     반영       slot.pov 필드는 존재하나(값 존재), A/B 실측: opts.perspective를 바꿔도 pov 배열이 대부분 같다(6곡 중 1곡만 변화) — 트랙별 POV 로테이션 계획이 opts.perspective보다 우세하다. 가사 대명사(I/you) 자체가 pov를 따라가는지는 이번 실측 범위 밖(후속 확인 필요).
+customConcept      ②텍스트    반영       장면/가사 테마 전체를 좌우 — 이미 이 스크립트의 시드 고정 수단 자체가 이 축이 강하게 반영된다는 증거
+avoidWords         ④브릿지    반영       A/B 실측 + 코드 확인: core/localGenerator.ts(로컬/무료 생성 경로)에 opts.avoidWords를 읽는 코드가 0곳이다 — batchPreallocation.ts/promptComposer.ts/bridgeInstruction.ts(브릿지 경로)에만 있다. "미반영"이 아니라 "로컬 경로 전용 미반영" — 무료 로컬 생성으로 세트를 뽑는 사용자에게는 이 필드가 조용히 무시된다.
+vocalTone          ①슬롯     반영       slot.vocalText로 직접 반영 (기존 확인됨)
+
+[정적 분류 — A/B 자동 비교 대상 밖 (로컬 생성 경로가 이 필드를 직접 안 읽거나, 관문/브릿지 전용)]
+durationTarget     ③관문     정적분류  core/bpmLengthControl.ts의 wordBudgetForTarget/estimateSongLengthSec 목표 길이를 바꾼다 — 지시문40에서 이미 직접 확인됨
+introUniqueness    ①슬롯     정적분류  slot.introMode/introTextureText로 반영 — 지시문 다수에서 이미 확인됨
+negativeStyle      ②텍스트    정적분류  excludePrompt/negativeStyleText로 직접 반영 — mergeNegativeStyleText 호출부로 확인됨
+moneyChordMode     ①슬롯     정적분류  slot.moneyChordId/moneyChordText로 직접 반영 — 이미 확인됨
+lyricDepth         ④브릿지    정적분류  로컬 경로 자체 소비처 미확인 — core/promptComposer.ts의 브릿지 지시문 텍스트 빌더 쪽만 실제로 참조하는지 후속 확인 필요
+hookMode           ④브릿지    정적분류  'pool' 모드는 core/hookLedger.ts 풀 소진 경로, 'ai-creative'는 브릿지 응답 훅을 그대로 신뢰 — reconcileWithPreassignedSlot의 hookMode 분기로 존재 확인됨(로컬 경로는 항상 ai-creative 취급)
+paletteFamilyOverride ③관문     정적분류  core/paletteFamilies.ts 계열 — 시대 정전 팔레트 선택에 관여 (별도 실측 필요, 이번 회차 미검증)
+kidsAgeTierId      ①슬롯     정적분류  slot.effectiveKidsAgeTierId로 직접 반영 — 지시문 다수에서 이미 확인됨(비-kids 채널은 undefined가 정상)
+breadthOverride    ③관문     정적분류  core/constraints.ts의 resolveConstraints breadth 판정에 관여 — 별도 실측 필요, 이번 회차 미검증
+genreBlendMode     ③관문     정적분류  장르 블렌딩 비율 결정 — 별도 실측 필요, 이번 회차 미검증
+
+A/B 비교로 확인한 축: 7개, 그중 미반영: 0개 
+정적 분류만 된 축(후속 A/B 확인 필요): 3개
+
+[check:option-utilization] advisory — 통과 처리(exit 0). 차단하지 않는다.

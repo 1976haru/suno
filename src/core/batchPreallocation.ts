@@ -30,10 +30,9 @@ import {
   usesVocalQuota,
   vocalTypeMatchesPresetGender,
   type VocalGender,
-  type VocalType
-} from './vocalPlan';
+  type VocalType, isVocalToneBalanced } from './vocalPlan';
 import { matchVocalPreset, vocalPresets, type VocalPreset } from '../data/vocalPresets';
-import { applyVocalOnsetPhrasing, buildConceptVocalPresetPlan, conceptVocalExclusionTerms, resolveConceptVocalIntent } from './conceptVocalPlan';
+import { applyVocalOnsetPhrasing, articulationFamilyForPreset, buildConceptVocalPresetPlan, conceptVocalExclusionTerms, resolveConceptVocalIntent } from './conceptVocalPlan';
 import { resolveBaseVocalQuota } from './vocalQuotaFromGenre';
 import { buildKidsPresetPlan, kidsPresetVocalText } from './kidsVocalPresetPlan';
 import { DEFAULT_KIDS_AGE_TIER_ID } from '../data/kidsAgeTiers';
@@ -93,6 +92,8 @@ import { computePerceivedEnergy } from './perceivedEnergy';
 import { PERCEIVED_ENERGY_POLICY } from '../data/perceivedEnergyPolicy';
 import { getGenreById, isGenreEligibleForArchetype } from '../data/genreLibrary';
 import { genreSanitizationWarningKo, sanitizeGenreIdsForArchetype } from './genreSelection';
+import { conceptChannelFitWarningKo, evaluateConceptChannelFit } from './conceptChannelFit';
+import { applyEnChillhopBandLock } from './enChillhopBand';
 
 export type { PreassignedSongSlot };
 
@@ -186,7 +187,15 @@ export function preallocateSongSlots(
     opts = { ...opts, genreIds: genreSanitization.valid };
     genres = genreSanitization.valid.map(id => getGenreById(id)).filter((genre): genre is NonNullable<typeof genre> => Boolean(genre));
   }
-  const genreWarningKo = genreSanitizationWarningKo(genreSanitization.removed, archetype);
+  // 지시문 79 (TASK A-2) — 컨셉↔채널 부적합 경고. genreWarningKo와 **같은
+  // 전달 통로**(슬롯 0번의 genreWarning)를 쓴다 — 세트 단위 사실이므로
+  // 트랙마다 반복하지 않는다. 감점은 없다(경고만).
+  const conceptFitWarningKo = conceptChannelFitWarningKo(
+    evaluateConceptChannelFit(opts.customConcept, archetype, opts.genreIds ?? [])
+  );
+  const genreWarningKo = [genreSanitizationWarningKo(genreSanitization.removed, archetype), conceptFitWarningKo]
+    .filter(Boolean)
+    .join(' ') || undefined;
   const seedBase = seedForBlueprint(opts);
   const seed = hashSeed(seedBase);
   // TASK v3.60 (TASK C) — this pre-pass feeds the realtime/Batch/bridge
@@ -249,7 +258,17 @@ export function preallocateSongSlots(
   // function's point per its own docstring), so tracks 1-3 get the same
   // local k=3 contest the synchronous path uses, not a plain single-hook pick.
   const packContext: OpeningPackContext = { dominantGenreIds: opts.genreIds ?? [], dominantMoodIds: opts.moodIds ?? [] };
-  const genrePool = Array.from(new Set((opts.genreIds ?? genres.map(genre => genre.id)).filter(Boolean)));
+  // 지시문 79 (TASK C-3) — en-chillhop 대역 잠금을 이 경로에도 적용한다.
+  // 지시문 71 TASK E / 76 TASK A의 규칙이 core/setDirector.ts 안에만 있어,
+  // Step2Plan을 거치지 않고 바로 생성하는 경로에서는 한 세트에 64 BPM과
+  // 127 BPM이 함께 나왔다(실측 25세트 중 9세트). 규칙은 그대로 두고
+  // core/enChillhopBand.ts의 공통 함수를 두 경로가 함께 부른다.
+  // en-chillhop이 아니면 입력 그대로다.
+  const genrePool = applyEnChillhopBandLock(
+    Array.from(new Set((opts.genreIds ?? genres.map(genre => genre.id)).filter(Boolean))),
+    opts.channel.archetype,
+    `${opts.customConcept ?? ''} ${opts.projectTitle ?? ''}`
+  );
   const genreAllocation = allocationForAxis(opts.diversityAllocations, 'genre');
   /**
    * 지시문 10 (TASK A-3) — real measured bug: this is the actual genre pool
@@ -508,6 +527,32 @@ export function preallocateSongSlots(
   // v5.11 (TASK L) — mirrors localGenerator.ts's identical addition (same
   // reasoning: see SongIdea.effectiveVocalPresetId's own doc comment).
   const wholePackMatchedVocalPreset = matchVocalPreset(opts.vocalTone?.trim() ?? '');
+  // 지시문 79 (TASK C-3) — "사용자가 실제로 고른" 팩 전체 프리셋.
+  //
+  // 판단 근거: wholePackMatchedVocalPreset은 opts.vocalTone을 프리셋과
+  // 대조한 결과인데, utils/generation.ts의 createInitialOptions가
+  // vocalTone을 **항상 channel.defaultVocal로 초기화**한다. 그래서 채널
+  // 기본값이 어떤 프리셋의 prompt와 일치하는 3개 채널
+  // (good-morning-memory-radio / chill-hours / city-night-drive)에서는
+  // 사용자가 보컬을 한 번도 건드리지 않아도 'tone-match'가 성립했고,
+  // 우선순위가 tone-match > concept이라 지시문 77의 컨셉 발성 라우팅이
+  // **그 3채널에서 항상 무력화**됐다(실측: 5개 계열 × 3채널 = 15칸 전부
+  // 배정 0건, 2차 감사 항목 4).
+  //
+  // types.ts의 vocalPresetSource 자기 doc comment는 우선순위 근거를
+  // "**사용자의 명시적 선택**이 항상 컨셉 추론을 이긴다"로 적었다 —
+  // 그 문장의 전제가 깨져 있었던 것이지 우선순위 자체가 틀린 게 아니다.
+  // 그래서 우선순위는 그대로 두고, "명시적 선택"의 판정만 이 저장소가
+  // 이미 그 목적으로 만들어 둔 core/vocalPlan.ts의 isVocalToneBalanced로
+  // 바꾼다(그 함수 자신의 doc comment: "createInitialOptions가 항상
+  // channel.defaultVocal로 seed하므로 !opts.vocalTone은 언제나 false다" —
+  // Step2Plan.tsx에서 실측된 같은 유형의 결함을 고치며 만들어진 함수다).
+  //
+  // 문구 조립(withPresetArticulation)에는 계속 wholePackMatchedVocalPreset을
+  // 쓴다 — 채널 기본값도 그 채널의 목소리를 서술하는 것은 맞고, 그쪽은
+  // "누가 골랐는가"가 아니라 "어떻게 들리는가"의 문제이기 때문이다.
+  const explicitWholePackVocalPreset = isVocalToneBalanced(opts) ? undefined : wholePackMatchedVocalPreset;
+
   // 지시문 77 (TASK A-2.2) — 컨셉 자유 텍스트의 발성 지목. kids는 제외한다
   // (동요 프리셋 풀은 별도이고, 규칙 자체도 ADULT_ARCHETYPES scope다).
   // 여기서는 "무엇을 원하는가"만 해석하고, 실제 배정은 vocalPlan(성별
@@ -939,6 +984,47 @@ export function preallocateSongSlots(
   // 곡별 변주(딜리버리·질감·공간감, 듀엣은 페어링·블렌드·공간감)가 항상
   // 준비돼 있다 — 그 변주를 빌려 쓰되, preset.prompt의 첫 구절(성별+음역대
   // 정체성)만 고정해 "이 프리셋을 썼다"는 사실은 유지한다.
+  /**
+   * 지시문 79 (TASK C-3) — 프리셋을 골랐을 때 그 프리셋의 발성 어휘를
+   * 최종 문구에 실어 보낸다. 실측(2차 감사 항목 5): 지시문 78 TASK A가
+   * 프리셋 prompt에 넣은 성대·호흡·공명 어휘가 프리셋 선택 경로에서
+   * 408곡 중 0곡에 도달했다 — presetVariantVocalText는 prompt의 **첫 절만**
+   * anchor로 쓰고 나머지를 버리며, adultVocalTraitPlan 경로는 prompt를
+   * 아예 읽지 않기 때문이다.
+   *
+   * 컨셉 경로가 이미 쓰는 applyVocalOnsetPhrasing을 그대로 재사용한다 —
+   * 같은 함수라 **절 개수가 늘지 않는다**(stylePrompt 단어 수 불변, 지시문
+   * 74 TASK C의 압축을 되돌리지 않는다). 프리셋에 발성 어휘가 없으면
+   * (articulationFamilyForPreset이 undefined) 문구를 그대로 둔다.
+   */
+  function withPresetArticulation(text: string, preset: VocalPreset | undefined): string {
+    const family = articulationFamilyForPreset(preset);
+    if (!family) return text;
+    const parts = text.split(',').map(part => part.trim()).filter(Boolean);
+    // 이미 그 발성 표현을 말하고 있으면 그대로 둔다.
+    if (parts.some(part => family.onsetClauses.some(clause => part.toLowerCase().includes(clause.toLowerCase())))) return text;
+    // **바꿔 끼울 자리가 실제로 있을 때만** 적용한다. VocalFamily의 자기
+    // doc comment가 규정한 동작 그대로다 — "redundantClausePattern에 걸리는
+    // 기존 절을 먼저 빼고 그 자리에 넣는다". 걸리는 절이 없는데도 넣으면
+    // applyVocalOnsetPhrasing이 절 개수를 맞추려고 **맨 뒤를 자르고**, 그
+    // 자리에 있던 공간감 절(soft plate / chamber ambience)이나 듀엣 태그가
+    // 사라진다 — 실측으로 tests/v380.test.ts(트랙 2-3 앰비언스 대비)와
+    // tests/v353Diversity.test.ts(시작 문구 다양성)가 깨졌다. 자리가 없으면
+    // 문구를 건드리지 않는 쪽이 맞다.
+    // 우선 계열이 "겹친다"고 규정한 절을 찾는다. 없으면 **전달 방식 절**
+    // (buildAdultVocalTraitPlan의 2번째 절 — "bright forward delivery",
+    // "restrained understated reading" 같은 표현)을 바꾼다. 그 자리가
+    // 발성을 서술하는 자리라 의미가 가장 가깝고, 정체성 절(0번)·공간감 절
+    // (마지막)·듀엣 태그를 건드리지 않아 위 두 테스트의 불변식이 유지된다.
+    // 절이 3개 미만이면 바꿀 여유가 없으므로 그대로 둔다.
+    const redundantIdx = parts.findIndex((part, i) => i > 0 && family.redundantClausePattern.test(part));
+    const swappableIdx = redundantIdx >= 0 ? redundantIdx : (parts.length >= 3 ? 1 : -1);
+    if (swappableIdx < 0) return text;
+    const next = [...parts];
+    next[swappableIdx] = family.onsetClauses[0];
+    return next.join(', ');
+  }
+
   function presetVariantVocalText(preset: VocalPreset, idx: number): string {
     const anchor = preset.prompt.split(',')[0]?.trim() || preset.prompt;
     const traitText = adultVocalTraitPlan?.[idx];
@@ -973,12 +1059,12 @@ export function preallocateSongSlots(
     // 지시문 77 (TASK A-2.2) — 컨셉이 지목한 이 트랙의 프리셋. 사용자의
     // 명시적 선택(vocalPresetOverride='plan', wholePackMatchedVocalPreset=
     // 'tone-match') 아래, 기본 폴백('auto') 위에 들어간다.
-    const conceptPresetForTrack = !vocalType || vocalPresetOverride || wholePackMatchedVocalPreset
+    const conceptPresetForTrack = !vocalType || vocalPresetOverride || explicitWholePackVocalPreset
       ? undefined
       : conceptVocalPresetPlan?.[idx];
     const vocalPresetSource: 'plan' | 'tone-match' | 'auto' | 'concept' | undefined = !vocalType
       ? undefined
-      : (vocalPresetOverride ? 'plan' : (wholePackMatchedVocalPreset ? 'tone-match' : (conceptPresetForTrack ? 'concept' : 'auto')));
+      : (vocalPresetOverride ? 'plan' : (explicitWholePackVocalPreset ? 'tone-match' : (conceptPresetForTrack ? 'concept' : 'auto')));
     // v3.80 (TASK E) — appends vocalTechniquePlan[idx] only when
     // adultVocalTraitPlan[idx] is actually the text in use — mirrors
     // localGenerator.ts's identical guard (see its own doc comment): never
@@ -998,7 +1084,7 @@ export function preallocateSongSlots(
                   ? kidsPresetVocalText(kidsPresetPlan[idx]!, opts.lyricLanguage, kidsPresetOccurrenceIndex(kidsPresetPlan[idx]!.id))
                   : kidsVocalTextFor(vocalType, opts.lyricLanguage, vocalVariantPlan ? vocalVariantPlan[idx] : 0, opts.channel.archetype, undefined)))
           : (vocalPresetOverride
-              ? [presetVariantVocalText(vocalPresetOverride, idx), vocalTechniquePlan?.[idx]].filter(Boolean).join(', ')
+              ? [withPresetArticulation(presetVariantVocalText(vocalPresetOverride, idx), vocalPresetOverride), vocalTechniquePlan?.[idx]].filter(Boolean).join(', ')
               : (conceptPresetForTrack
                   // 지시문 77 (TASK C) — 프리셋만 바꾸고 문구가 그대로면 효과가
                   // 약하다(§4.1). 발성의 기술적 실체(onset)를 명시하되,
@@ -1007,7 +1093,7 @@ export function preallocateSongSlots(
                   // 60단어 압축 유지).
                   ? [applyVocalOnsetPhrasing(presetVariantVocalText(conceptPresetForTrack, idx), conceptVocalIntent!.family), vocalTechniquePlan?.[idx]].filter(Boolean).join(', ')
                   : (adultVocalTraitPlan?.[idx]
-                      ? [adultVocalTraitPlan[idx], vocalTechniquePlan?.[idx]].filter(Boolean).join(', ')
+                      ? [withPresetArticulation(adultVocalTraitPlan[idx], wholePackMatchedVocalPreset), vocalTechniquePlan?.[idx]].filter(Boolean).join(', ')
                       : fallbackVocalText))))
       : fallbackVocalText;
     // 지시문 66 (TASK C) — vocalText에 이미 얹힌 vocalTechniquePlan[idx]와
@@ -1238,7 +1324,7 @@ export function preallocateSongSlots(
       // (vocalPresetOverride/wholePackMatchedVocalPreset은 kids에서 항상
       // undefined이므로 셋이 겹칠 일이 없다), 그 반대(비-kids)는 예전과
       // 동일하게 vocalPresetOverride ?? wholePackMatchedVocalPreset만 본다.
-      ...((vocalPresetOverride ?? wholePackMatchedVocalPreset ?? conceptPresetForTrack ?? kidsPresetForTrack) ? { effectiveVocalPresetId: (vocalPresetOverride ?? wholePackMatchedVocalPreset ?? conceptPresetForTrack ?? kidsPresetForTrack)!.id } : {}),
+      ...((vocalPresetOverride ?? explicitWholePackVocalPreset ?? conceptPresetForTrack ?? wholePackMatchedVocalPreset ?? kidsPresetForTrack) ? { effectiveVocalPresetId: (vocalPresetOverride ?? explicitWholePackVocalPreset ?? conceptPresetForTrack ?? wholePackMatchedVocalPreset ?? kidsPresetForTrack)!.id } : {}),
       ...(conceptVocalIntent ? { conceptVocalFamilyId: conceptVocalIntent.familyId } : {}),
       ...(vocalPresetSource ? { vocalPresetSource } : {}),
       // v5.13 (TASK: kidsAgeTierId wiring) — mirrors effectiveMoneyChordId/

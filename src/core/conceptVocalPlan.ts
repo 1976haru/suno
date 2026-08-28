@@ -100,17 +100,17 @@ export const VOCAL_FAMILIES: Record<VocalFamilyId, VocalFamily> = {
     id: 'husky',
     labelKo: '허스키한 발성',
     onsetClauses: ['audible fold rasp', 'dry grain left in the tone'],
-    redundantClausePattern: /^(?:.*(?:husky|smoky|slight rasp|grainy).*)$/i,
+    redundantClausePattern: /^(?:.*(?:husky|smoky|slight rasp|grainy).*)$/i,
     excludeTerms: ['glassy clean tone', 'polished studio smoothness', 'pitch-perfect sheen'],
-    conflictingGenreWording: /(?:bell-like|pristine|crystalline|pure clean tone|choirboy)/i
+    conflictingGenreWording: /(?:bell-like|pristine|crystalline|pure clean tone|choirboy)/i
   },
   dark: {
     id: 'dark',
     labelKo: '어두운 공명 발성',
     onsetClauses: ['lowered larynx', 'deep pharyngeal resonance'],
-    redundantClausePattern: /^(?:.*(?:dark cavernous|dark velvet|late-night tone).*)$/i,
+    redundantClausePattern: /^(?:.*(?:dark cavernous|dark velvet|late-night tone).*)$/i,
     excludeTerms: ['bright forward placement', 'thin nasal tone', 'high lifted larynx'],
-    conflictingGenreWording: /(?:bright airy vocal|sunlit|sparkling top|high bright lead)/i
+    conflictingGenreWording: /(?:bright airy vocal|sunlit|sparkling top|high bright lead)/i
   },
   clean: {
     id: 'clean',
@@ -287,11 +287,81 @@ export function buildConceptVocalPresetPlan(
  * 지시문 74 TASK C가 압축한 stylePrompt 길이를 이 축이 되돌리지 않게 하는
  * 유일한 안전장치라, 어떤 경로로도 결과 절 수가 입력보다 많아지지 않는다.
  */
+/**
+ * 지시문 79 (TASK C-3) — 프리셋 자신의 발성 어휘를 stylePrompt까지 나르는
+ * 다리.
+ *
+ * 실측 결함(2차 감사 항목 5): 지시문 78 TASK A가 성인 프리셋 16종의
+ * `prompt`에 성대·호흡·공명 어휘를 넣었는데(`forward mask resonance`,
+ * `clean fold closure`, `soft glottal onset` …), 사용자가 그 프리셋을 고른
+ * 경로에서는 그 문자열이 **한 번도 stylePrompt에 도달하지 않았다**(408곡
+ * 0곡). 프리셋을 고르면 core/vocalPlan.ts의 buildAdultVocalTraitPlan이
+ * register/timbre 축으로 문구를 새로 조립하고, 프리셋의 prompt 문자열
+ * 자체는 버려지기 때문이다. 지시문 78 커밋 메시지가 기대한 효과("Suno가
+ * 전부 기본 발성으로 부른다"의 해소)가 그 경로에서 발생하지 않았다.
+ *
+ * 조립된 문구(트랙별 다양성)를 버리지 않고, 그 안의 한 절만 프리셋의
+ * 발성 어휘로 바꿔 끼운다 — applyVocalOnsetPhrasing이 이미 컨셉 경로에서
+ * 하는 일과 **정확히 같은 함수, 같은 예산 보장**이다(절 개수가 늘지
+ * 않는다 → stylePrompt 단어 수가 늘지 않는다).
+ *
+ * 계열이 매핑된 프리셋은 그 계열을 그대로 쓴다(VOCAL_FAMILY_BY_PRESET_ID).
+ * 매핑이 없는 프리셋(warm-mature-male 등 5종)은 prompt 문자열에서 실제로
+ * 쓰인 발성 절 하나를 찾아 그 자리에서 최소 계열을 만든다 — 매핑 표를
+ * 넓히지 않는다(그 표는 "컨셉이 이 프리셋을 지목할 수 있는가"라는 다른
+ * 축이고, 근거가 애매한 프리셋을 넣지 않는 것이 그 표의 명시적 방침이다).
+ */
+const ARTICULATION_CLAUSE_PATTERN = /(?:glottal|fold (?:closure|rasp)|mask resonance|breath pressure|larynx|pharyngeal|chest projection|unforced onset|dry grain)/i;
+
+/** 정규식 메타문자를 리터럴로 만든다 — 절 문자열을 그대로 패턴으로 쓰기 위해서다. */
+function escapeForRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+export function articulationFamilyForPreset(preset: VocalPreset | undefined): VocalFamily | undefined {
+  if (!preset) return undefined;
+  // 프리셋 **자신의** prompt 문구가 먼저다. 계열 매핑(VOCAL_FAMILY_BY_PRESET_ID)의
+  // onsetClauses는 계열 대표 표현이라, 예를 들어 clear-light-male(clean 계열)에
+  // 계열 표현 `even unforced onset`을 넣으면 지시문 78 TASK A가 그 프리셋에
+  // 실제로 써 넣은 `forward mask resonance`는 여전히 도달하지 않는다 —
+  // 78의 핵심이 "프리셋마다 다른 발성"이므로 프리셋 고유 문구가 이겨야 한다.
+  // 계열은 prompt에 발성 절이 없는 프리셋의 폴백으로만 쓴다.
+  const ownClause = preset.prompt
+    .split(',')
+    .map(part => part.trim())
+    .find(part => ARTICULATION_CLAUSE_PATTERN.test(part));
+  const clause = ownClause;
+  if (!clause) {
+    const mapped = VOCAL_FAMILY_BY_PRESET_ID[preset.id];
+    return mapped ? VOCAL_FAMILIES[mapped] : undefined;
+  }
+  // 최소 계열 — onsetClauses 하나뿐이고, 중복 판정은 그 절 자신으로 한다.
+  return {
+    id: 'clean',
+    labelKo: '프리셋 자체 발성',
+    onsetClauses: [clause],
+    redundantClausePattern: new RegExp(escapeForRegExp(clause), 'i'),
+    excludeTerms: [],
+    conflictingGenreWording: /(?!)/
+  };
+}
+
 export function applyVocalOnsetPhrasing(vocalText: string, family: VocalFamily): string {
   const parts = vocalText.split(',').map(part => part.trim()).filter(Boolean);
   if (!parts.length) return family.onsetClauses[0];
   const budget = parts.length;
-  const alreadyHasOnset = parts.some(part => family.onsetClauses.some(clause => part.toLowerCase() === clause.toLowerCase()));
+  // 지시문 79 (TASK C-3) — 예전에는 **완전 일치**로만 검사했다. 지시문 78
+  // TASK B가 신설한 프리셋들은 정체성 절 자체가 발성 표현을 품고 있어서
+  // (`male voice with audible fold rasp`, `female alto with lowered larynx`)
+  // 완전 일치에 걸리지 않았고, 그 뒤에 같은 표현이 한 번 더 붙었다 —
+  // `male voice with audible fold rasp, audible fold rasp, ...`. 지시문 74
+  // TASK C가 감시하도록 만든 바로 그 "절 단위 중복"이라, 생성물의 30.6%가
+  // 자기 채점기에서 중복 경고 + 감점을 받고 있었다(2차 감사 항목 7 실측).
+  // 포함 관계로 검사한다 — 이미 그 표현을 말하고 있는 절이 하나라도 있으면
+  // 다시 넣지 않는다.
+  const alreadyHasOnset = parts.some(part =>
+    family.onsetClauses.some(clause => part.toLowerCase().includes(clause.toLowerCase()))
+  );
   if (alreadyHasOnset) return parts.join(', ');
   // 정체성 절(첫 절 — 성별/음역대)은 어떤 경우에도 유지한다. 이걸 빼면
   // 프리셋을 쓴 의미 자체가 사라진다(batchPreallocation.ts의

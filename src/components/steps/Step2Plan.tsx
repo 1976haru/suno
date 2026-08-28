@@ -199,7 +199,35 @@ export default function Step2Plan({ opts, setOpts, onDesignGateStatusChange }: S
     ? resolveMainFamilyId(freeText, { recentGenreIds: [...readRecentGenreIds(opts.channel.id), ...recentAvoid] }, opts.paletteFamilyOverride)
     : undefined;
   const allocations = draftAllocations ?? plan.allocations;
+
+
   const genreAllocation = allocations.find(allocation => allocation.axis === 'genre');
+  // 지시문 79 (TASK B-1) — 2차 감사 높음 1번: 아래 "18곡 계획" 표는
+  // directSetLocal이 만든 정확한 계획인데, [설계 적용]을 누르지 않으면
+  // opts에 한 글자도 반영되지 않는다(applyPlanToOptions가 유일한 배선이고
+  // 버튼 클릭에서만 불린다). 실측: 34채널 408트랙에서 장르 82.1% · BPM
+  // 72.1% · 보컬 44.6%가 표와 다르게 생성됐고, 버튼을 누르면 0.5%로
+  // 떨어졌다 — 표가 틀린 게 아니라 배선이 없는 것이다. 화면에 그 사실을
+  // 표시한다(배선 자체는 사용자 선택을 덮어쓸 위험이 있어 별도 판단 사항).
+  //
+  // 판정: 이 계획의 장르 배분이 지금 opts.genreIds와 같은 집합이고,
+  // opts.diversityAllocations가 이 계획의 축 배분과 축별로 같은가.
+  // applyPlanToOptions가 실제로 쓰는 두 필드와 정확히 같은 것을 본다.
+  const planIsApplied = useMemo(() => {
+    const planGenreIds = genreAllocation ? Object.keys(genreAllocation.counts) : [];
+    if (!planGenreIds.length) return true;
+    const current = new Set(opts.genreIds ?? []);
+    if (current.size !== planGenreIds.length || planGenreIds.some(id => !current.has(id))) return false;
+    const applied = opts.diversityAllocations;
+    if (!applied?.length) return false;
+    return allocations.every(planned => {
+      const match = applied.find(entry => entry.axis === planned.axis);
+      if (!match) return false;
+      const a = JSON.stringify(planned.counts ?? {});
+      const b = JSON.stringify(match.counts ?? {});
+      return a === b;
+    });
+  }, [genreAllocation, allocations, opts.genreIds, opts.diversityAllocations]);
   const structureAllocation = allocations.find(allocation => allocation.axis === 'structureTemplate');
   // TASK v3.72 (TASK D) — reads the pack's actual resolved slots (real
   // vocalType/vocalText per song) rather than only the manual
@@ -448,6 +476,16 @@ export default function Step2Plan({ opts, setOpts, onDesignGateStatusChange }: S
             </button>
           </div>
         </div>
+        {/* 지시문 79 (TASK B-1) — 미적용 상태를 명시한다. §planIsApplied의
+            doc comment 참고. 막지 않는다 — 그대로 생성해도 되고, 그 경우
+            아래 표와 다른 세트가 나온다는 것만 알린다. */}
+        {planIsApplied ? (
+          <p className="supporting">✅ 이 설계가 지금 세트에 적용되어 있습니다 — 아래 표대로 생성됩니다.</p>
+        ) : (
+          <p className="warning">
+            ⚠ 이 설계는 아직 적용되지 않았습니다 — <b>[설계 적용]</b>을 누르지 않으면 아래 &quot;{opts.songCount}곡 계획&quot; 표의 장르·BPM·보컬은 실제 생성에 반영되지 않고, 채널 기본 구성으로 생성됩니다.
+          </p>
+        )}
         {plan.appliedInsightsKo.length > 0 && (
           <div className="option-block compact">
             <div className="section-head">

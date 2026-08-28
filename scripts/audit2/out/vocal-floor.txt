@@ -1,0 +1,17 @@
+[check:vocal-floor] 지시문 62 TASK F-2
+
+① 워크스페이스 커버리지: 8/7
+  전 워크스페이스 정의됨.
+
+② 왕복 확인 (requiredTraits → stylePrompt, forbiddenTraits → excludePrompt)
+  senior-oldpop (senior-morning): requiredTraits→stylePrompt O · forbiddenTraits→excludePrompt O
+  kr-2030 (kr-2030-pop): requiredTraits→stylePrompt O · forbiddenTraits→excludePrompt O
+  jp-2030 (jp-2030-pop): requiredTraits→stylePrompt O · forbiddenTraits→excludePrompt O
+  kr-kids (kr-kids-song): requiredTraits→stylePrompt O · forbiddenTraits→excludePrompt O
+  jp-kids (jp-kids-song): requiredTraits→stylePrompt O · forbiddenTraits→excludePrompt O
+  kr-idol-male (kr-idol-male): requiredTraits→stylePrompt O · forbiddenTraits→excludePrompt O
+  kr-idol-female (kr-idol-female): requiredTraits→stylePrompt O · forbiddenTraits→excludePrompt O
+
+왕복 확인 통과: 7/7
+
+[check:vocal-floor] advisory — 통과 처리(exit 0).

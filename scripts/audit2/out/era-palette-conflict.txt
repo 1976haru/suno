@@ -1,0 +1,3 @@
+[check:era-palette-conflict] 팔레트↔exclude 모순 대조 (advisory — 항상 exit 0)
+  팔레트 18종 · 원자 285개 대조
+  모순 0쌍.

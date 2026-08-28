@@ -1,0 +1,139 @@
+    G!! good-morning-memory-radio/senior-morning concept=""
+      미리보기 장르 adult-contemporary,chanson,folk-pop,acoustic-pop,retro-soul-pop,adult-contemporary,chanson,folk-pop,acoustic-pop,retro-soul-pop,adult-contemporary,chanson,folk-pop,acoustic-pop,retro-soul-pop
+      실제     장르 chanson,adult-contemporary,chanson,retro-soul-pop,adult-contemporary,acoustic-pop,chanson,retro-soul-pop,adult-contemporary,acoustic-pop,chanson,retro-soul-pop,adult-contemporary,acoustic-pop,chanson
+    G!! good-morning-memory-radio/senior-morning concept="겨울밤 드라이브"
+      미리보기 장르 adult-contemporary,chanson,folk-pop,acoustic-pop,retro-soul-pop,adult-contemporary,chanson,folk-pop,acoustic-pop,retro-soul-pop,adult-contemporary,chanson,folk-pop,acoustic-pop,retro-soul-pop
+      실제     장르 chanson,adult-contemporary,chanson,retro-soul-pop,adult-contemporary,acoustic-pop,chanson,retro-soul-pop,adult-contemporary,acoustic-pop,chanson,retro-soul-pop,adult-contemporary,acoustic-pop,chanson
+    G!! good-morning-memory-radio/senior-morning concept="70년대 추억이 느껴지는 올드팝"
+      미리보기 장르 adult-contemporary,chanson,folk-pop,acoustic-pop,retro-soul-pop,adult-contemporary,chanson,folk-pop,acoustic-pop,retro-soul-pop,adult-contemporary,chanson,folk-pop,acoustic-pop,retro-soul-pop
+      실제     장르 adult-contemporary,acoustic-pop,folk-pop,adult-contemporary,adult-contemporary,adult-contemporary,acoustic-pop,folk-pop,adult-contemporary,adult-contemporary,adult-contemporary,acoustic-pop,folk-pop,adult-contemporary,adult-contemporary
+    G!! good-morning-memory-radio/senior-morning concept="숨소리 섞인 목소리로 부르는 칠 딥하우스"
+      미리보기 장르 adult-contemporary,chanson,folk-pop,acoustic-pop,retro-soul-pop,adult-contemporary,chanson,folk-pop,acoustic-pop,retro-soul-pop,adult-contemporary,chanson,folk-pop,acoustic-pop,retro-soul-pop
+      실제     장르 chanson,adult-contemporary,chanson,retro-soul-pop,adult-contemporary,acoustic-pop,chanson,retro-soul-pop,adult-contemporary,acoustic-pop,chanson,retro-soul-pop,adult-contemporary,acoustic-pop,chanson
+    G!! oldpop-lounge-main/oldpop-lounge concept=""
+      미리보기 장르 jazz-classic-vocal-lounge,chanson,smooth-jazz-lounge,adult-contemporary,bossa-cafe,jazz-classic-vocal-lounge,chanson,smooth-jazz-lounge,adult-contemporary,bossa-cafe,jazz-classic-vocal-lounge,chanson,smooth-jazz-lounge,adult-contemporary,bossa-cafe
+      실제     장르 chanson,adult-contemporary,smooth-jazz-lounge,chanson,bossa-cafe,adult-contemporary,smooth-jazz-lounge,chanson,bossa-cafe,adult-contemporary,smooth-jazz-lounge,chanson,bossa-cafe,adult-contemporary,smooth-jazz-lounge
+    G!! oldpop-lounge-main/oldpop-lounge concept="겨울밤 드라이브"
+      미리보기 장르 jazz-classic-vocal-lounge,chanson,smooth-jazz-lounge,adult-contemporary,bossa-cafe,jazz-classic-vocal-lounge,chanson,smooth-jazz-lounge,adult-contemporary,bossa-cafe,jazz-classic-vocal-lounge,chanson,smooth-jazz-lounge,adult-contemporary,bossa-cafe
+      실제     장르 chanson,adult-contemporary,smooth-jazz-lounge,chanson,bossa-cafe,adult-contemporary,smooth-jazz-lounge,chanson,bossa-cafe,adult-contemporary,smooth-jazz-lounge,chanson,bossa-cafe,adult-contemporary,smooth-jazz-lounge
+Q!! G!! oldpop-lounge-main/oldpop-lounge concept="70년대 추억이 느껴지는 올드팝"
+      화면 {"male":4,"female":8,"mixed":3}  실제 {"male":6,"female":6,"mixed":3}  카드문구 남4·여8·혼3
+      미리보기 장르 jazz-classic-vocal-lounge,chanson,smooth-jazz-lounge,adult-contemporary,bossa-cafe,jazz-classic-vocal-lounge,chanson,smooth-jazz-lounge,adult-contemporary,bossa-cafe,jazz-classic-vocal-lounge,chanson,smooth-jazz-lounge,adult-contemporary,bossa-cafe
+      실제     장르 adult-contemporary,adult-contemporary,adult-contemporary,smooth-jazz-lounge,jazz-classic-vocal-lounge,adult-contemporary,adult-contemporary,adult-contemporary,adult-contemporary,smooth-jazz-lounge,jazz-classic-vocal-lounge,adult-contemporary,adult-contemporary,adult-contemporary,adult-contemporary
+    G!! oldpop-lounge-main/oldpop-lounge concept="숨소리 섞인 목소리로 부르는 칠 딥하우스"
+      미리보기 장르 jazz-classic-vocal-lounge,chanson,smooth-jazz-lounge,adult-contemporary,bossa-cafe,jazz-classic-vocal-lounge,chanson,smooth-jazz-lounge,adult-contemporary,bossa-cafe,jazz-classic-vocal-lounge,chanson,smooth-jazz-lounge,adult-contemporary,bossa-cafe
+      실제     장르 chanson,adult-contemporary,smooth-jazz-lounge,chanson,bossa-cafe,adult-contemporary,smooth-jazz-lounge,chanson,bossa-cafe,adult-contemporary,smooth-jazz-lounge,chanson,bossa-cafe,adult-contemporary,smooth-jazz-lounge
+    G!! morning-showa-cafe/showa-cafe concept=""
+      미리보기 장르 showa-modern,city-pop-soft,jazz-pop,showa-modern,city-pop-soft,jazz-pop,showa-modern,city-pop-soft,jazz-pop,showa-modern,city-pop-soft,jazz-pop,showa-modern,city-pop-soft,jazz-pop
+      실제     장르 showa-modern,city-pop-soft,showa-modern,city-pop-soft,showa-modern,city-pop-soft,showa-modern,city-pop-soft,jazz-pop,showa-modern,city-pop-soft,jazz-pop,showa-modern,city-pop-soft,jazz-pop
+    G!! morning-showa-cafe/showa-cafe concept="겨울밤 드라이브"
+      미리보기 장르 showa-modern,city-pop-soft,jazz-pop,showa-modern,city-pop-soft,jazz-pop,showa-modern,city-pop-soft,jazz-pop,showa-modern,city-pop-soft,jazz-pop,showa-modern,city-pop-soft,jazz-pop
+      실제     장르 showa-modern,city-pop-soft,showa-modern,city-pop-soft,showa-modern,city-pop-soft,showa-modern,city-pop-soft,jazz-pop,showa-modern,city-pop-soft,jazz-pop,showa-modern,city-pop-soft,jazz-pop
+    G!! morning-showa-cafe/showa-cafe concept="70년대 추억이 느껴지는 올드팝"
+      미리보기 장르 showa-modern,city-pop-soft,jazz-pop,showa-modern,city-pop-soft,jazz-pop,showa-modern,city-pop-soft,jazz-pop,showa-modern,city-pop-soft,jazz-pop,showa-modern,city-pop-soft,jazz-pop
+      실제     장르 showa-modern,city-pop-soft,jazz-pop,showa-modern,city-pop-soft,jazz-pop,showa-modern,city-pop-soft,jazz-pop,jazz-pop,showa-modern,city-pop-soft,jazz-pop,jazz-pop,jazz-pop
+    G!! morning-showa-cafe/showa-cafe concept="숨소리 섞인 목소리로 부르는 칠 딥하우스"
+      미리보기 장르 showa-modern,city-pop-soft,jazz-pop,showa-modern,city-pop-soft,jazz-pop,showa-modern,city-pop-soft,jazz-pop,showa-modern,city-pop-soft,jazz-pop,showa-modern,city-pop-soft,jazz-pop
+      실제     장르 showa-modern,city-pop-soft,showa-modern,city-pop-soft,showa-modern,city-pop-soft,showa-modern,city-pop-soft,jazz-pop,showa-modern,city-pop-soft,jazz-pop,showa-modern,city-pop-soft,jazz-pop
+    G!! showa-seventies/showa-70s concept=""
+      미리보기 장르 new-music-70s,japanese-folk-70s,kayokyoku-70s,showa-groove-70s,new-music-70s,japanese-folk-70s,kayokyoku-70s,showa-groove-70s,new-music-70s,japanese-folk-70s,kayokyoku-70s,showa-groove-70s,new-music-70s,japanese-folk-70s,kayokyoku-70s
+      실제     장르 japanese-folk-70s,new-music-70s,showa-groove-70s,japanese-folk-70s,new-music-70s,showa-groove-70s,japanese-folk-70s,new-music-70s,showa-groove-70s,japanese-folk-70s,new-music-70s,showa-groove-70s,japanese-folk-70s,new-music-70s,showa-groove-70s
+    G!! showa-seventies/showa-70s concept="겨울밤 드라이브"
+      미리보기 장르 new-music-70s,japanese-folk-70s,kayokyoku-70s,showa-groove-70s,new-music-70s,japanese-folk-70s,kayokyoku-70s,showa-groove-70s,new-music-70s,japanese-folk-70s,kayokyoku-70s,showa-groove-70s,new-music-70s,japanese-folk-70s,kayokyoku-70s
+      실제     장르 japanese-folk-70s,new-music-70s,showa-groove-70s,japanese-folk-70s,new-music-70s,showa-groove-70s,japanese-folk-70s,new-music-70s,showa-groove-70s,japanese-folk-70s,new-music-70s,showa-groove-70s,japanese-folk-70s,new-music-70s,showa-groove-70s
+    G!! showa-seventies/showa-70s concept="70년대 추억이 느껴지는 올드팝"
+      미리보기 장르 new-music-70s,japanese-folk-70s,kayokyoku-70s,showa-groove-70s,new-music-70s,japanese-folk-70s,kayokyoku-70s,showa-groove-70s,new-music-70s,japanese-folk-70s,kayokyoku-70s,showa-groove-70s,new-music-70s,japanese-folk-70s,kayokyoku-70s
+      실제     장르 new-music-70s,kayokyoku-70s,japanese-folk-70s,new-music-70s,showa-groove-70s,kayokyoku-70s,japanese-folk-70s,new-music-70s,showa-groove-70s,kayokyoku-70s,japanese-folk-70s,new-music-70s,showa-groove-70s,kayokyoku-70s,japanese-folk-70s
+    G!! showa-seventies/showa-70s concept="숨소리 섞인 목소리로 부르는 칠 딥하우스"
+      미리보기 장르 new-music-70s,japanese-folk-70s,kayokyoku-70s,showa-groove-70s,new-music-70s,japanese-folk-70s,kayokyoku-70s,showa-groove-70s,new-music-70s,japanese-folk-70s,kayokyoku-70s,showa-groove-70s,new-music-70s,japanese-folk-70s,kayokyoku-70s
+      실제     장르 japanese-folk-70s,new-music-70s,showa-groove-70s,japanese-folk-70s,new-music-70s,showa-groove-70s,japanese-folk-70s,new-music-70s,showa-groove-70s,japanese-folk-70s,new-music-70s,showa-groove-70s,japanese-folk-70s,new-music-70s,showa-groove-70s
+    G!! millennium-jpop/j2000s concept=""
+      미리보기 장르 jpop-2000s-ballad,jpop-2000s-band,jpop-2000s-rnb,jpop-2000s-ballad,jpop-2000s-band,jpop-2000s-rnb,jpop-2000s-ballad,jpop-2000s-band,jpop-2000s-rnb,jpop-2000s-ballad,jpop-2000s-band,jpop-2000s-rnb,jpop-2000s-ballad,jpop-2000s-band,jpop-2000s-rnb
+      실제     장르 jpop-2000s-ballad,jpop-2000s-rnb,jpop-2000s-band,jpop-2000s-ballad,jpop-2000s-rnb,jpop-2000s-band,jpop-2000s-ballad,jpop-2000s-rnb,jpop-2000s-band,jpop-2000s-ballad,jpop-2000s-rnb,jpop-2000s-band,jpop-2000s-ballad,jpop-2000s-rnb,jpop-2000s-band
+    G!! millennium-jpop/j2000s concept="겨울밤 드라이브"
+      미리보기 장르 jpop-2000s-ballad,jpop-2000s-band,jpop-2000s-rnb,jpop-2000s-ballad,jpop-2000s-band,jpop-2000s-rnb,jpop-2000s-ballad,jpop-2000s-band,jpop-2000s-rnb,jpop-2000s-ballad,jpop-2000s-band,jpop-2000s-rnb,jpop-2000s-ballad,jpop-2000s-band,jpop-2000s-rnb
+      실제     장르 jpop-2000s-ballad,jpop-2000s-rnb,jpop-2000s-band,jpop-2000s-ballad,jpop-2000s-rnb,jpop-2000s-band,jpop-2000s-ballad,jpop-2000s-rnb,jpop-2000s-band,jpop-2000s-ballad,jpop-2000s-rnb,jpop-2000s-band,jpop-2000s-ballad,jpop-2000s-rnb,jpop-2000s-band
+Q!! G!! millennium-jpop/j2000s concept="70년대 추억이 느껴지는 올드팝"
+      화면 {"male":6,"female":6,"mixed":3}  실제 {"male":5,"female":5,"mixed":5}  카드문구 남6·여6·혼3
+      미리보기 장르 jpop-2000s-ballad,jpop-2000s-band,jpop-2000s-rnb,jpop-2000s-ballad,jpop-2000s-band,jpop-2000s-rnb,jpop-2000s-ballad,jpop-2000s-band,jpop-2000s-rnb,jpop-2000s-ballad,jpop-2000s-band,jpop-2000s-rnb,jpop-2000s-ballad,jpop-2000s-band,jpop-2000s-rnb
+      실제     장르 jpop-2000s-ballad,jpop-2000s-ballad,jpop-2000s-ballad,jpop-2000s-ballad,jpop-2000s-ballad,jpop-2000s-ballad,jpop-2000s-ballad,jpop-2000s-ballad,jpop-2000s-ballad,jpop-2000s-ballad,jpop-2000s-ballad,jpop-2000s-ballad,jpop-2000s-ballad,jpop-2000s-ballad,jpop-2000s-ballad
+    G!! millennium-jpop/j2000s concept="숨소리 섞인 목소리로 부르는 칠 딥하우스"
+      미리보기 장르 jpop-2000s-ballad,jpop-2000s-band,jpop-2000s-rnb,jpop-2000s-ballad,jpop-2000s-band,jpop-2000s-rnb,jpop-2000s-ballad,jpop-2000s-band,jpop-2000s-rnb,jpop-2000s-ballad,jpop-2000s-band,jpop-2000s-rnb,jpop-2000s-ballad,jpop-2000s-band,jpop-2000s-rnb
+      실제     장르 jpop-2000s-ballad,jpop-2000s-rnb,jpop-2000s-band,jpop-2000s-ballad,jpop-2000s-rnb,jpop-2000s-band,jpop-2000s-ballad,jpop-2000s-rnb,jpop-2000s-band,jpop-2000s-ballad,jpop-2000s-rnb,jpop-2000s-band,jpop-2000s-ballad,jpop-2000s-rnb,jpop-2000s-band
+    G!! stage-night/kr-idol-male concept=""
+      미리보기 장르 kridol-performance-trap,kridol-synth-dance,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad,kridol-performance-trap,kridol-synth-dance,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad,kridol-performance-trap,kridol-synth-dance,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad
+      실제     장르 kridol-performance-trap,kridol-synth-dance,kridol-midtempo-rnb,kridol-emotional-ballad,kridol-performance-trap,kridol-band-crossover,kridol-synth-dance,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad,kridol-performance-trap,kridol-synth-dance,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad
+    G!! stage-night/kr-idol-male concept="겨울밤 드라이브"
+      미리보기 장르 kridol-performance-trap,kridol-synth-dance,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad,kridol-performance-trap,kridol-synth-dance,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad,kridol-performance-trap,kridol-synth-dance,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad
+      실제     장르 kridol-performance-trap,kridol-synth-dance,kridol-midtempo-rnb,kridol-emotional-ballad,kridol-performance-trap,kridol-band-crossover,kridol-synth-dance,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad,kridol-performance-trap,kridol-synth-dance,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad
+    G!! stage-night/kr-idol-male concept="70년대 추억이 느껴지는 올드팝"
+      미리보기 장르 kridol-performance-trap,kridol-synth-dance,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad,kridol-performance-trap,kridol-synth-dance,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad,kridol-performance-trap,kridol-synth-dance,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad
+      실제     장르 kridol-performance-trap,kridol-synth-dance,kridol-midtempo-rnb,kridol-emotional-ballad,kridol-performance-trap,kridol-band-crossover,kridol-synth-dance,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad,kridol-performance-trap,kridol-synth-dance,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad
+    G!! stage-night/kr-idol-male concept="숨소리 섞인 목소리로 부르는 칠 딥하우스"
+      미리보기 장르 kridol-performance-trap,kridol-synth-dance,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad,kridol-performance-trap,kridol-synth-dance,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad,kridol-performance-trap,kridol-synth-dance,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad
+      실제     장르 kridol-performance-trap,kridol-synth-dance,kridol-midtempo-rnb,kridol-emotional-ballad,kridol-performance-trap,kridol-band-crossover,kridol-synth-dance,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad,kridol-performance-trap,kridol-synth-dance,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad
+    G!! drive-kpop-playlist/kr-idol-male concept=""
+      미리보기 장르 kridol-midtempo-rnb,kridol-retro-funk,kridol-emotional-ballad,kridol-synth-dance,kridol-latin-afro,kridol-midtempo-rnb,kridol-retro-funk,kridol-emotional-ballad,kridol-synth-dance,kridol-latin-afro,kridol-midtempo-rnb,kridol-retro-funk,kridol-emotional-ballad,kridol-synth-dance,kridol-latin-afro
+      실제     장르 kridol-midtempo-rnb,kridol-retro-funk,kridol-emotional-ballad,kridol-latin-afro,kridol-synth-dance,kridol-midtempo-rnb,kridol-retro-funk,kridol-emotional-ballad,kridol-synth-dance,kridol-latin-afro,kridol-midtempo-rnb,kridol-retro-funk,kridol-emotional-ballad,kridol-synth-dance,kridol-latin-afro
+    G!! drive-kpop-playlist/kr-idol-male concept="겨울밤 드라이브"
+      미리보기 장르 kridol-midtempo-rnb,kridol-retro-funk,kridol-emotional-ballad,kridol-synth-dance,kridol-latin-afro,kridol-midtempo-rnb,kridol-retro-funk,kridol-emotional-ballad,kridol-synth-dance,kridol-latin-afro,kridol-midtempo-rnb,kridol-retro-funk,kridol-emotional-ballad,kridol-synth-dance,kridol-latin-afro
+      실제     장르 kridol-midtempo-rnb,kridol-retro-funk,kridol-emotional-ballad,kridol-latin-afro,kridol-synth-dance,kridol-midtempo-rnb,kridol-retro-funk,kridol-emotional-ballad,kridol-synth-dance,kridol-latin-afro,kridol-midtempo-rnb,kridol-retro-funk,kridol-emotional-ballad,kridol-synth-dance,kridol-latin-afro
+    G!! drive-kpop-playlist/kr-idol-male concept="70년대 추억이 느껴지는 올드팝"
+      미리보기 장르 kridol-midtempo-rnb,kridol-retro-funk,kridol-emotional-ballad,kridol-synth-dance,kridol-latin-afro,kridol-midtempo-rnb,kridol-retro-funk,kridol-emotional-ballad,kridol-synth-dance,kridol-latin-afro,kridol-midtempo-rnb,kridol-retro-funk,kridol-emotional-ballad,kridol-synth-dance,kridol-latin-afro
+      실제     장르 kridol-midtempo-rnb,kridol-retro-funk,kridol-emotional-ballad,kridol-latin-afro,kridol-synth-dance,kridol-midtempo-rnb,kridol-retro-funk,kridol-emotional-ballad,kridol-synth-dance,kridol-latin-afro,kridol-midtempo-rnb,kridol-retro-funk,kridol-emotional-ballad,kridol-synth-dance,kridol-latin-afro
+    G!! drive-kpop-playlist/kr-idol-male concept="숨소리 섞인 목소리로 부르는 칠 딥하우스"
+      미리보기 장르 kridol-midtempo-rnb,kridol-retro-funk,kridol-emotional-ballad,kridol-synth-dance,kridol-latin-afro,kridol-midtempo-rnb,kridol-retro-funk,kridol-emotional-ballad,kridol-synth-dance,kridol-latin-afro,kridol-midtempo-rnb,kridol-retro-funk,kridol-emotional-ballad,kridol-synth-dance,kridol-latin-afro
+      실제     장르 kridol-midtempo-rnb,kridol-retro-funk,kridol-emotional-ballad,kridol-latin-afro,kridol-synth-dance,kridol-midtempo-rnb,kridol-retro-funk,kridol-emotional-ballad,kridol-synth-dance,kridol-latin-afro,kridol-midtempo-rnb,kridol-retro-funk,kridol-emotional-ballad,kridol-synth-dance,kridol-latin-afro
+    G!! daylight-city-kpop/kr-idol-female concept="숨소리 섞인 목소리로 부르는 칠 딥하우스"
+      미리보기 장르 kridol-midtempo-rnb,kridol-latin-afro,kridol-emotional-ballad,kridol-synth-dance,kridol-retro-funk,kridol-midtempo-rnb,kridol-latin-afro,kridol-emotional-ballad,kridol-synth-dance,kridol-retro-funk,kridol-midtempo-rnb,kridol-latin-afro,kridol-emotional-ballad,kridol-synth-dance,kridol-retro-funk
+      실제     장르 kridol-midtempo-rnb,kridol-latin-afro,kridol-emotional-ballad,kridol-retro-funk,kridol-synth-dance,kridol-midtempo-rnb,kridol-latin-afro,kridol-emotional-ballad,kridol-synth-dance,kridol-retro-funk,kridol-midtempo-rnb,kridol-latin-afro,kridol-emotional-ballad,kridol-synth-dance,kridol-retro-funk
+    G!! nonstop-playlist/kr-idol-female concept=""
+      미리보기 장르 kridol-emotional-ballad,kridol-performance-trap,kridol-synth-dance,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad,kridol-performance-trap,kridol-synth-dance,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad,kridol-performance-trap,kridol-synth-dance,kridol-midtempo-rnb,kridol-band-crossover
+      실제     장르 kridol-emotional-ballad,kridol-performance-trap,kridol-synth-dance,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad,kridol-performance-trap,kridol-synth-dance,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad,kridol-performance-trap,kridol-synth-dance,kridol-band-crossover,kridol-midtempo-rnb
+    G!! nonstop-playlist/kr-idol-female concept="겨울밤 드라이브"
+      미리보기 장르 kridol-emotional-ballad,kridol-performance-trap,kridol-synth-dance,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad,kridol-performance-trap,kridol-synth-dance,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad,kridol-performance-trap,kridol-synth-dance,kridol-midtempo-rnb,kridol-band-crossover
+      실제     장르 kridol-emotional-ballad,kridol-performance-trap,kridol-synth-dance,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad,kridol-performance-trap,kridol-synth-dance,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad,kridol-performance-trap,kridol-synth-dance,kridol-band-crossover,kridol-midtempo-rnb
+    G!! nonstop-playlist/kr-idol-female concept="70년대 추억이 느껴지는 올드팝"
+      미리보기 장르 kridol-emotional-ballad,kridol-performance-trap,kridol-synth-dance,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad,kridol-performance-trap,kridol-synth-dance,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad,kridol-performance-trap,kridol-synth-dance,kridol-midtempo-rnb,kridol-band-crossover
+      실제     장르 kridol-emotional-ballad,kridol-performance-trap,kridol-synth-dance,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad,kridol-performance-trap,kridol-synth-dance,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad,kridol-performance-trap,kridol-synth-dance,kridol-band-crossover,kridol-midtempo-rnb
+    G!! nonstop-playlist/kr-idol-female concept="숨소리 섞인 목소리로 부르는 칠 딥하우스"
+      미리보기 장르 kridol-emotional-ballad,kridol-performance-trap,kridol-synth-dance,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad,kridol-performance-trap,kridol-synth-dance,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad,kridol-performance-trap,kridol-synth-dance,kridol-midtempo-rnb,kridol-band-crossover
+      실제     장르 kridol-emotional-ballad,kridol-performance-trap,kridol-synth-dance,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad,kridol-performance-trap,kridol-synth-dance,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad,kridol-performance-trap,kridol-synth-dance,kridol-band-crossover,kridol-midtempo-rnb
+    G!! songs-for-after-its-over/kr-idol-female concept=""
+      미리보기 장르 kridol-band-crossover,kridol-emotional-ballad,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad,kridol-midtempo-rnb
+      실제     장르 kridol-band-crossover,kridol-emotional-ballad,kridol-midtempo-rnb,kridol-emotional-ballad,kridol-band-crossover,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad,kridol-midtempo-rnb
+    G!! songs-for-after-its-over/kr-idol-female concept="겨울밤 드라이브"
+      미리보기 장르 kridol-band-crossover,kridol-emotional-ballad,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad,kridol-midtempo-rnb
+      실제     장르 kridol-band-crossover,kridol-emotional-ballad,kridol-midtempo-rnb,kridol-emotional-ballad,kridol-band-crossover,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad,kridol-midtempo-rnb
+    G!! songs-for-after-its-over/kr-idol-female concept="70년대 추억이 느껴지는 올드팝"
+      미리보기 장르 kridol-band-crossover,kridol-emotional-ballad,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad,kridol-midtempo-rnb
+      실제     장르 kridol-band-crossover,kridol-emotional-ballad,kridol-midtempo-rnb,kridol-emotional-ballad,kridol-band-crossover,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad,kridol-midtempo-rnb
+    G!! songs-for-after-its-over/kr-idol-female concept="숨소리 섞인 목소리로 부르는 칠 딥하우스"
+      미리보기 장르 kridol-band-crossover,kridol-emotional-ballad,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad,kridol-midtempo-rnb
+      실제     장르 kridol-band-crossover,kridol-emotional-ballad,kridol-midtempo-rnb,kridol-emotional-ballad,kridol-band-crossover,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad,kridol-midtempo-rnb,kridol-band-crossover,kridol-emotional-ballad,kridol-midtempo-rnb
+    G!! after-hours-deep-house/en-chillhop concept=""
+      미리보기 장르 alt-rnb,en-house-garage-swing,en-deep-house-organic,en-deep-house-melodic,alt-rnb,en-house-garage-swing,en-deep-house-organic,en-deep-house-melodic,alt-rnb,en-house-garage-swing,en-deep-house-organic,en-deep-house-melodic,alt-rnb,en-house-garage-swing,en-deep-house-organic
+      실제     장르 alt-rnb,en-house-garage-swing,en-deep-house-organic,en-deep-house-melodic,alt-rnb,en-deep-house-organic,en-house-garage-swing,en-deep-house-melodic,alt-rnb,en-house-garage-swing,en-deep-house-organic,en-deep-house-melodic,en-house-garage-swing,en-deep-house-organic,alt-rnb
+    G!! after-hours-deep-house/en-chillhop concept="겨울밤 드라이브"
+      미리보기 장르 alt-rnb,en-house-garage-swing,en-deep-house-organic,en-deep-house-melodic,alt-rnb,en-house-garage-swing,en-deep-house-organic,en-deep-house-melodic,alt-rnb,en-house-garage-swing,en-deep-house-organic,en-deep-house-melodic,alt-rnb,en-house-garage-swing,en-deep-house-organic
+      실제     장르 alt-rnb,en-house-garage-swing,en-deep-house-organic,en-deep-house-melodic,alt-rnb,en-deep-house-organic,en-house-garage-swing,en-deep-house-melodic,alt-rnb,en-house-garage-swing,en-deep-house-organic,en-deep-house-melodic,en-house-garage-swing,en-deep-house-organic,alt-rnb
+    G!! after-hours-deep-house/en-chillhop concept="70년대 추억이 느껴지는 올드팝"
+      미리보기 장르 alt-rnb,en-house-garage-swing,en-deep-house-organic,en-deep-house-melodic,alt-rnb,en-house-garage-swing,en-deep-house-organic,en-deep-house-melodic,alt-rnb,en-house-garage-swing,en-deep-house-organic,en-deep-house-melodic,alt-rnb,en-house-garage-swing,en-deep-house-organic
+      실제     장르 alt-rnb,en-house-garage-swing,en-deep-house-organic,en-deep-house-melodic,alt-rnb,en-deep-house-organic,en-house-garage-swing,en-deep-house-melodic,alt-rnb,en-house-garage-swing,en-deep-house-organic,en-deep-house-melodic,en-house-garage-swing,en-deep-house-organic,alt-rnb
+    G!! after-hours-deep-house/en-chillhop concept="숨소리 섞인 목소리로 부르는 칠 딥하우스"
+      미리보기 장르 alt-rnb,en-house-garage-swing,en-deep-house-organic,en-deep-house-melodic,alt-rnb,en-house-garage-swing,en-deep-house-organic,en-deep-house-melodic,alt-rnb,en-house-garage-swing,en-deep-house-organic,en-deep-house-melodic,alt-rnb,en-house-garage-swing,en-deep-house-organic
+      실제     장르 alt-rnb,en-house-garage-swing,en-deep-house-organic,en-deep-house-melodic,en-house-garage-swing,en-deep-house-organic,alt-rnb,en-deep-house-melodic,alt-rnb,en-house-garage-swing,en-deep-house-organic,en-deep-house-melodic,en-house-garage-swing,en-deep-house-organic,alt-rnb
+    G!! city-lights-crossfade/en-chillhop concept=""
+      미리보기 장르 trap-soul,jazz-rap,chill-rap,en-house-garage-swing,trap-soul,jazz-rap,chill-rap,en-house-garage-swing,trap-soul,jazz-rap,chill-rap,en-house-garage-swing,trap-soul,jazz-rap,chill-rap
+      실제     장르 trap-soul,jazz-rap,chill-rap,trap-soul,jazz-rap,en-house-garage-swing,chill-rap,en-house-garage-swing,trap-soul,jazz-rap,chill-rap,en-house-garage-swing,jazz-rap,trap-soul,chill-rap
+    G!! city-lights-crossfade/en-chillhop concept="겨울밤 드라이브"
+      미리보기 장르 trap-soul,jazz-rap,chill-rap,en-house-garage-swing,trap-soul,jazz-rap,chill-rap,en-house-garage-swing,trap-soul,jazz-rap,chill-rap,en-house-garage-swing,trap-soul,jazz-rap,chill-rap
+      실제     장르 trap-soul,jazz-rap,chill-rap,trap-soul,jazz-rap,en-house-garage-swing,chill-rap,en-house-garage-swing,trap-soul,jazz-rap,chill-rap,en-house-garage-swing,jazz-rap,trap-soul,chill-rap
+    G!! city-lights-crossfade/en-chillhop concept="70년대 추억이 느껴지는 올드팝"
+      미리보기 장르 trap-soul,jazz-rap,chill-rap,en-house-garage-swing,trap-soul,jazz-rap,chill-rap,en-house-garage-swing,trap-soul,jazz-rap,chill-rap,en-house-garage-swing,trap-soul,jazz-rap,chill-rap
+      실제     장르 trap-soul,jazz-rap,chill-rap,trap-soul,jazz-rap,en-house-garage-swing,chill-rap,en-house-garage-swing,trap-soul,jazz-rap,chill-rap,en-house-garage-swing,jazz-rap,trap-soul,chill-rap
+    G!! city-lights-crossfade/en-chillhop concept="숨소리 섞인 목소리로 부르는 칠 딥하우스"
+      미리보기 장르 trap-soul,jazz-rap,chill-rap,en-house-garage-swing,trap-soul,jazz-rap,chill-rap,en-house-garage-swing,trap-soul,jazz-rap,chill-rap,en-house-garage-swing,trap-soul,jazz-rap,chill-rap
+      실제     장르 trap-soul,jazz-rap,chill-rap,en-house-garage-swing,jazz-rap,trap-soul,chill-rap,en-house-garage-swing,trap-soul,jazz-rap,chill-rap,en-house-garage-swing,jazz-rap,trap-soul,chill-rap
+
+총 136건 | 카드문구(reasonKo) 불일치 2 | 화면 resolved 쿼터 불일치 2 | 장르플랜 불일치 45

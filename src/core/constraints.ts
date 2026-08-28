@@ -671,10 +671,58 @@ export function applyEraQuota(
   const forbiddenSet = new Set(era.forbidden);
   const genericCap = Math.floor(songCount * GENERIC_ERA_SHARE);
 
+  // 지시문 79 (TASK A-1) — 마지막 안전망(§아래 "재배분 후보가 부족해 …"
+  // 분기)이 되돌릴 수 있는 후보 집합. 실측 결함: trimBucket은 상한을 넘긴
+  // 버킷에서 **앞쪽 장르를 통째로 삭제**하므로(count-cut이 0이면 kept에
+  // 넣지 않는다, §585-597행), 인접 상한이 낮고 그 버킷에 장르가 몰려
+  // 있으면 살아남는 장르가 1종이 된다. 그 뒤 주 시대 버킷에 후보가 하나도
+  // 없으면(예: showa-70s에 1950s-60s 장르가 0종) 안전망이 "살아남은
+  // 목록"만 보고 라운드로빈하므로 그 1종에 15곡이 전부 몰렸다
+  // (showa-seventies × "60년대 올드팝" 실측 15/15). 삭제 전 원본 id를
+  // 버킷과 함께 기억해 두었다가, 안전망 단계에서 **금지 시대가 아닌**
+  // 원본 장르까지 후보에 넣는다 — 금지 시대는 사용자가 명시적으로 뺀
+  // 것이므로 되돌리지 않는다.
+  const originalBucketOf = new Map<string, string>();
   const byBucket = new Map<string, [string, number][]>();
   for (const [id, count] of Object.entries(genreCounts)) {
     const bucket = bucketKeyOf(id);
+    originalBucketOf.set(id, bucket);
     byBucket.set(bucket, [...(byBucket.get(bucket) ?? []), [id, count]]);
+  }
+
+  // 지시문 79 (TASK A-1) — 주 시대를 채울 후보가 **하나도 없을 때**는
+  // 이 함수를 통째로 건너뛴다. 실측 결함(oldpop-lounge × "2000년대 감성"
+  // 15/15, morning-showa-cafe / showa-seventies 동일): 주 시대 버킷에
+  // 넣을 장르가 기존 풀에도 genreLibrary(채널 필터 통과분)에도 0종이면,
+  // 이 함수가 할 수 있는 일은 금지·상한 버킷에서 곡을 **빼는 것뿐**이다 —
+  // 세트를 요청한 시대 쪽으로 한 걸음도 옮기지 못하면서 사용자가 고른
+  // 장르 구성만 무너뜨린다(남는 장르가 1종이 되면 15곡이 전부 그 하나로
+  // 간다). 그럴 바에는 사용자가 고른 구성을 그대로 두고 "이 채널로는 이
+  // 시대를 표현할 수 없다"는 경고만 남기는 편이 낫다 — 판정 기준은
+  // check:gates가 이미 쓰는 "지원하지 않는 조합"과 같은 축이다.
+  //
+  // 주 시대 후보가 **하나라도** 있으면(부분적으로라도 시대 쪽으로 옮길 수
+  // 있으면) 기존 동작 그대로다 — 이 분기는 0종일 때만 발동한다.
+  //
+  // era.floorApplied(사용자가 쓴 게 아니라 채널 바닥이 넣은 시대 힌트)는
+  // 이 분기에서 제외한다. 두 가지 이유가 있다. ① 실측: 붕괴가 관측된
+  // 조합은 전부 사용자가 명시한 컨셉이었고, 바닥 경로는 컨셉이 비어 있어도
+  // 늘 정상 범위(5종 → 4종)였다. ② 바닥 경로는 이미 allowNewGenres:false로
+  // "풀 안에서만 재분배"하도록 따로 설계돼 있어(§allowNewGenres의 doc
+  // comment) 이 분기가 하려는 보호를 다른 방식으로 이미 갖고 있다.
+  // 실측 회귀로 확인: 바닥 경로까지 건너뛰게 하면 tests/v343.test.ts의
+  // instrumentSet 주입 검사가 깨진다(장르 배정이 달라진다).
+  const primaryCandidateCount = (() => {
+    const inPool = (byBucket.get(era.primary) ?? []).length;
+    if (inPool > 0) return inPool;
+    if (!allowNewGenres) return -1;
+    return genreLibrary.filter(genre => channelFilter(genre) && bucketKeyOf(genre.id) === era.primary).length;
+  })();
+  if (primaryCandidateCount === 0) {
+    return {
+      counts: genreCounts,
+      warnings: [`${ERA_LABEL[era.primary]} 장르가 이 채널의 후보에 하나도 없어 시대 배분을 적용하지 않았습니다 — 선택하신 장르 구성을 그대로 씁니다.`]
+    };
   }
 
   let freed = 0;
@@ -907,6 +955,22 @@ export function applyEraQuota(
   // 장르에 라운드로빈으로 나눠 템포 다양성을 덜 해친다.
   if (freed > 0) {
     const allEntries = [...byBucket.values()].flat();
+    // 지시문 79 (TASK A-1) — 살아남은 목록이 1종뿐이면 여기서 15곡이 한
+    // 장르로 몰린다(§originalBucketOf의 doc comment, 실측 15/15). trimBucket이
+    // 통째로 삭제한 원본 장르 중 **금지 시대가 아닌 것**을 후보로 되살려
+    // 라운드로빈 대상을 넓힌다. 되살린 장르는 count 0에서 시작하므로 아래
+    // 루프가 자기 버킷 목록에 새로 넣어 준다. 금지 시대(era.forbidden)는
+    // 제외한다 — "이 시대는 빼라"는 사용자의 명시적 의도다.
+    const revivable: [string, string][] = [];
+    for (const [id, bucket] of originalBucketOf) {
+      if (forbiddenSet.has(bucket as EraBucket)) continue;
+      if (allEntries.some(([entryId]) => entryId === id)) continue;
+      revivable.push([id, bucket]);
+    }
+    for (const [id, bucket] of revivable) {
+      byBucket.set(bucket, [...(byBucket.get(bucket) ?? []), [id, 0]]);
+      allEntries.push([id, 0]);
+    }
     if (allEntries.length) {
       const ids = allEntries.map(([id]) => id);
       let idx = 0;

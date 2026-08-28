@@ -11,6 +11,20 @@ import { DEFAULT_ADULT_VOCAL_QUOTA, DEFAULT_KIDS_VOCAL_QUOTA, type VocalQuota, t
  */
 export interface DerivedVocalQuota extends VocalQuota {
   reasonKo: string;
+  /**
+   * 지시문 79 (TASK C-3) — reasonKo에 이미 들어 있는 "장르 구성" 부분만
+   * 따로 꺼낸 것. 2차 감사 §1의 실제 원인: 화면의 "장르에 맞춰 배정" 카드가
+   * reasonKo를 그대로 쓰는데, reasonKo의 숫자는 **성별 쏠림(leaning)을
+   * 적용하기 전** 값이라 사용자가 보컬 프리셋을 고른 순간 실제 생성값과
+   * 어긋났다(실측: 화면 남6·여5·혼4 / 생성 남8·여3·듀4).
+   *
+   * 계산 로직은 건드리지 않는다(§지시문 79 §3.3 "계산 로직을 건드리지 말
+   * 것") — 문장을 만들 재료만 노출해, 화면이 **실제 적용될 쿼터**로
+   * 문장을 다시 조립하게 한다. reasonKo 자체도 그대로 둔다(쏠림이 없는
+   * 호출부는 예전 문장을 계속 쓸 수 있다).
+   * 장르 선호 정보가 전혀 없어 균등 배정된 경우에는 undefined다.
+   */
+  genreSummaryKo?: string;
 }
 
 const VOCAL_TYPES: VocalType[] = ['male', 'female', 'mixed'];
@@ -134,7 +148,7 @@ export function deriveVocalQuotaFromGenrePlan(
     ? `선택하신 장르 구성(${genreSummary})에서 계산했습니다 — 남 ${floored.male} · 여 ${floored.female} · 혼성 ${floored.mixed}.`
     : '선택하신 장르에 성별 선호 정보가 없어 고르게 배정했습니다.';
 
-  return { ...floored, reasonKo };
+  return { ...floored, reasonKo, ...(trackedTracks > 0 ? { genreSummaryKo: genreSummary } : {}) };
 }
 
 /**
