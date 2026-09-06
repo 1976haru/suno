@@ -305,7 +305,7 @@ export interface ConceptSceneContext {
  * member rather than removed.
  */
 export function resolveScenePlanningMode(
-  opts: Pick<GenerationOptions, 'channel' | 'customConcept' | 'storyPov' | 'storySourceSummary'> & { scenePlanningMode?: ScenePlanningMode },
+  opts: Pick<GenerationOptions, 'channel' | 'customConcept' | 'storyPov' | 'cafeStoryMode' | 'storySourceSummary'> & { scenePlanningMode?: ScenePlanningMode },
   conceptSceneContext: ConceptSceneContext | undefined
 ): ScenePlanningMode {
   return resolveSharedScenePlanningMode(opts, conceptSceneContext);

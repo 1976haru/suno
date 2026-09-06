@@ -88,6 +88,16 @@ export const DISTINCT_CHOICE_POLICY: Record<WorkspaceId, DistinctChoicePolicy> =
     sourceKo: '추정치 — 지시문 79 일본 CHILI LAB 15곡 STORY 앨범 첫 세트 측정 후 재조정.',
     sameGenderVocalOnly: false
   },
+  'jp-cafe-chillhop': {
+    allowedRuleIds: [...SENIOR_ALLOWED, 'CALL_AND_RESPONSE', 'SCENE_PER_VERSE', 'MODE_SHIFT'],
+    minAssignedTracks: 15,
+    minComplianceRate: 0.8,
+    maxNotMeasured: 4,
+    verified: false,
+    promoteAfterMeasuredSongs: 15,
+    sourceKo: '추정치 — 지시문 80 일본 카페 CHILI LAB 15곡 Café Story 앨범 첫 세트 측정 후 재조정.',
+    sameGenderVocalOnly: false
+  },
   // 지시문 15 §B-2 "안전 제약" — VOCAL_TOGETHER가 혼성을 지시하면 이 두
   // 워크스페이스의 vocalQuotaOverride(성비 쿼터)를 깬다. sameGenderVocalOnly는
   // verified와 무관하게 core/distinctChoiceGate.ts가 항상 강제한다.

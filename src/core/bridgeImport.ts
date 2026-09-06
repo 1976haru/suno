@@ -2,6 +2,7 @@ import type {
   BilingualPair,
   ChannelArchetype,
   ChiliStoryPov,
+  ChiliStorySpeaker,
   GenerationOptions,
   GenrePack,
   LyricLanguage,
@@ -128,6 +129,7 @@ export interface BridgeImportMeta {
   videoTitle?: string;
   workspaceId?: WorkspaceId;
   storyPov?: ChiliStoryPov;
+  cafeStoryMode?: ChiliStoryPov;
   storySourceEpisodeId?: string;
   storySourceTitle?: string;
   storySourceSummary?: string;
@@ -135,7 +137,14 @@ export interface BridgeImportMeta {
   storyNextHint?: string;
   storyLocation?: string;
   storySeason?: string;
+  season?: string;
+  cafeLocation?: string;
+  cafeType?: string;
+  cafeSeason?: string;
+  cafeTimeOfDay?: string;
+  cafeWeather?: string;
   storyArc?: unknown;
+  storySpeaker?: ChiliStorySpeaker;
 }
 
 /**
@@ -172,6 +181,7 @@ export function extractBridgeImportMeta(rawText: string): BridgeImportMeta | nul
     ...(isNonEmptyString(obj.videoTitle) ? { videoTitle: obj.videoTitle } : {}),
     ...(isNonEmptyString(obj.workspaceId) ? { workspaceId: obj.workspaceId as WorkspaceId } : {}),
     ...(obj.storyPov === 'couple' || obj.storyPov === 'male' || obj.storyPov === 'female' ? { storyPov: obj.storyPov } : {}),
+    ...(obj.cafeStoryMode === 'couple' || obj.cafeStoryMode === 'male' || obj.cafeStoryMode === 'female' ? { cafeStoryMode: obj.cafeStoryMode } : {}),
     ...(isNonEmptyString(obj.storySourceEpisodeId) ? { storySourceEpisodeId: obj.storySourceEpisodeId } : {}),
     ...(isNonEmptyString(obj.storySourceTitle) ? { storySourceTitle: obj.storySourceTitle } : {}),
     ...(isNonEmptyString(obj.storySourceSummary) ? { storySourceSummary: obj.storySourceSummary } : {}),
@@ -179,7 +189,14 @@ export function extractBridgeImportMeta(rawText: string): BridgeImportMeta | nul
     ...(isNonEmptyString(obj.storyNextHint) ? { storyNextHint: obj.storyNextHint } : {}),
     ...(isNonEmptyString(obj.storyLocation) ? { storyLocation: obj.storyLocation } : {}),
     ...(isNonEmptyString(obj.storySeason) ? { storySeason: obj.storySeason } : {}),
-    ...(obj.storyArc && typeof obj.storyArc === 'object' ? { storyArc: obj.storyArc } : {})
+    ...(isNonEmptyString(obj.season) ? { season: obj.season } : {}),
+    ...(isNonEmptyString(obj.cafeLocation) ? { cafeLocation: obj.cafeLocation } : {}),
+    ...(isNonEmptyString(obj.cafeType) ? { cafeType: obj.cafeType } : {}),
+    ...(isNonEmptyString(obj.cafeSeason) ? { cafeSeason: obj.cafeSeason } : {}),
+    ...(isNonEmptyString(obj.cafeTimeOfDay) ? { cafeTimeOfDay: obj.cafeTimeOfDay } : {}),
+    ...(isNonEmptyString(obj.cafeWeather) ? { cafeWeather: obj.cafeWeather } : {}),
+    ...(obj.storyArc && typeof obj.storyArc === 'object' ? { storyArc: obj.storyArc } : {}),
+    ...(obj.storySpeaker === 'couple' || obj.storySpeaker === 'male' || obj.storySpeaker === 'female' ? { storySpeaker: obj.storySpeaker } : {})
   };
 }
 
@@ -684,6 +701,7 @@ export function importSongsJson(
     ? {
         ...(meta.workspaceId ? { workspaceId: meta.workspaceId } : {}),
         ...(meta.storyPov ? { storyPov: meta.storyPov } : {}),
+        ...(meta.cafeStoryMode ? { cafeStoryMode: meta.cafeStoryMode } : {}),
         ...(meta.storySourceEpisodeId ? { storySourceEpisodeId: meta.storySourceEpisodeId } : {}),
         ...(meta.storySourceTitle ? { storySourceTitle: meta.storySourceTitle } : {}),
         ...(meta.storySourceSummary ? { storySourceSummary: meta.storySourceSummary } : {}),
@@ -691,7 +709,14 @@ export function importSongsJson(
         ...(meta.storyNextHint ? { storyNextHint: meta.storyNextHint } : {}),
         ...(meta.storyLocation ? { storyLocation: meta.storyLocation } : {}),
         ...(meta.storySeason ? { storySeason: meta.storySeason } : {}),
-        ...(meta.storyArc ? { storyArc: meta.storyArc } : {})
+        ...(meta.season ? { season: meta.season } : {}),
+        ...(meta.cafeLocation ? { cafeLocation: meta.cafeLocation } : {}),
+        ...(meta.cafeType ? { cafeType: meta.cafeType } : {}),
+        ...(meta.cafeSeason ? { cafeSeason: meta.cafeSeason } : {}),
+        ...(meta.cafeTimeOfDay ? { cafeTimeOfDay: meta.cafeTimeOfDay } : {}),
+        ...(meta.cafeWeather ? { cafeWeather: meta.cafeWeather } : {}),
+        ...(meta.storyArc ? { storyArc: meta.storyArc } : {}),
+        ...(meta.storySpeaker ? { storySpeaker: meta.storySpeaker } : {})
       }
     : {};
   const blueprint: PlaylistBlueprint = {

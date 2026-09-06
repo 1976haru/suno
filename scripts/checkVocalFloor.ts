@@ -17,12 +17,13 @@
  */
 import { channelPresets, moodPacks, seasonPacks } from '../src/data/presets';
 import { CHANNEL_VOCAL_FLOORS, channelVocalFloorForArchetype } from '../src/data/channelVocalFloor';
+import { workspaceDefinitions } from '../src/data/workspaces';
 import { generateLocalBlueprint } from '../src/core/localGenerator';
 import { buildNegativePromptSpec, compileNegativePromptSpec } from '../src/core/negativePromptSpec';
 import { getGenreById } from '../src/data/genreLibrary';
 import type { ChannelProfile, GenerationOptions, WorkspaceId } from '../src/types';
 
-const ALL_WORKSPACE_IDS: WorkspaceId[] = ['senior-oldpop', 'kr-2030', 'jp-2030', 'kr-kids', 'jp-kids', 'kr-idol-male', 'kr-idol-female'];
+const ALL_WORKSPACE_IDS: WorkspaceId[] = workspaceDefinitions.map(workspace => workspace.id);
 
 // 각 워크스페이스를 대표하는 실제 채널 프리셋 하나 — checkGateContract.ts의
 // "워크스페이스당 대표"와 같은 패턴.
@@ -33,7 +34,10 @@ const REPRESENTATIVE_CHANNEL_BY_WORKSPACE: Record<WorkspaceId, string> = {
   'kr-kids': 'follow-along-action-song',
   'jp-kids': 'teasobi-hiroba',
   'kr-idol-male': 'stage-night',
-  'kr-idol-female': 'daylight-city-kpop'
+  'kr-idol-female': 'daylight-city-kpop',
+  'en-chillhop': 'headphones-down-low',
+  'jp-chillhop': 'jp-chili-lab-story',
+  'jp-cafe-chillhop': 'jp-cafe-chili-lab'
 };
 
 function buildOptions(channel: ChannelProfile): GenerationOptions {

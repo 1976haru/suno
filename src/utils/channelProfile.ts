@@ -52,7 +52,8 @@ export const ARCHETYPE_DEFAULT_AUDIENCE: Record<ChannelArchetype, AgeGroup> = {
   // 지시문 71 (TASK A) — en-chillhop 워크스페이스의 단일 아키타입.
   // modern-chill/city-night과 같은 성인 도시 청취층.
   'en-chillhop': 'twenties',
-  'jp-chillhop': 'twenties'
+  'jp-chillhop': 'twenties',
+  'jp-cafe-chillhop': 'twenties'
 };
 
 export function slugify(value: string) {
@@ -148,7 +149,7 @@ const VALID_AGE_GROUPS: readonly AgeGroup[] = ['kids', 'teens', 'twenties', 'thi
 export const VALID_ARCHETYPES: readonly ChannelArchetype[] = [
   'senior-morning', 'showa-cafe', 'christmas', 'lofi-study', 'kids', 'showa-70s', 'j2000s',
   'modern-chill', 'city-night', 'oldpop-lounge', 'kr-2030-pop', 'jp-2030-pop', 'kr-kids-song',
-  'jp-kids-song', 'kr-idol-male', 'kr-idol-female', 'en-chillhop', 'jp-chillhop'
+  'jp-kids-song', 'kr-idol-male', 'kr-idol-female', 'en-chillhop', 'jp-chillhop', 'jp-cafe-chillhop'
 ];
 /** codex 지시문 01 (TASK J) — data/kidsAgeTiers.ts's own tier ids (see types.ts's KidsAgeTierId doc comment) — kept as a plain literal list here rather than importing data/kidsAgeTiers.ts, mirroring this file's own existing "small duplicated table, kept in sync by hand" trade-off (see ARCHETYPE_DEFAULT_AUDIENCE's own doc comment above). */
 const VALID_KIDS_AGE_TIER_IDS: readonly KidsAgeTierId[] = ['kids-t1', 'kids-t2', 'kids-t3'];

@@ -278,6 +278,34 @@ export const CHANNEL_SOUND_FLOORS: ChannelSoundFloor[] = [
     maxPaletteVariety: 0,
     maxUncoveredGenreTracks: 0,
     noteKo: '일본 CHILI LAB은 현대 일본 도시 관계 스토리용 사운드 바닥을 쓴다. 시니어/Showa 질감으로 폴백하지 않는다.'
+  },
+  {
+    id: 'jp-cafe-chillhop-floor',
+    workspaceId: 'jp-cafe-chillhop',
+    labelKo: '일본 카페 CHILI LAB 사운드 바닥',
+    archetypeIds: ['jp-cafe-chillhop'],
+    requiredAtoms: [
+      'contemporary Japanese cafe chillhop production',
+      'warm organic cafe groove',
+      'intimate chill rap or chill house pulse',
+      'light jazz rap accents',
+      'subtle city-pop color'
+    ],
+    forbiddenAtoms: [
+      'festival EDM drop',
+      'big-room club build',
+      'aggressive trap or drill rhythm',
+      'overdone hi-hat rolls',
+      'shouting vocal delivery',
+      'theatrical belting',
+      'nostalgic senior-radio announcer tone',
+      'enka vibrato'
+    ],
+    productionEraTags: ['2020s'],
+    minPaletteVariety: 0,
+    maxPaletteVariety: 0,
+    maxUncoveredGenreTracks: 0,
+    noteKo: '일본 카페 CHILI LAB은 카페 중심 관계 스토리용 사운드 바닥이다. 페스티벌/클럽/하드 트랩/엔카/시니어 크루너 방향으로 흐르지 않게 막는다.'
   }
 ];
 

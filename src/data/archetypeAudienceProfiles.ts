@@ -58,7 +58,8 @@ export const AUDIENCE_PROFILE_ID_BY_ARCHETYPE: Record<ChannelArchetype, string> 
   // 지시문 71 (TASK A) — 신규 워크스페이스, 자기 전용 오디언스 프로필
   // (data/audienceProfiles.ts의 EN_CHILLHOP_AUDIENCE_PROFILE).
   'en-chillhop': 'en-chillhop',
-  'jp-chillhop': 'jp-chillhop'
+  'jp-chillhop': 'jp-chillhop',
+  'jp-cafe-chillhop': 'jp-cafe-chillhop'
 };
 
 /**

@@ -1080,6 +1080,47 @@ export const channelPresets: ChannelProfile[] = [
     ],
     seoKeywords: ['Japanese chill rap', 'Japanese chill house', 'CHILI LAB STORY', '彼のSTORY', '彼女のSTORY', '雨の日プレイリスト'],
     archetype: 'jp-chillhop'
+  },
+  {
+    id: 'jp-cafe-chili-lab',
+    name: '日本 Café CHILI LAB',
+    englishName: 'Japan Cafe CHILI LAB',
+    market: 'japan',
+    primaryLanguage: 'japanese',
+    audience: 'twenties',
+    promise: 'Japanese cafe relationship story playlist for Japan 20s-30s listeners, centered on cafe seasons, quiet conversation, and warm CHILI LAB chillhop.',
+    visualIdentity: 'photorealistic Japanese cafe background, recurring anime couple, season and location specific cafe scene, clean left title safe zone, thumbnail-only visual identity',
+    defaultVocal: 'natural Japanese cafe vocal, intimate close-mic delivery, soft sung-rap phrasing, gentle conversational hook',
+    preferredGenres: [
+      'chill-rap',
+      'boom-bap-mellow',
+      'jazz-rap',
+      'lofi-hiphop-study',
+      'en-deep-house-melodic',
+      'en-deep-house-organic',
+      'en-chill-house-emotional',
+      'en-chill-deep-house',
+      'en-lounge-house',
+      'en-deep-house-soulful',
+      'alt-rnb'
+    ],
+    preferredMoods: ['intimate', 'calm-focus', 'nostalgic'],
+    forbiddenCliches: [
+      'specific artist imitation',
+      'soundalike vocals',
+      'signature hook of an existing song',
+      'English-to-Japanese literal translation',
+      'Korean lyric fallback',
+      'airport-centered story drift',
+      'moving-day centered story drift',
+      'office-centered story drift',
+      'festival EDM drop',
+      'big-room club build',
+      'hard trap or drill',
+      'enka vibrato'
+    ],
+    seoKeywords: ['日本カフェCHILI LAB', 'Japanese cafe chillhop', 'カフェストーリー', 'Japanese chill rap', 'Japanese chill house', 'Café Story Mode'],
+    archetype: 'jp-cafe-chillhop'
   }
 ];
 

@@ -44,7 +44,9 @@ const POLICY_BY_WORKSPACE: Record<WorkspaceId, StylePromptWordPolicy> = {
   // 리듬 큐 지시문이 K-pop만큼 필요하지 않음) — DEFAULT_POLICY.
   'en-chillhop': DEFAULT_POLICY,
   // 지시문 79 — 일본 CHILI LAB도 성인 칠랩/딥하우스 계열이므로 같은 예산.
-  'jp-chillhop': DEFAULT_POLICY
+  'jp-chillhop': DEFAULT_POLICY,
+  // 지시문 80 — 일본 카페 CHILI LAB은 카페 중심 서사를 더하지만 stylePrompt 예산은 같은 칠랩 계열 예산을 쓴다.
+  'jp-cafe-chillhop': DEFAULT_POLICY
 };
 
 export function stylePromptWordPolicyFor(workspaceId: WorkspaceId): StylePromptWordPolicy {

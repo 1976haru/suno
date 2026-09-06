@@ -80,7 +80,9 @@ export const TITLE_HOOK_RELATIONSHIP_POLICY: Record<WorkspaceId, TitleHookRelati
   // 지시문 71 (TASK A) — kr-2030/jp-2030과 같은 성인 도시 콘텐츠 성격.
   'en-chillhop': { leanKo: 'semantic·이미지 제목 허용' },
   // 지시문 79 — 일본 CHILI LAB은 5막 서사 제목이 훅을 그대로 반복하지 않도록 semantic lean.
-  'jp-chillhop': { leanKo: 'semantic·이미지 제목 허용' }
+  'jp-chillhop': { leanKo: 'semantic·이미지 제목 허용' },
+  // 지시문 80 — 카페 장소/계절/대화 이미지가 제목을 이끌 수 있으므로 같은 semantic lean.
+  'jp-cafe-chillhop': { leanKo: 'semantic·카페 이미지 제목 허용' }
 };
 
 // ---------------------------------------------------------------------------

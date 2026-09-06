@@ -2,7 +2,7 @@ import type { ChannelProfile, GenerationOptions, LyricLanguage } from '../types'
 import { normalizeGenreSelection, sanitizeGenreIdsForArchetype } from './genreSelection';
 import { defaultPackagingLanguageForChannel } from './packagingLanguage';
 import { detectProvenanceDowngrades } from './userChoices';
-import { applyChiliStoryGenerationContract, isJpChillhopOptions } from './chiliStoryPov';
+import { applyChiliStoryGenerationContract, isJapaneseChiliStoryOptions } from './chiliStoryPov';
 import { GENRE_FAMILIES } from '../data/genreFamilies';
 import { getGenreById, isGenreEligibleForArchetype } from '../data/genreLibrary';
 import { allocationForAxis, replaceAxisAllocation } from './diversityAllocation';
@@ -103,7 +103,7 @@ export function reconcileOptionsForChannelSwitch(
   }
 
   const nextPackagingLanguage = defaultPackagingLanguageForChannel(newChannel);
-  const nextLyricLanguage = isJpChillhopOptions({ channel: newChannel })
+  const nextLyricLanguage = isJapaneseChiliStoryOptions({ channel: newChannel })
     ? 'japanese'
     : keepUserLanguage
       ? previousOpts.lyricLanguage

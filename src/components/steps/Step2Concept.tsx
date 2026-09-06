@@ -20,7 +20,7 @@ import { hashSeed } from '../../utils/prng';
 import { povDistribution, resolvePerspectiveMode } from '../../core/lyricDiversityPlan';
 import { buildGenreRotationPlan, resolveGenreBlendMode } from '../../core/genreRotation';
 import { avoidWordPresets, joinAvoidWords, parseAvoidWords } from '../../data/avoidWordPresets';
-import { isJpChillhopArchetype, isKidsArchetype } from '../../utils/channelArchetype';
+import { isJapaneseChillhopArchetype, isJpCafeChillhopArchetype, isJpChillhopArchetype, isKidsArchetype } from '../../utils/channelArchetype';
 import { NEGATIVE_STYLE_TOGGLES, buildDefaultNegativeStyle, mergeNegativeStyleText, parseNegativeStyleTerms, withNegativeStyleTerm, withoutNegativeStyleTerm } from '../../data/negativeStyles';
 import { isPlausibleChordProgression, moneyChordPresets } from '../../data/moneyChords';
 import { genreSanitizationWarningKo, MAX_SECONDARY_GENRES, MAX_SELECTED_GENRES, normalizeGenreSelection, sanitizeGenreIdsForArchetype } from '../../core/genreSelection';
@@ -39,12 +39,14 @@ import { PERCEIVED_ENERGY_POLICY } from '../../data/perceivedEnergyPolicy';
 import { applyListeningIntentToOptions, listeningIntentApplicationStatus } from '../../core/listeningIntent';
 import {
   applyChiliStoryGenerationContract,
+  CAFE_STORY_MODE_LABEL_JA,
   CHILI_STORY_DEFAULT_SONG_COUNT,
   CHILI_STORY_POV_LABEL_JA,
   chiliStoryContractSummaryKo,
   isSoloChiliStoryPov,
   normalizeChiliStoryPov,
   parseChiliStoryLine,
+  vocalQuotaForCafeStoryMode,
   vocalQuotaForChiliStoryPov
 } from '../../core/chiliStoryPov';
 import ChoiceGrid from '../ChoiceGrid';
@@ -76,7 +78,8 @@ const LANGUAGE_IMPACT_NOTE_KO: Partial<Record<WorkspaceId, string>> = {
   'jp-kids': '동요를 일본어가 아닌 언어로 만들면 일본 아이가 따라 부르기 어려울 수 있습니다. "아동 서사 안전성" 검사는 일본어 세트에서만 적용됩니다 — 다른 언어로 고르면 이 축은 검사되지 않습니다.',
   'kr-idol-male': '한국 아이돌 팬덤 대상 어휘·정서가 다른 언어로는 달라질 수 있습니다.',
   'kr-idol-female': '한국 아이돌 팬덤 대상 어휘·정서가 다른 언어로는 달라질 수 있습니다.',
-  'jp-chillhop': '일본 CHILI LAB은 자연스러운 일본어 가사와 5막 스토리 POV가 핵심 계약입니다. 이 워크스페이스에서는 일본어로 고정됩니다.'
+  'jp-chillhop': '일본 CHILI LAB은 자연스러운 일본어 가사와 5막 스토리 POV가 핵심 계약입니다. 이 워크스페이스에서는 일본어로 고정됩니다.',
+  'jp-cafe-chillhop': '일본 카페 CHILI LAB은 카페를 사건 중심으로 두는 일본어 Café Story Mode가 핵심 계약입니다. 이 워크스페이스에서는 일본어로 고정됩니다.'
 };
 
 const languageOptions: { value: LyricLanguage; label: string; sub: string }[] = [
@@ -143,6 +146,12 @@ const CHILI_STORY_POV_CHOICES: { id: ChiliStoryPov; label: string; sublabel: str
   { id: 'couple', label: CHILI_STORY_POV_LABEL_JA.couple, sublabel: 'Couple', description: '한 사건을 두 사람의 관계 흐름으로 이어가되, 보컬 성별은 고정하지 않습니다.', recommended: true },
   { id: 'male', label: CHILI_STORY_POV_LABEL_JA.male, sublabel: 'Male POV', description: '남성 화자의 1인칭 일본어 이야기로 고정하고, 전 곡을 남성 보컬로 잠급니다.' },
   { id: 'female', label: CHILI_STORY_POV_LABEL_JA.female, sublabel: 'Female POV', description: '여성 화자의 1인칭 일본어 이야기로 고정하고, 전 곡을 여성 보컬로 잠급니다.' }
+];
+
+const CAFE_STORY_MODE_CHOICES: { id: ChiliStoryPov; label: string; sublabel: string; description: string; recommended?: boolean }[] = [
+  { id: 'couple', label: CAFE_STORY_MODE_LABEL_JA.couple, sublabel: 'Couple', description: '한 카페 사건을 두 사람의 시선과 듀엣 트랙으로 나눠 6·6·3 보컬 균형으로 이어갑니다.', recommended: true },
+  { id: 'male', label: CAFE_STORY_MODE_LABEL_JA.male, sublabel: 'Male POV', description: '남성 화자의 1인칭 일본어 카페 이야기로 고정하고, 전 곡을 남성 보컬로 잠급니다.' },
+  { id: 'female', label: CAFE_STORY_MODE_LABEL_JA.female, sublabel: 'Female POV', description: '여성 화자의 1인칭 일본어 카페 이야기로 고정하고, 전 곡을 여성 보컬로 잠급니다.' }
 ];
 
 interface Step2ConceptProps {
@@ -254,16 +263,23 @@ export default function Step2Concept({
   const referenceMoodClause = buildReferenceMoodStyleClause(referenceMoodValue);
   const channelArchetype = opts.channel.archetype || 'senior-morning';
   const isJpChillhop = isJpChillhopArchetype(channelArchetype);
-  const chiliStoryPov = normalizeChiliStoryPov(opts.storyPov);
-  const chiliStoryLockedQuota = isJpChillhop ? vocalQuotaForChiliStoryPov(chiliStoryPov, opts.songCount) : undefined;
+  const isJpCafeChillhop = isJpCafeChillhopArchetype(channelArchetype);
+  const isJapaneseChili = isJapaneseChillhopArchetype(channelArchetype);
+  const chiliStoryPov = normalizeChiliStoryPov(isJpCafeChillhop ? opts.cafeStoryMode ?? opts.storyPov : opts.storyPov);
+  const chiliStoryLabelMap = isJpCafeChillhop ? CAFE_STORY_MODE_LABEL_JA : CHILI_STORY_POV_LABEL_JA;
+  const chiliStoryModeChoices = isJpCafeChillhop ? CAFE_STORY_MODE_CHOICES : CHILI_STORY_POV_CHOICES;
+  const chiliStoryModeQuestion = isJpCafeChillhop ? '카페 스토리 모드' : 'STORY 시점';
+  const chiliStoryLockedQuota = isJpCafeChillhop
+    ? vocalQuotaForCafeStoryMode(chiliStoryPov, opts.songCount)
+    : isJpChillhop ? vocalQuotaForChiliStoryPov(chiliStoryPov, opts.songCount) : undefined;
   const chiliStorySummaryKo = chiliStoryContractSummaryKo(opts);
   const [storyLineDraft, setStoryLineDraft] = useState('');
   const storyLineParsePreview = storyLineDraft.trim() ? parseChiliStoryLine(storyLineDraft) : null;
-  const lyricLanguageChoices = isJpChillhop
+  const lyricLanguageChoices = isJapaneseChili
     ? languageOptions.filter(option => option.value === 'japanese')
     : isKidsArchetype(channelArchetype) ? languageOptions.filter(option => option.value !== 'bilingual') : languageOptions;
   useEffect(() => {
-    if (!isJpChillhop) return;
+    if (!isJapaneseChili) return;
     setOpts(prev => {
       const next = applyChiliStoryGenerationContract(prev);
       const sameQuota = (!prev.vocalQuota && !next.vocalQuota)
@@ -271,19 +287,22 @@ export default function Step2Concept({
       if (
         prev.lyricLanguage === next.lyricLanguage
         && prev.storyPov === next.storyPov
+        && prev.cafeStoryMode === next.cafeStoryMode
         && prev.perspective === next.perspective
         && prev.perspectiveMode === next.perspectiveMode
         && prev.perspectiveModeIsExplicitChoice === next.perspectiveModeIsExplicitChoice
         && prev.vocalQuotaMode === next.vocalQuotaMode
         && prev.scenePlanningMode === next.scenePlanningMode
+        && prev.storySpeaker === next.storySpeaker
         && sameQuota
       ) return prev;
       return next;
     });
   }, [
-    isJpChillhop,
+    isJapaneseChili,
     opts.channel.id,
     opts.storyPov,
+    opts.cafeStoryMode,
     opts.storySourceSummary,
     opts.songCount,
     opts.lyricLanguage,
@@ -299,19 +318,21 @@ export default function Step2Concept({
   ]);
 
   function selectChiliStoryPov(pov: ChiliStoryPov) {
+    const locksPerspective = isJpCafeChillhop || pov !== 'couple';
     setOpts(prev => applyChiliStoryGenerationContract({
       ...prev,
       songCount: CHILI_STORY_DEFAULT_SONG_COUNT,
       lyricLanguage: 'japanese',
       packagingLanguage: 'japanese',
       storyPov: pov,
+      ...(isJpCafeChillhop ? { cafeStoryMode: pov } : {}),
       choiceProvenance: {
         ...prev.choiceProvenance,
         lyricLanguage: 'user',
         packagingLanguage: 'user',
         songCount: 'user',
-        perspective: pov === 'couple' ? prev.choiceProvenance?.perspective ?? 'default' : 'user',
-        perspectiveMode: pov === 'couple' ? prev.choiceProvenance?.perspectiveMode ?? 'default' : 'user'
+        perspective: locksPerspective ? 'user' : prev.choiceProvenance?.perspective ?? 'default',
+        perspectiveMode: locksPerspective ? 'user' : prev.choiceProvenance?.perspectiveMode ?? 'default'
       }
     }));
   }
@@ -1002,12 +1023,12 @@ export default function Step2Concept({
       <label>Project title (프로젝트 제목)</label>
       <input value={opts.projectTitle} onChange={event => setOpts(prev => ({ ...prev, projectTitle: event.target.value }))} />
 
-      {isJpChillhop && (
+      {isJapaneseChili && (
         <div className="option-block">
           <ChoiceGrid
-            question="STORY 시점"
+            question={chiliStoryModeQuestion}
             helper={chiliStorySummaryKo}
-            choices={CHILI_STORY_POV_CHOICES}
+            choices={chiliStoryModeChoices}
             value={chiliStoryPov}
             onChange={value => selectChiliStoryPov(value as ChiliStoryPov)}
             columns={3}
@@ -1026,10 +1047,50 @@ export default function Step2Concept({
               <input
                 value={opts.storyLocation || ''}
                 onChange={event => setOpts(prev => applyChiliStoryGenerationContract({ ...prev, storyLocation: clampToLimit('customConcept', event.target.value) }))}
-                placeholder="中目黒, 終電ホーム, 雨のカフェ"
+                placeholder={isJpCafeChillhop ? '京都 三条, 雨の路地カフェ' : '中目黒, 終電ホーム, 雨のカフェ'}
               />
             </label>
           </div>
+          {isJpCafeChillhop && (
+            <>
+              <div className="two-col-grid">
+                <label>
+                  카페 장소
+                  <input
+                    value={opts.cafeLocation || ''}
+                    onChange={event => setOpts(prev => applyChiliStoryGenerationContract({ ...prev, cafeLocation: clampToLimit('customConcept', event.target.value) }))}
+                    placeholder="京都 三条, 鎌倉 海辺, 札幌 雪の日"
+                  />
+                </label>
+                <label>
+                  카페 타입
+                  <input
+                    value={opts.cafeType || ''}
+                    onChange={event => setOpts(prev => applyChiliStoryGenerationContract({ ...prev, cafeType: clampToLimit('customConcept', event.target.value) }))}
+                    placeholder="喫茶店, ロースタリー, 窓際の小さなカフェ"
+                  />
+                </label>
+              </div>
+              <div className="two-col-grid">
+                <label>
+                  카페 시간
+                  <input
+                    value={opts.cafeTimeOfDay || ''}
+                    onChange={event => setOpts(prev => applyChiliStoryGenerationContract({ ...prev, cafeTimeOfDay: clampToLimit('videoTitle', event.target.value) }))}
+                    placeholder="夕方, 閉店前, 雨上がりの午後"
+                  />
+                </label>
+                <label>
+                  카페 날씨
+                  <input
+                    value={opts.cafeWeather || ''}
+                    onChange={event => setOpts(prev => applyChiliStoryGenerationContract({ ...prev, cafeWeather: clampToLimit('videoTitle', event.target.value) }))}
+                    placeholder="小雨, 初雪, 夏の夕立"
+                  />
+                </label>
+              </div>
+            </>
+          )}
           <div className="button-row" style={{ marginTop: 8 }}>
             <button type="button" className="chip" disabled={!storyLineParsePreview} onClick={applyStoryLineDraft}>원문 적용</button>
             {storyLineDraft.trim() && !storyLineParsePreview && <span className="supporting">형식: 003. 제목 — 사건 요약</span>}
@@ -1069,8 +1130,10 @@ export default function Step2Concept({
             <label>
               계절
               <input
-                value={opts.storySeason || ''}
-                onChange={event => setOpts(prev => applyChiliStoryGenerationContract({ ...prev, storySeason: clampToLimit('videoTitle', event.target.value) }))}
+                value={(isJpCafeChillhop ? opts.cafeSeason : opts.storySeason) || ''}
+                onChange={event => setOpts(prev => applyChiliStoryGenerationContract(isJpCafeChillhop
+                  ? { ...prev, cafeSeason: clampToLimit('videoTitle', event.target.value), storySeason: clampToLimit('videoTitle', event.target.value) }
+                  : { ...prev, storySeason: clampToLimit('videoTitle', event.target.value) }))}
                 placeholder="late autumn rain"
               />
             </label>
@@ -1085,7 +1148,12 @@ export default function Step2Concept({
           </label>
           {isSoloChiliStoryPov(chiliStoryPov) && (
             <p className="supporting">
-              🔒 {CHILI_STORY_POV_LABEL_JA[chiliStoryPov]}: 일본어 · 1인칭 고정 · {chiliStoryPov === 'male' ? '남성' : '여성'} 보컬 {opts.songCount}곡 · 상대 성별/듀엣 0곡
+              🔒 {chiliStoryLabelMap[chiliStoryPov]}: 일본어 · 1인칭 고정 · {chiliStoryPov === 'male' ? '남성' : '여성'} 보컬 {opts.songCount}곡 · 상대 성별/듀엣 0곡
+            </p>
+          )}
+          {isJpCafeChillhop && chiliStoryPov === 'couple' && chiliStoryLockedQuota && (
+            <p className="supporting">
+              🔒 {CAFE_STORY_MODE_LABEL_JA.couple}: 일본어 · 1인칭 고정 · 남성 {chiliStoryLockedQuota.male}곡 · 여성 {chiliStoryLockedQuota.female}곡 · 혼성 {chiliStoryLockedQuota.mixed}곡
             </p>
           )}
         </div>
@@ -1436,7 +1504,7 @@ export default function Step2Concept({
         {hasFixedVocalQuota ? (
           <p className="supporting">
             {hasChiliStoryVocalLock
-              ? `🔒 ${CHILI_STORY_POV_LABEL_JA[chiliStoryPov]} 계약으로 보컬 성비가 고정되어 있어요 (남성 ${defaultQuotaForChannel.male}·여성 ${defaultQuotaForChannel.female}·듀엣 ${defaultQuotaForChannel.mixed}) — STORY POV를 지키기 위해 배정 방식을 선택할 수 없습니다.`
+              ? `🔒 ${chiliStoryLabelMap[chiliStoryPov]} 계약으로 보컬 성비가 고정되어 있어요 (남성 ${defaultQuotaForChannel.male}·여성 ${defaultQuotaForChannel.female}·듀엣 ${defaultQuotaForChannel.mixed}) — STORY POV를 지키기 위해 배정 방식을 선택할 수 없습니다.`
               : `🔒 이 채널은 보컬 성비가 채널 자체에 고정되어 있어요 (남성 ${defaultQuotaForChannel.male}·여성 ${defaultQuotaForChannel.female}·듀엣 ${defaultQuotaForChannel.mixed}) — 채널 정체성(보이그룹/걸그룹 등)을 지키기 위해 배정 방식을 선택할 수 없습니다.`}
           </p>
         ) : (
@@ -1537,7 +1605,7 @@ export default function Step2Concept({
         hasChiliStoryVocalLock ? (
           <div className="option-block compact">
             <p className="supporting">
-              {CHILI_STORY_POV_LABEL_JA[chiliStoryPov]}는 보컬 톤 직접 선택을 잠급니다. 실제 브릿지 지시문과 프리할당은 남성 {resolvedVocalQuotaPreview.male}곡 · 여성 {resolvedVocalQuotaPreview.female}곡 · 듀엣 {resolvedVocalQuotaPreview.mixed}곡으로 고정됩니다.
+              {chiliStoryLabelMap[chiliStoryPov]}는 보컬 톤 직접 선택을 잠급니다. 실제 브릿지 지시문과 프리할당은 남성 {resolvedVocalQuotaPreview.male}곡 · 여성 {resolvedVocalQuotaPreview.female}곡 · 듀엣 {resolvedVocalQuotaPreview.mixed}곡으로 고정됩니다.
             </p>
           </div>
         ) : (
@@ -1963,8 +2031,8 @@ export default function Step2Concept({
               </button>
             ))}
           </div>
-          {isJpChillhop && (
-            <p className="supporting">JP CHILI LAB STORY는 자연스러운 일본어 가사를 품질 게이트로 검사하므로 일본어만 선택할 수 있습니다.</p>
+          {isJapaneseChili && (
+            <p className="supporting">일본 CHILI LAB STORY는 자연스러운 일본어 가사를 품질 게이트로 검사하므로 일본어만 선택할 수 있습니다.</p>
           )}
           {/* 지시문 34 (TASK B) — 차단 없이 안내만 한다. 채널의 primaryLanguage(기본값) 자체는 바꾸지 않는다 — 지금 이 세트만 다르게 골랐다는 사실과 그 영향을 알린다. */}
           {opts.lyricLanguage !== opts.channel.primaryLanguage && (
@@ -2017,11 +2085,11 @@ export default function Step2Concept({
             columns={4}
           />
 
-          {isJpChillhop && isSoloChiliStoryPov(chiliStoryPov) ? (
+          {isJapaneseChili && (isJpCafeChillhop || isSoloChiliStoryPov(chiliStoryPov)) ? (
             <div className="option-block compact">
               <h3>STORY 시점 잠금</h3>
               <p className="supporting">
-                {CHILI_STORY_POV_LABEL_JA[chiliStoryPov]}는 15곡 모두 해당 인물의 1인칭으로 고정됩니다. 브릿지 지시문은 perspective=firstPerson, perspectiveMode=fixed로 전달됩니다.
+                {chiliStoryLabelMap[chiliStoryPov]}는 15곡 모두 1인칭 일본어 시점으로 고정됩니다. 브릿지 지시문은 perspective=firstPerson, perspectiveMode=fixed로 전달됩니다.
               </p>
             </div>
           ) : (

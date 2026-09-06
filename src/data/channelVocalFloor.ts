@@ -150,6 +150,28 @@ export const CHANNEL_VOCAL_FLOORS: ChannelVocalFloor[] = [
     reasonKo: '일본어 관계 스토리 앨범용 보컬 바닥. 남/여 STORY 성별 고정은 core/chiliStoryPov.ts가 별도로 강제한다.'
   },
   {
+    id: 'jp-cafe-chillhop-vocal-floor',
+    workspaceId: 'jp-cafe-chillhop',
+    labelKo: '일본 카페 CHILI LAB 보컬 바닥',
+    archetypeIds: ['jp-cafe-chillhop'],
+    requiredTraits: [
+      'natural conversational Japanese vocal delivery',
+      'intimate close-mic sung-rap phrasing',
+      'soft cafe-house hook phrasing',
+      'restrained emotional reading'
+    ],
+    forbiddenTraits: [
+      'showa-era announcer tone',
+      'operatic projection',
+      'theatrical belting',
+      'shouting vocal delivery',
+      'English translationese delivery',
+      'enka vibrato',
+      'famous artist soundalike vocals'
+    ],
+    reasonKo: '일본 카페 CHILI LAB은 Café Story Mode의 남성/여성/커플 보컬 배분을 유지하면서 카페용 친밀한 일본어 보컬 질감을 고정한다.'
+  },
+  {
     id: 'kr-kids-vocal-floor',
     workspaceId: 'kr-kids',
     labelKo: '한국 동요 보컬 바닥',

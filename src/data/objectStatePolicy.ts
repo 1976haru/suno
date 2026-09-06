@@ -73,6 +73,11 @@ export const OBJECT_STATE_POLICY: Record<WorkspaceId, ObjectStatePolicy> = {
     kinds: ['message', 'vehicle'],
     verifiedKinds: [],
     sourceKo: '추정치 — 지시문 79 일본 CHILI LAB 스토리 POV 검증용. 첫 세트 측정 후 재조정.'
+  },
+  'jp-cafe-chillhop': {
+    kinds: ['message', 'window', 'door', 'vehicle'],
+    verifiedKinds: [],
+    sourceKo: '추정치 — 지시문 80 일본 카페 CHILI LAB은 카페 출입/창가/메시지/짧은 이동 상태 모순을 advisory로 관찰한다. 첫 세트 측정 후 재조정.'
   }
 };
 

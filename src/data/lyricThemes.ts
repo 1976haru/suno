@@ -57,6 +57,14 @@ export interface LyricTheme {
    * channel, never requires 'calm', so neutral themes stay in the pool).
    */
   moodTag?: 'calm' | 'energetic';
+  region?: string;
+  city?: string;
+  cafeLocation?: string;
+  cafeType?: string;
+  cafeSeason?: string;
+  cafeTimeOfDay?: string;
+  cafeWeather?: string;
+  storyBeat?: string;
 }
 
 function adultTheme(
@@ -171,7 +179,101 @@ const OLDPOP_LOUNGE_SCENE_EXPANSION_THEMES: LyricTheme[] = [
   adultTheme('oldpoplounge-ticket-stub-suit-pocket', '정장 주머니 티켓 반쪽', 'finding a torn ticket stub in a suit pocket before stepping into another late show', 'private memory folding into present-tense resolve', ['oldpop-lounge'], 'show-keepsake', '도시의 밤', '혼자', '정적')
 ];
 
+const JP_CHILLHOP_BROAD_PLACES = [
+  { slug: 'last-train-rain', label: 'Last train after rain', scene: 'on the last train after rain, watching the other person reflected in dark glass', frameId: 'jp-transit-night', era: 'current Japanese city', cast: 'two people', motion: 'moving' },
+  { slug: 'seaside-evening', label: 'Seaside evening walk', scene: 'walking beside a quiet seawall while vending machine light colors the pavement', frameId: 'jp-seaside-evening', era: 'current Japanese coast', cast: 'two people', motion: 'walking' },
+  { slug: 'convenience-store', label: 'Convenience store umbrella', scene: 'standing outside a convenience store with one umbrella and two warm cans', frameId: 'jp-convenience-rain', era: 'current Japanese city', cast: 'two people', motion: 'standing' },
+  { slug: 'apartment-balcony', label: 'Apartment balcony call', scene: 'taking a late call from an apartment balcony while laundry moves in the night wind', frameId: 'jp-home-balcony', era: 'current Japanese home', cast: 'one person', motion: 'still' },
+  { slug: 'office-elevator', label: 'Office elevator silence', scene: 'sharing an office elevator after overtime with words held back until the doors open', frameId: 'jp-work-elevator', era: 'current Japanese workday', cast: 'two people', motion: 'standing' },
+  { slug: 'airport-glass', label: 'Airport glass farewell', scene: 'standing by airport glass as a departure board changes before either person can speak', frameId: 'jp-airport-farewell', era: 'current Japanese travel', cast: 'two people', motion: 'waiting' },
+  { slug: 'night-drive', label: 'Night drive river road', scene: 'driving along a river road with the city lights trailing behind the windshield', frameId: 'jp-night-drive', era: 'current Japanese city', cast: 'two people', motion: 'driving' },
+  { slug: 'shopping-street', label: 'Closing shopping street', scene: 'walking through a closing shopping street as shutters fall and one shop light remains', frameId: 'jp-shopping-street', era: 'current Japanese city', cast: 'two people', motion: 'walking' },
+  { slug: 'hotel-lobby', label: 'Hotel lobby message', scene: 'waiting in a small hotel lobby with an unread message glowing on the phone', frameId: 'jp-hotel-lobby', era: 'current Japanese travel', cast: 'one person', motion: 'waiting' },
+  { slug: 'festival-after', label: 'After the summer festival', scene: 'leaving a summer festival after the crowd thins and the river wind cools', frameId: 'jp-festival-after', era: 'current Japanese summer', cast: 'two people', motion: 'walking' },
+  { slug: 'bookstore-window', label: 'Bookstore window meet', scene: 'meeting by a bookstore window where the same novel is displayed twice', frameId: 'jp-bookstore-window', era: 'current Japanese city', cast: 'two people', motion: 'standing' },
+  { slug: 'station-lockers', label: 'Station locker promise', scene: 'opening a station locker where a small paper bag and a folded note were left', frameId: 'jp-station-locker', era: 'current Japanese transit', cast: 'one person', motion: 'standing' }
+] as const;
+
+const JP_CHILLHOP_RELATIONSHIP_BEATS = [
+  { slug: 'first-signal', label: 'first signal', arc: 'small surprise becoming quiet attention' },
+  { slug: 'near-confession', label: 'near confession', arc: 'ordinary talk warming into almost-confession' },
+  { slug: 'misread', label: 'misread timing', arc: 'misread timing tightening into restrained hurt' },
+  { slug: 'decision', label: 'decision to speak', arc: 'hesitation turning into a clear decision' },
+  { slug: 'afterglow', label: 'afterglow promise', arc: 'the memory settling into a forward-looking promise' }
+] as const;
+
+export const JP_CHILLHOP_ADDITIONAL_LYRIC_THEMES: LyricTheme[] = JP_CHILLHOP_BROAD_PLACES.flatMap(place =>
+  JP_CHILLHOP_RELATIONSHIP_BEATS.map((beat): LyricTheme => ({
+    id: `jpchillhop-broad-${place.slug}-${beat.slug}`,
+    labelKo: `${place.label} - ${beat.label}`,
+    scene: `${place.scene}; focus on ${beat.label} without drifting into cafe-only framing.`,
+    emotionalArc: beat.arc,
+    suitedArchetypes: ['jp-chillhop'],
+    languages: ['japanese'],
+    frameId: place.frameId,
+    eraSettingKo: place.era,
+    castKo: place.cast,
+    motionKo: place.motion
+  }))
+);
+
+const JP_CAFE_CHILLHOP_PLACES = [
+  { slug: 'tokyo-sakura-terrace', region: 'Kanto', city: 'Tokyo', label: 'Tokyo sakura terrace cafe', season: 'spring', timeOfDay: 'afternoon', weather: 'clear after rain', cafeType: 'terrace cafe', anchor: 'a window table facing sakura petals along a quiet canal' },
+  { slug: 'kichijoji-jazz-kissaten', region: 'Kanto', city: 'Kichijoji', label: 'Kichijoji jazz kissaten', season: 'early summer', timeOfDay: 'evening', weather: 'humid breeze', cafeType: 'jazz kissaten', anchor: 'old speakers and a narrow table under warm amber light' },
+  { slug: 'kamakura-seaside-cafe', region: 'Kanto', city: 'Kamakura', label: 'Kamakura seaside cafe', season: 'summer', timeOfDay: 'late afternoon', weather: 'salt wind', cafeType: 'seaside cafe', anchor: 'open windows with the sound of a distant train and low tide' },
+  { slug: 'yokohama-roastery', region: 'Kanto', city: 'Yokohama', label: 'Yokohama roastery', season: 'autumn', timeOfDay: 'dusk', weather: 'thin drizzle', cafeType: 'roastery', anchor: 'roasted beans, brick walls, and harbor lights beginning to show' },
+  { slug: 'sapporo-snow-cafe', region: 'Hokkaido', city: 'Sapporo', label: 'Sapporo snow cafe', season: 'winter', timeOfDay: 'night', weather: 'snowfall', cafeType: 'snow-view cafe', anchor: 'fogged glass and coats drying beside a small heater' },
+  { slug: 'kyoto-machiya-cafe', region: 'Kansai', city: 'Kyoto', label: 'Kyoto machiya cafe', season: 'late autumn', timeOfDay: 'morning', weather: 'soft cloud', cafeType: 'machiya cafe', anchor: 'a garden-facing low table and maple leaves on stone' },
+  { slug: 'osaka-rain-cafe', region: 'Kansai', city: 'Osaka', label: 'Osaka rainy arcade cafe', season: 'rainy season', timeOfDay: 'evening', weather: 'steady rain', cafeType: 'arcade cafe', anchor: 'neon reflection outside the covered shopping street' },
+  { slug: 'kobe-hill-cafe', region: 'Kansai', city: 'Kobe', label: 'Kobe hill cafe', season: 'spring', timeOfDay: 'twilight', weather: 'cool hill wind', cafeType: 'hill-view cafe', anchor: 'city lights below the slope and a shared slice of cake' },
+  { slug: 'kanazawa-garden-cafe', region: 'Hokuriku', city: 'Kanazawa', label: 'Kanazawa garden cafe', season: 'autumn', timeOfDay: 'afternoon', weather: 'light rain', cafeType: 'garden cafe', anchor: 'gold leaf sweets and rain rings in the courtyard stone' },
+  { slug: 'fukuoka-riverside-cafe', region: 'Kyushu', city: 'Fukuoka', label: 'Fukuoka riverside cafe', season: 'summer', timeOfDay: 'night', weather: 'warm river breeze', cafeType: 'riverside cafe', anchor: 'terrace lights beside slow water and distant street music' },
+  { slug: 'nara-deer-park-cafe', region: 'Kansai', city: 'Nara', label: 'Nara park cafe', season: 'early autumn', timeOfDay: 'morning', weather: 'clear sky', cafeType: 'park cafe', anchor: 'wooden trays, green shade, and quiet footsteps outside' },
+  { slug: 'nagoya-station-cafe', region: 'Chubu', city: 'Nagoya', label: 'Nagoya station cafe', season: 'winter', timeOfDay: 'late morning', weather: 'dry cold', cafeType: 'station cafe', anchor: 'suitcases tucked under stools before a short goodbye' },
+  { slug: 'sendai-book-cafe', region: 'Tohoku', city: 'Sendai', label: 'Sendai book cafe', season: 'spring', timeOfDay: 'late afternoon', weather: 'pollen haze', cafeType: 'book cafe', anchor: 'paperbacks, quiet shelves, and two bookmarks on one receipt' },
+  { slug: 'hakone-lake-cafe', region: 'Kanto', city: 'Hakone', label: 'Hakone lake cafe', season: 'winter', timeOfDay: 'afternoon', weather: 'mist', cafeType: 'lake cafe', anchor: 'steam from cups mixing with mist beyond the window' },
+  { slug: 'hiroshima-riverside-cafe', region: 'Chugoku', city: 'Hiroshima', label: 'Hiroshima riverside cafe', season: 'summer', timeOfDay: 'morning', weather: 'bright heat', cafeType: 'riverside cafe', anchor: 'iced coffee sweat on glass and quiet water outside' },
+  { slug: 'okinawa-lanai-cafe', region: 'Okinawa', city: 'Naha', label: 'Naha lanai cafe', season: 'summer', timeOfDay: 'sunset', weather: 'sea breeze', cafeType: 'lanai cafe', anchor: 'open-air seats, citrus tea, and orange light on tiled walls' },
+  { slug: 'matsumoto-alps-cafe', region: 'Chubu', city: 'Matsumoto', label: 'Matsumoto alps cafe', season: 'late winter', timeOfDay: 'morning', weather: 'clear cold', cafeType: 'mountain-view cafe', anchor: 'distant white peaks and a hand warming around black coffee' },
+  { slug: 'shonan-beachside-cafe', region: 'Kanto', city: 'Shonan', label: 'Shonan beachside cafe', season: 'early summer', timeOfDay: 'morning', weather: 'bright wind', cafeType: 'beachside cafe', anchor: 'open doors and foam lines on the water' },
+  { slug: 'kurashiki-canal-cafe', region: 'Chugoku', city: 'Kurashiki', label: 'Kurashiki canal cafe', season: 'autumn', timeOfDay: 'dusk', weather: 'cloudy after rain', cafeType: 'canal cafe', anchor: 'white walls reflected in canal water beside a small table' },
+  { slug: 'asakusa-night-kissaten', region: 'Kanto', city: 'Asakusa', label: 'Asakusa night kissaten', season: 'winter', timeOfDay: 'night', weather: 'cold clear', cafeType: 'old-modern kissaten', anchor: 'paper lanterns outside and low jazz under a ceiling fan' }
+] as const;
+
+const JP_CAFE_CHILLHOP_BEATS = [
+  { slug: 'arrival', act: 1, label: 'arrival and first expression', storyBeat: 'cafe arrival / first expression / place / season', scene: 'arriving at the cafe and noticing the first expression across the table', arc: 'nervous arrival becoming careful attention' },
+  { slug: 'conversation', act: 2, label: 'conversation over tea or coffee', storyBeat: 'conversation / tea / coffee / small actions', scene: 'conversation unfolding through tea, coffee, spoons, receipts, and small shared actions', arc: 'ordinary talk warming into almost-confession' },
+  { slug: 'realization', act: 3, label: 'central realization', storyBeat: 'emotional realization / central hook', scene: 'a cafe detail turns into the central emotional realization and hook image', arc: 'hidden feeling becoming impossible to ignore' },
+  { slug: 'unsaid', act: 4, label: 'hesitation and unsaid words', storyBeat: 'hesitation / resentment / unsaid words', scene: 'hesitation and a small hurt stay unsaid between sips and polite smiles', arc: 'warmth tightening into restrained ache' },
+  { slug: 'leaving', act: 5, label: 'leaving cafe afterglow', storyBeat: 'leaving cafe / message / station / umbrella / seaside / next promise', scene: 'leaving the cafe with a message, station step, umbrella, seaside walk, or next promise carrying the memory forward', arc: 'parting settling into a quiet promise' }
+] as const;
+
+export const JP_CAFE_CHILLHOP_LYRIC_THEMES: LyricTheme[] = JP_CAFE_CHILLHOP_PLACES.flatMap(place =>
+  JP_CAFE_CHILLHOP_BEATS.map((beat): LyricTheme => ({
+    id: `jpcafechillhop-${place.slug}-${beat.slug}`,
+    labelKo: `${place.label} - ${beat.label}`,
+    scene: `${place.city} ${place.cafeType}, ${place.season} ${place.timeOfDay}, ${place.weather}: ${beat.scene} around ${place.anchor}.`,
+    emotionalArc: beat.arc,
+    suitedArchetypes: ['jp-cafe-chillhop'],
+    languages: ['japanese'],
+    frameId: `jp-cafe-act-${beat.act}`,
+    eraSettingKo: 'current Japanese cafe',
+    castKo: 'two people',
+    motionKo: beat.act === 5 ? 'leaving after the cafe' : 'inside the cafe',
+    region: place.region,
+    city: place.city,
+    cafeLocation: `${place.city} - ${place.label}`,
+    cafeType: place.cafeType,
+    cafeSeason: place.season,
+    cafeTimeOfDay: place.timeOfDay,
+    cafeWeather: place.weather,
+    storyBeat: beat.storyBeat
+  }))
+);
+
 export const adultLyricThemes: LyricTheme[] = [
+  ...JP_CHILLHOP_ADDITIONAL_LYRIC_THEMES,
+  ...JP_CAFE_CHILLHOP_LYRIC_THEMES,
   {
     id: 'senior-morning-coffee-first-light',
     labelKo: '아침 커피 첫 빛',

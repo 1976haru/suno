@@ -321,6 +321,18 @@ export const EXPLORATION_POLICIES: Record<WorkspaceId, WorkspaceExplorationPolic
     noFailureFraming: false,
     closingLineKo: 'この4曲のうち物語の視点が強く残る曲があれば成功です。',
     minSongCount: 8
+  },
+  'jp-cafe-chillhop': {
+    workspaceId: 'jp-cafe-chillhop',
+    enabled: true,
+    slotCount: 4,
+    axes: AGE2030_AXES,
+    frozen: [...AGE2030_FROZEN, 'Cafe Story Mode hard lock', 'cafe event center and 5-act continuity'],
+    toneKo: '가장 자유로움 — 단, 카페 사건 중심과 Café Story Mode 고정 안에서',
+    slotPositionFractions: [0.33, 0.61, 0.83, 0.89],
+    noFailureFraming: false,
+    closingLineKo: 'この4曲のうちカフェの物語が強く残る曲があれば成功です。',
+    minSongCount: 8
   }
 };
 

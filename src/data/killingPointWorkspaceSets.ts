@@ -43,6 +43,7 @@ export function killingPointSetForNonKidsArchetype(archetype: ChannelArchetype |
     case 'en-chillhop':
       return KR_2030_KILLING_POINTS;
     case 'jp-chillhop':
+    case 'jp-cafe-chillhop':
       return JP_2030_KILLING_POINTS;
     default:
       return undefined;

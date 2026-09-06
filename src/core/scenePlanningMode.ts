@@ -1,5 +1,5 @@
 import type { GenerationOptions, ScenePlanningMode } from '../types';
-import { isJpChillhopOptions, isSoloChiliStoryPov, normalizeChiliStoryPov } from './chiliStoryPov';
+import { isJpCafeChillhopOptions, isJpChillhopOptions, isSoloChiliStoryPov, normalizeChiliStoryPov } from './chiliStoryPov';
 
 /**
  * Bridge-only context for concept-driven lyric scene generation. The fixed
@@ -23,10 +23,11 @@ export interface ConceptSceneContext {
  * fixed-pool uniqueness is not a validity requirement.
  */
 export function resolveScenePlanningMode(
-  opts: Pick<GenerationOptions, 'channel' | 'customConcept' | 'storyPov' | 'storySourceSummary'> & { scenePlanningMode?: ScenePlanningMode },
+  opts: Pick<GenerationOptions, 'channel' | 'customConcept' | 'storyPov' | 'cafeStoryMode' | 'storySourceSummary'> & { scenePlanningMode?: ScenePlanningMode },
   conceptSceneContext: ConceptSceneContext | undefined
 ): ScenePlanningMode {
   if (opts.scenePlanningMode) return opts.scenePlanningMode;
+  if (isJpCafeChillhopOptions(opts)) return 'same-story-comparison';
   if (isJpChillhopOptions(opts) && isSoloChiliStoryPov(normalizeChiliStoryPov(opts.storyPov)) && opts.storySourceSummary?.trim()) {
     return 'same-story-comparison';
   }

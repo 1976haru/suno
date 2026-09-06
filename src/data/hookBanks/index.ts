@@ -15,6 +15,7 @@ import { modernChillOverride } from './modernChill';
 import { cityNightOverride } from './cityNight';
 import { enChillhopOverride } from './enChillhop';
 import { jpChillhopOverride } from './jpChillhop';
+import { jpCafeChillhopOverride } from './jpCafeChillhop';
 
 export function overrideForArchetype(archetype: ChannelArchetype | undefined, language: LyricLanguage): HookVocabularyOverride {
   switch (archetype) {
@@ -90,6 +91,8 @@ export function overrideForArchetype(archetype: ChannelArchetype | undefined, la
       return enChillhopOverride;
     case 'jp-chillhop':
       return jpChillhopOverride(language);
+    case 'jp-cafe-chillhop':
+      return jpCafeChillhopOverride(language);
     case 'senior-morning':
     default:
       return seniorMorningOverride;

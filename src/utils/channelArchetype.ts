@@ -33,8 +33,16 @@ export function isJpChillhopArchetype(archetype: string | undefined): boolean {
   return JP_CHILLHOP_ARCHETYPES.has(archetype ?? '');
 }
 
+export function isJpCafeChillhopArchetype(archetype: string | undefined): boolean {
+  return archetype === 'jp-cafe-chillhop';
+}
+
+export function isJapaneseChillhopArchetype(archetype: string | undefined): boolean {
+  return isJpChillhopArchetype(archetype) || isJpCafeChillhopArchetype(archetype);
+}
+
 export function isChillhopArchetype(archetype: string | undefined): boolean {
-  return isEnChillhopArchetype(archetype) || isJpChillhopArchetype(archetype);
+  return isEnChillhopArchetype(archetype) || isJapaneseChillhopArchetype(archetype);
 }
 
 /**

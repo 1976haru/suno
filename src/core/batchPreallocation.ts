@@ -126,7 +126,7 @@ function appendGenreAutoRemainder(manualPlan: string[], autoPlan: string[], song
  * longer collide on identity because they never choose it.
  */
 export function preallocateSongSlots(
-  opts: Pick<GenerationOptions, 'channel' | 'projectTitle' | 'lyricLanguage' | 'songCount' | 'genreIds' | 'moodIds' | 'moneyChordMode' | 'moneyChordModeIsExplicitChoice' | 'customMoneyChord' | 'earwormMode' | 'vocalQuota' | 'vocalQuotaMode' | 'vocalTone' | 'vocalPresetPlan' | 'avoidWords' | 'negativeStyle' | 'introUniqueness' | 'diversityAllocations' | 'perspective' | 'perspectiveMode' | 'perspectiveModeIsExplicitChoice' | 'scenePlanningMode' | 'customLyricThemeScene' | 'customConcept' | 'storyPov' | 'storySourceEpisodeId' | 'storySourceTitle' | 'storySourceSummary' | 'storyPreviousContext' | 'storyNextHint' | 'storyLocation' | 'storySeason' | 'genreBlendWeights' | 'genreBlendMode' | 'audience' | 'ratingInsights' | 'slotOrderOverride'>,
+  opts: Pick<GenerationOptions, 'channel' | 'projectTitle' | 'lyricLanguage' | 'songCount' | 'genreIds' | 'moodIds' | 'moneyChordMode' | 'moneyChordModeIsExplicitChoice' | 'customMoneyChord' | 'earwormMode' | 'vocalQuota' | 'vocalQuotaMode' | 'vocalTone' | 'vocalPresetPlan' | 'avoidWords' | 'negativeStyle' | 'introUniqueness' | 'diversityAllocations' | 'perspective' | 'perspectiveMode' | 'perspectiveModeIsExplicitChoice' | 'scenePlanningMode' | 'customLyricThemeScene' | 'customConcept' | 'storyPov' | 'cafeStoryMode' | 'storySourceEpisodeId' | 'storySourceTitle' | 'storySourceSummary' | 'storyPreviousContext' | 'storyNextHint' | 'storyLocation' | 'storySeason' | 'cafeLocation' | 'cafeType' | 'cafeSeason' | 'cafeTimeOfDay' | 'cafeWeather' | 'storySpeaker' | 'genreBlendWeights' | 'genreBlendMode' | 'audience' | 'ratingInsights' | 'slotOrderOverride'>,
   genres: GenrePack[],
   // TASK v3.72 (TASK E) — recentVocalComboSignatures is optional and
   // additive: core/vocalComboLedger.ts's last few "M:<register>|F:<register>"
@@ -1360,7 +1360,7 @@ export function preallocateSongSlots(
       // vocabularyBankForScene a second time with the same arguments.
       vocabularyBankId: sceneVocabularyBank.id,
       pov: povPlan[idx],
-      ...chiliStorySlotFields(opts, trackNo),
+      ...chiliStorySlotFields(opts, trackNo, vocalType),
       ...(sectionStyle ? sectionStyle : {}),
       vocalText,
       vocalVariantText: resolvedVocalVariantText,

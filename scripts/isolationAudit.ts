@@ -72,6 +72,8 @@ function themeWorkspaceOf(theme: { id: string }): WorkspaceId {
   if (theme.id.startsWith('enchillhop-')) return 'en-chillhop';
   // 지시문 79 — jp-chillhop's own CHILI LAB STORY theme prefix.
   if (theme.id.startsWith('jpchillhop-')) return 'jp-chillhop';
+  // 지시문 80 — jp-cafe-chillhop's own cafe-scoped CHILI LAB theme prefix.
+  if (theme.id.startsWith('jpcafechillhop-')) return 'jp-cafe-chillhop';
   return 'senior-oldpop';
 }
 

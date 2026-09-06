@@ -1,14 +1,24 @@
 import type { ChannelProfile, ChiliStoryPov, LyricLanguage, SongIdea } from '../types';
 import { checkLyricLanguageMatch } from './lyricMetrics';
 import { checkTitleHookRelationships } from './titleHookRelationship';
-import { isJpChillhopArchetype } from '../utils/channelArchetype';
-import { CHILI_STORY_DEFAULT_SONG_COUNT, CHILI_STORY_POV_LABEL_JA, chiliStoryActForTrack, isSoloChiliStoryPov, normalizeChiliStoryPov } from './chiliStoryPov';
+import { isJapaneseChillhopArchetype, isJpCafeChillhopArchetype } from '../utils/channelArchetype';
+import {
+  CAFE_STORY_MODE_LABEL_JA,
+  CHILI_STORY_DEFAULT_SONG_COUNT,
+  CHILI_STORY_POV_LABEL_JA,
+  cafeChiliStoryActForTrack,
+  chiliStoryActForTrack,
+  isSoloChiliStoryPov,
+  normalizeChiliStoryPov,
+  vocalQuotaForCafeStoryMode
+} from './chiliStoryPov';
 import { checkJpChillhopTranslationese, findJpChillhopKatakanaOveruse, JP_CHILLHOP_KATAKANA_OVERUSE_THRESHOLD, jpChillhopKatakanaShareOfKana } from './jpChillhopPolicy';
 
 export interface JapaneseChiliQualityContext {
   channel?: ChannelProfile;
   language?: LyricLanguage;
   storyPov?: ChiliStoryPov;
+  cafeStoryMode?: ChiliStoryPov;
   songCount?: number;
 }
 
@@ -61,14 +71,39 @@ function duplicateTrackWarnings(
 }
 
 function resolvePackPov(songs: SongIdea[], context: JapaneseChiliQualityContext): ChiliStoryPov {
-  return normalizeChiliStoryPov(context.storyPov ?? songs.find(song => song.storyPov)?.storyPov);
+  const songWithStory = songs.find(song => song.cafeStoryMode || song.storyPov);
+  return normalizeChiliStoryPov(context.cafeStoryMode ?? context.storyPov ?? songWithStory?.cafeStoryMode ?? songWithStory?.storyPov);
+}
+
+const CAFE_SIGNAL_RE = /cafe|coffee|latte|roaster|kissaten|tea|terrace|window seat|カフェ|喫茶|珈琲|コーヒー|紅茶|ラテ|ロースタリー|窓際|テラス|席|カップ|閉店|店内|テーブル/i;
+const CAFE_DRIFT_RE = /airport|moving day|office|commute|空港|引っ越し|引越し|会社|オフィス|通勤|転勤/i;
+
+function cafeEvidenceText(song: SongIdea): string {
+  return [
+    song.title,
+    song.hookPhrase,
+    song.listenerSituation,
+    song.seasonMoment,
+    song.lyricTheme,
+    song.lyricThemeText,
+    song.storyLocation,
+    song.storySeason,
+    song.cafeLocation,
+    song.cafeType,
+    song.cafeSeason,
+    song.cafeTimeOfDay,
+    song.cafeWeather,
+    song.storyArcRole,
+    song.lyrics
+  ].filter(Boolean).join(' ');
 }
 
 export function evaluateJapaneseChiliQuality(
   songs: SongIdea[],
   context: JapaneseChiliQualityContext = {}
 ): JapaneseChiliQualityReport {
-  const applies = Boolean(context.channel && isJpChillhopArchetype(context.channel.archetype));
+  const applies = Boolean(context.channel && isJapaneseChillhopArchetype(context.channel.archetype));
+  const isCafe = Boolean(context.channel && isJpCafeChillhopArchetype(context.channel.archetype));
   const warningsByTrackNo = new Map<number, string[]>();
   const packWarnings: string[] = [];
   const languageFailureTrackNos: number[] = [];
@@ -86,15 +121,38 @@ export function evaluateJapaneseChiliQuality(
 
     const vocalType = vocalTypeOf(song);
     vocalCounts[vocalType] += 1;
-    const actNo = song.storyAct ?? chiliStoryActForTrack(song.trackNo, context.songCount ?? songs.length).storyAct;
+    const actNo = song.storyAct ?? (isCafe ? cafeChiliStoryActForTrack : chiliStoryActForTrack)(song.trackNo, context.songCount ?? songs.length).storyAct;
     if (actNo >= 1 && actNo <= 5) actCounts[actNo] += 1;
+
+    if (isCafe) {
+      const evidence = cafeEvidenceText(song);
+      const hasCafeSignal = CAFE_SIGNAL_RE.test(evidence);
+      if (!hasCafeSignal) {
+        pushTrackWarning(warningsByTrackNo, song.trackNo, 'JP CAFE CHILI cafe center: each track must keep a cafe, coffee, tea, table, window, terrace, or closing-time detail at the center of the event.');
+      }
+      if (CAFE_DRIFT_RE.test(evidence) && !hasCafeSignal) {
+        pushTrackWarning(warningsByTrackNo, song.trackNo, 'JP CAFE CHILI drift guard: airport, moving-day, office, commute, or generic travel cannot replace the cafe as the event center.');
+      }
+    }
   }
 
   const storyPov = resolvePackPov(songs, context);
+  if (isCafe && storyPov === 'couple') {
+    const expectedSongCount = context.songCount ?? songs.length;
+    const expected = vocalQuotaForCafeStoryMode(storyPov, expectedSongCount);
+    const missingRequiredVoice = vocalCounts.male <= 0 || vocalCounts.female <= 0 || vocalCounts.mixed <= 0;
+    const mixedTooLarge = vocalCounts.mixed >= expectedSongCount / 2;
+    const exact15Failed = expectedSongCount === CHILI_STORY_DEFAULT_SONG_COUNT
+      && (vocalCounts.male !== expected.male || vocalCounts.female !== expected.female || vocalCounts.mixed !== expected.mixed);
+    if (missingRequiredVoice || mixedTooLarge || exact15Failed) {
+      packWarnings.push(`JP CAFE CHILI ${CAFE_STORY_MODE_LABEL_JA.couple} vocal balance failed: expected male ${expected.male}, female ${expected.female}, mixed ${expected.mixed}; actual male ${vocalCounts.male}, female ${vocalCounts.female}, mixed ${vocalCounts.mixed}.`);
+    }
+  }
+
   if (isSoloChiliStoryPov(storyPov)) {
     const wrongTracks = songs.filter(song => vocalTypeOf(song) !== storyPov).map(song => song.trackNo);
     if (wrongTracks.length) {
-      const label = CHILI_STORY_POV_LABEL_JA[storyPov];
+      const label = (isCafe ? CAFE_STORY_MODE_LABEL_JA : CHILI_STORY_POV_LABEL_JA)[storyPov];
       packWarnings.push(`JP CHILI ${label} vocal hard lock failed: T${wrongTracks.join(', T')} are not ${storyPov} vocal.`);
       for (const trackNo of wrongTracks) {
         pushTrackWarning(warningsByTrackNo, trackNo, `JP CHILI vocal hard lock: ${label} requires ${storyPov} vocal only.`);

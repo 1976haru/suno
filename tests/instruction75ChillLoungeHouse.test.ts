@@ -161,8 +161,8 @@ describe('[지시문75 TASK C] 감정 서사 라우팅', () => {
 });
 
 describe('[지시문75 TASK D] 등록', () => {
-  it('워크스페이스 소유가 en-chillhop / jp-chillhop 공유로 잡힌다', () => {
-    for (const id of NEW_IDS) expect(GENRE_WORKSPACE_OWNERSHIP[id], id).toEqual(['en-chillhop', 'jp-chillhop']);
+  it('워크스페이스 소유가 en-chillhop / jp-chillhop / jp-cafe-chillhop 공유로 잡힌다', () => {
+    for (const id of NEW_IDS) expect(GENRE_WORKSPACE_OWNERSHIP[id], id).toEqual(['en-chillhop', 'jp-chillhop', 'jp-cafe-chillhop']);
   });
 
   it('3종 모두 팔레트를 받는다 — canon-chill-lounge-house (§3.4)', () => {

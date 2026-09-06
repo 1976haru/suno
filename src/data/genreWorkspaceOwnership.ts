@@ -28,14 +28,28 @@ export type GenreWorkspaceOwnership = Record<string, WorkspaceId[]>;
 // senior-oldpop 소유, prefix 없는 레거시 id라 아래 기본값으로 떨어진다) —
 // en-chillhop을 "참조"로만 추가한다. kr2030-noir-deep-house와 같은 명시적
 // 다대다 소유 패턴.
+const JP_CAFE_CHILLHOP_SHARED_GENRE_IDS = new Set([
+  'chill-rap',
+  'boom-bap-mellow',
+  'jazz-rap',
+  'lofi-hiphop-study',
+  'en-deep-house-melodic',
+  'en-deep-house-organic',
+  'en-chill-house-emotional',
+  'en-chill-deep-house',
+  'en-lounge-house',
+  'en-deep-house-soulful',
+  'alt-rnb'
+]);
+
 const EXPLICIT_MULTI_WORKSPACE_GENRE_IDS: Readonly<Record<string, WorkspaceId[]>> = {
   'kr2030-noir-deep-house': ['kr-2030', 'senior-oldpop'],
-  'chill-rap': ['senior-oldpop', 'en-chillhop', 'jp-chillhop'],
-  'boom-bap-mellow': ['senior-oldpop', 'en-chillhop', 'jp-chillhop'],
-  'jazz-rap': ['senior-oldpop', 'en-chillhop', 'jp-chillhop'],
-  'lofi-hiphop-study': ['senior-oldpop', 'en-chillhop', 'jp-chillhop'],
+  'chill-rap': ['senior-oldpop', 'en-chillhop', 'jp-chillhop', 'jp-cafe-chillhop'],
+  'boom-bap-mellow': ['senior-oldpop', 'en-chillhop', 'jp-chillhop', 'jp-cafe-chillhop'],
+  'jazz-rap': ['senior-oldpop', 'en-chillhop', 'jp-chillhop', 'jp-cafe-chillhop'],
+  'lofi-hiphop-study': ['senior-oldpop', 'en-chillhop', 'jp-chillhop', 'jp-cafe-chillhop'],
   'trap-soul': ['senior-oldpop', 'en-chillhop', 'jp-chillhop'],
-  'alt-rnb': ['senior-oldpop', 'en-chillhop', 'jp-chillhop']
+  'alt-rnb': ['senior-oldpop', 'en-chillhop', 'jp-chillhop', 'jp-cafe-chillhop']
 };
 
 function genreWorkspacesOf(genreId: string): WorkspaceId[] {
@@ -49,7 +63,11 @@ function genreWorkspacesOf(genreId: string): WorkspaceId[] {
   if (genreId.startsWith('kridol-')) return ['kr-idol-male', 'kr-idol-female'];
   // 지시문 71 (TASK A) — en-deep-house-*/en-house-garage-swing, 이
   // 워크스페이스 전용 신규 id.
-  if (genreId.startsWith('en-')) return ['en-chillhop', 'jp-chillhop'];
+  if (genreId.startsWith('en-')) {
+    const owners: WorkspaceId[] = ['en-chillhop', 'jp-chillhop'];
+    if (JP_CAFE_CHILLHOP_SHARED_GENRE_IDS.has(genreId)) owners.push('jp-cafe-chillhop');
+    return owners;
+  }
   return ['senior-oldpop'];
 }
 

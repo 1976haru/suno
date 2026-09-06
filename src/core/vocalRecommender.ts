@@ -1,13 +1,13 @@
 import type { ChannelArchetype } from '../types';
 import { vocalPresets, type VocalPreset } from '../data/vocalPresets';
-import { isJpChillhopArchetype, isKidsArchetype } from '../utils/channelArchetype';
+import { isJapaneseChillhopArchetype, isKidsArchetype } from '../utils/channelArchetype';
 import { buildVocalPlan, vocalTypeMatchesPresetGender, type VocalQuota, type VocalType } from './vocalPlan';
 import { MALE_VOCAL_TRAIT_AXES, FEMALE_VOCAL_TRAIT_AXES } from '../data/vocalTraits';
 import { vocalAffinityForGenre, vocalAvoidForGenre } from '../data/genreVocalAffinity';
 import { mulberry32 } from '../utils/prng';
 
 function equivalentVocalArchetypes(archetype: ChannelArchetype): ChannelArchetype[] {
-  return isJpChillhopArchetype(archetype) ? ['jp-chillhop', 'en-chillhop'] : [archetype];
+  return isJapaneseChillhopArchetype(archetype) ? [archetype, 'jp-chillhop', 'en-chillhop'] : [archetype];
 }
 
 /**

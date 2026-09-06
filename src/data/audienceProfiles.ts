@@ -622,6 +622,59 @@ const JP_CHILLHOP_AUDIENCE_PROFILE: AudienceProfile = {
   arrangementDensityLimits: { sparseMin: 2, fullMax: 6 }
 };
 
+const JP_CAFE_CHILLHOP_AUDIENCE_PROFILE: AudienceProfile = {
+  id: 'jp-cafe-chillhop',
+  labelKo: '일본 카페 CHILI LAB',
+  constraints: [
+    'contemporary Japanese cafe chillhop production',
+    'warm organic cafe groove with bass and drums carrying the pocket',
+    'natural conversational Japanese delivery',
+    'close-mic intimate phrasing',
+    '5-act cafe story continuity'
+  ],
+  exclusions: [
+    'festival EDM drop',
+    'big-room club build',
+    'aggressive trap or drill rhythm',
+    'overdone hi-hat rolls',
+    'shouting vocal delivery',
+    'theatrical belting',
+    'nostalgic senior-radio announcer tone',
+    'enka vibrato',
+    'English translationese Japanese',
+    'Korean lyric fallback',
+    'famous artist imitation'
+  ],
+  tempoFloor: 62,
+  tempoCeiling: 122,
+  genreBoundedTempo: true,
+  lyricWordRange: [180, 280],
+  songLengthSecondsRange: [165, 215],
+  relaxableAtPeak: [],
+  hardExclusions: [
+    'festival EDM drop',
+    'big-room club build',
+    'aggressive trap or drill rhythm',
+    'overdone hi-hat rolls',
+    'shouting vocal delivery',
+    'theatrical belting',
+    'nostalgic senior-radio announcer tone',
+    'enka vibrato',
+    'English translationese Japanese',
+    'Korean lyric fallback',
+    'famous artist imitation'
+  ],
+  killingPointSetId: 'jp-cafe-chillhop-default',
+  arcModelId: 'five-phase',
+  structureTemplateSetId: 'adult-t1-t5',
+  titlePatternSetId: 'adult-en-v1',
+  vocabularyBankIds: [],
+  lyricMetricsByLanguage: {
+    japanese: { primaryRange: [360, 520], syllableRange: [360, 520] }
+  },
+  arrangementDensityLimits: { sparseMin: 2, fullMax: 6 }
+};
+
 const KIDS_0_TO_2_AUDIENCE_PROFILE: AudienceProfile = {
   id: 'kids-0to2',
   labelKo: '동요 0~2세',
@@ -827,6 +880,7 @@ export const PROVISIONAL_AUDIENCE_PROFILES: AudienceProfile[] = [
   JP_KIDS_AUDIENCE_PROFILE,
   EN_CHILLHOP_AUDIENCE_PROFILE,
   JP_CHILLHOP_AUDIENCE_PROFILE,
+  JP_CAFE_CHILLHOP_AUDIENCE_PROFILE,
   KIDS_0_TO_2_AUDIENCE_PROFILE,
   KIDS_2_TO_4_AUDIENCE_PROFILE,
   KIDS_4_TO_7_AUDIENCE_PROFILE

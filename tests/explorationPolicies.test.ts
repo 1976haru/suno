@@ -11,7 +11,7 @@ import { preallocateSongSlots } from '../src/core/batchPreallocation';
 import { makeOptions, testMoods, testSeason } from './fixtures';
 import { channelPresets, genrePacks } from '../src/data/presets';
 
-const POLICY_WORKSPACES: WorkspaceId[] = ['kr-kids', 'jp-kids', 'kr-idol-male', 'kr-idol-female', 'kr-2030', 'jp-2030', 'jp-chillhop'];
+const POLICY_WORKSPACES: WorkspaceId[] = ['kr-kids', 'jp-kids', 'kr-idol-male', 'kr-idol-female', 'kr-2030', 'jp-2030', 'jp-chillhop', 'jp-cafe-chillhop'];
 
 /**
  * v5.24 (TASK A/B/C/D) — coverage for the policy-driven exploration engine
@@ -27,7 +27,7 @@ describe('[v5.24] senior-oldpop stays on the legacy engine, never the policy one
 
   it('data/explorationPolicies.ts still documents a senior-oldpop entry for the §8+ "9종" completeness count', () => {
     expect(EXPLORATION_POLICIES['senior-oldpop'].legacyEngine).toBe(true);
-    expect(Object.keys(EXPLORATION_POLICIES)).toHaveLength(9);
+    expect(Object.keys(EXPLORATION_POLICIES)).toHaveLength(10);
   });
 });
 

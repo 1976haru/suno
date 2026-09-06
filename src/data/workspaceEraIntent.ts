@@ -106,7 +106,8 @@ export const WORKSPACE_ERA_INTENT: Record<WorkspaceId, WorkspaceEraIntent> = {
   // "지금" 감성으로 간주하고 억지로 연대를 강제하지 않는다.
   'en-chillhop': { mode: 'current-implied', noteKo: '별도 시대 언급이 없으면 "지금" 감성으로 간주 — 억지로 연대를 강제하지 않음.' },
   // 지시문 79 — 일본 CHILI LAB은 한 사건을 5막/POV로 재구성하는 것이 우선이다.
-  'jp-chillhop': { mode: 'current-implied', noteKo: '별도 시대 언급이 없으면 "지금" 감성으로 간주 — 일본 CHILI LAB은 5막 스토리/POV가 우선이며 억지로 연대를 강제하지 않음.' }
+  'jp-chillhop': { mode: 'current-implied', noteKo: '별도 시대 언급이 없으면 "지금" 감성으로 간주 — 일본 CHILI LAB은 5막 스토리/POV가 우선이며 억지로 연대를 강제하지 않음.' },
+  'jp-cafe-chillhop': { mode: 'current-implied', noteKo: '별도 시대 언급이 없으면 "지금" 감성으로 간주 — 일본 카페 CHILI LAB은 카페 장소/계절/대화와 Café Story Mode가 우선이며 억지로 연대를 강제하지 않음.' }
 };
 
 export function eraIntentForWorkspace(id: WorkspaceId): WorkspaceEraIntent {

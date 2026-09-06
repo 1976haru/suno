@@ -102,5 +102,7 @@ export const PERCEIVED_ENERGY_POLICY: Record<WorkspaceId, PerceivedEnergyPolicy>
   'kr-idol-female': KR_IDOL_ENERGY_POLICY,
   'en-chillhop': EN_CHILLHOP_ENERGY_POLICY,
   // 지시문 79 — 장르/BPM 대역은 en-chillhop 코어를 공유하므로 같은 시작 앵커를 쓴다.
-  'jp-chillhop': EN_CHILLHOP_ENERGY_POLICY
+  'jp-chillhop': EN_CHILLHOP_ENERGY_POLICY,
+  // 지시문 80 — 카페 CHILI도 같은 BPM 대역 안에서 카페 중심 사운드 floor로 좁힌다.
+  'jp-cafe-chillhop': EN_CHILLHOP_ENERGY_POLICY
 };

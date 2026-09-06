@@ -317,7 +317,23 @@ const JP_CHILLHOP: WorkspaceDefinition = {
   ready: true
 };
 
-export const workspaceDefinitions: WorkspaceDefinition[] = [SENIOR_OLDPOP, KR_2030, JP_2030, KR_KIDS, JP_KIDS, KR_IDOL_M, KR_IDOL_F, EN_CHILLHOP, JP_CHILLHOP];
+const JP_CAFE_CHILLHOP: WorkspaceDefinition = {
+  id: 'jp-cafe-chillhop',
+  labelKo: '일본 카페 CHILI LAB',
+  descriptionKo: '일본 카페와 계절, 대화, 여운을 중심으로 5막 Café Story Mode를 만드는 CHILI LAB 워크스페이스.',
+  archetypeIds: ['jp-cafe-chillhop'],
+  defaultAudienceProfileId: 'jp-cafe-chillhop',
+  defaultLyricLanguage: 'japanese',
+  theme: { accent: '#b45309', surface: '#fff7ed' },
+  terms: {},
+  hiddenFeatures: [],
+  artistName: undefined,
+  contentTier: 'adult',
+  humanCreativeInterventionNote: undefined,
+  ready: true
+};
+
+export const workspaceDefinitions: WorkspaceDefinition[] = [SENIOR_OLDPOP, KR_2030, JP_2030, KR_KIDS, JP_KIDS, KR_IDOL_M, KR_IDOL_F, EN_CHILLHOP, JP_CHILLHOP, JP_CAFE_CHILLHOP];
 
 const BY_ID = new Map(workspaceDefinitions.map(w => [w.id, w]));
 

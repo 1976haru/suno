@@ -565,6 +565,20 @@ export const EN_CHILLHOP_CORE_GENRE_IDS = [
 
 export const JP_CHILLHOP_CORE_GENRE_IDS = EN_CHILLHOP_CORE_GENRE_IDS;
 
+export const JP_CAFE_CHILLHOP_CORE_GENRE_IDS = [
+  'chill-rap',
+  'boom-bap-mellow',
+  'jazz-rap',
+  'lofi-hiphop-study',
+  'en-deep-house-melodic',
+  'en-deep-house-organic',
+  'en-chill-house-emotional',
+  'en-chill-deep-house',
+  'en-lounge-house',
+  'en-deep-house-soulful',
+  'alt-rnb'
+] as const;
+
 /**
  * 지시문 71 (TASK E) — §1.3 BPM 대역 문제(칠랩·힙합 62-98 vs 하우스
  * 110-128, 10 BPM 이상 빈 구간)를 세트 배분 단계에서 처리하기 위한 두
@@ -737,7 +751,8 @@ export const CORE_GENRE_IDS_BY_ARCHETYPE: Record<ChannelArchetype, readonly stri
   'kr-idol-female': KRIDOL_F_CORE_GENRE_IDS,
   // 지시문 71 (TASK A/B) — en-chillhop workspace's genre layer.
   'en-chillhop': EN_CHILLHOP_CORE_GENRE_IDS,
-  'jp-chillhop': JP_CHILLHOP_CORE_GENRE_IDS
+  'jp-chillhop': JP_CHILLHOP_CORE_GENRE_IDS,
+  'jp-cafe-chillhop': JP_CAFE_CHILLHOP_CORE_GENRE_IDS
 };
 
 const allCoreGenreIds = new Set<string>([
@@ -753,7 +768,8 @@ const allCoreGenreIds = new Set<string>([
   ...JP_KIDS_CORE_GENRE_IDS,
   ...KRIDOL_M_CORE_GENRE_IDS,
   ...EN_CHILLHOP_CORE_GENRE_IDS,
-  ...JP_CHILLHOP_CORE_GENRE_IDS
+  ...JP_CHILLHOP_CORE_GENRE_IDS,
+  ...JP_CAFE_CHILLHOP_CORE_GENRE_IDS
 ]);
 
 const quietCafeSignals = [
@@ -3326,7 +3342,16 @@ const CHILLHOP_CROSS_ARCHETYPE_GENRE_IDS: readonly string[] = EN_CHILLHOP_CORE_G
 
 const CROSS_ARCHETYPE_ADDITIONS: Readonly<Record<string, ChannelArchetype[]>> = {
   'jazz-lofi-vocal-jazz': ['modern-chill', 'kr-2030-pop'],
-  ...Object.fromEntries(CHILLHOP_CROSS_ARCHETYPE_GENRE_IDS.map(id => [id, ['en-chillhop', 'jp-chillhop'] as ChannelArchetype[]]))
+  ...Object.fromEntries(CHILLHOP_CROSS_ARCHETYPE_GENRE_IDS.map(id => [
+    id,
+    [
+      'en-chillhop',
+      'jp-chillhop',
+      ...(JP_CAFE_CHILLHOP_CORE_GENRE_IDS.includes(id as typeof JP_CAFE_CHILLHOP_CORE_GENRE_IDS[number])
+        ? ['jp-cafe-chillhop' as const]
+        : [])
+    ] as ChannelArchetype[]
+  ]))
 };
 
 const allGenreSources = [...legacyGenreProfiles, ...kidsGenreProfiles, ...oldpopGenrePacks, ...kr2030GenrePacks, ...jp2030GenrePacks, ...krkidsGenrePacks, ...jpkidsGenrePacks, ...kridolMaleGenrePacks, ...eraGenrePacks, ...modernGenrePacks, ...enChillhopGenrePacks, ...notionDerivedGenrePacks];

@@ -118,10 +118,10 @@ export type AgeGroup = 'kids' | 'teens' | 'twenties' | 'thirtiesForties' | 'seni
 // 만들어진 modern-chill/city-night 레거시 아키타입과 달리, 처음부터 자기
 // 워크스페이스(en-chillhop)에 소속된 아키타입으로 신설한다(§2.1 "재사용하지
 // 말 것").
-export type ChannelArchetype = 'senior-morning' | 'showa-cafe' | 'christmas' | 'lofi-study' | 'kids' | 'showa-70s' | 'j2000s' | 'modern-chill' | 'city-night' | 'oldpop-lounge' | 'kr-2030-pop' | 'jp-2030-pop' | 'kr-kids-song' | 'jp-kids-song' | 'kr-idol-male' | 'kr-idol-female' | 'en-chillhop' | 'jp-chillhop';
+export type ChannelArchetype = 'senior-morning' | 'showa-cafe' | 'christmas' | 'lofi-study' | 'kids' | 'showa-70s' | 'j2000s' | 'modern-chill' | 'city-night' | 'oldpop-lounge' | 'kr-2030-pop' | 'jp-2030-pop' | 'kr-kids-song' | 'jp-kids-song' | 'kr-idol-male' | 'kr-idol-female' | 'en-chillhop' | 'jp-chillhop' | 'jp-cafe-chillhop';
 
 /** v4.0 (TASK A1) — one app, five isolated workspaces; see src/data/workspaces/index.ts for the full definition and src/core/workspaceScope.ts for how data gets namespaced by this id. 지시문 71 — 'en-chillhop' 추가(8번째, 칠랩·딥하우스·힙합, 영어 가사). */
-export type WorkspaceId = 'senior-oldpop' | 'kr-2030' | 'jp-2030' | 'kr-kids' | 'jp-kids' | 'kr-idol-male' | 'kr-idol-female' | 'en-chillhop' | 'jp-chillhop';
+export type WorkspaceId = 'senior-oldpop' | 'kr-2030' | 'jp-2030' | 'kr-kids' | 'jp-kids' | 'kr-idol-male' | 'kr-idol-female' | 'en-chillhop' | 'jp-chillhop' | 'jp-cafe-chillhop';
 
 /** v3.64 (TASK B) — see PreassignedSongSlot.introMode's own doc comment for why this exists and what each value governs. */
 export type IntroMode = 'instrumental' | 'vocal-immediate' | 'vocal-after-texture';
@@ -193,6 +193,7 @@ export type DistinctChoiceVerifiability = 'lyrics-ast' | 'prompt-only' | 'not-me
  */
 export type ScenePlanningMode = 'fixed-pool' | 'concept-generated' | 'same-story-comparison';
 export type ChiliStoryPov = 'couple' | 'male' | 'female';
+export type ChiliStorySpeaker = 'couple' | 'male' | 'female';
 
 /**
  * 지시문 10 (TASK A-2) — decade-granularity era intent, distinct from
@@ -806,6 +807,7 @@ export interface GenerationOptions {
   customConcept: string;
   scenePlanningMode?: ScenePlanningMode;
   storyPov?: ChiliStoryPov;
+  cafeStoryMode?: ChiliStoryPov;
   storySourceEpisodeId?: string;
   storySourceTitle?: string;
   storySourceSummary?: string;
@@ -813,6 +815,12 @@ export interface GenerationOptions {
   storyNextHint?: string;
   storyLocation?: string;
   storySeason?: string;
+  cafeLocation?: string;
+  cafeType?: string;
+  cafeSeason?: string;
+  cafeTimeOfDay?: string;
+  cafeWeather?: string;
+  storySpeaker?: ChiliStorySpeaker;
   /**
    * 지시문 54 (TASK A-2) — 하루: "썸네일이나 플레이리스트 입력하는 곳이
    * 있으면 거기서 입력하면 노래 제목이 자동으로 연동되어 생성되어야지."
@@ -1380,6 +1388,7 @@ export interface SongIdea {
   /** v3.47 Step 3: planned lyric point of view, mainly for allocation preview/auditing. */
   pov?: LyricPerspective;
   storyPov?: ChiliStoryPov;
+  cafeStoryMode?: ChiliStoryPov;
   storySourceEpisodeId?: string;
   storySourceTitle?: string;
   storySourceSummary?: string;
@@ -1387,6 +1396,12 @@ export interface SongIdea {
   storyNextHint?: string;
   storyLocation?: string;
   storySeason?: string;
+  cafeLocation?: string;
+  cafeType?: string;
+  cafeSeason?: string;
+  cafeTimeOfDay?: string;
+  cafeWeather?: string;
+  storySpeaker?: ChiliStorySpeaker;
   storyAct?: number;
   storyActLabel?: string;
   storyArcRole?: string;
@@ -1762,6 +1777,7 @@ export interface PlaylistBlueprint {
     videoTitle?: string;
     workspaceId?: WorkspaceId;
     storyPov?: ChiliStoryPov;
+    cafeStoryMode?: ChiliStoryPov;
     storySourceEpisodeId?: string;
     storySourceTitle?: string;
     storySourceSummary?: string;
@@ -1769,6 +1785,13 @@ export interface PlaylistBlueprint {
     storyNextHint?: string;
     storyLocation?: string;
     storySeason?: string;
+    season?: string;
+    cafeLocation?: string;
+    cafeType?: string;
+    cafeSeason?: string;
+    cafeTimeOfDay?: string;
+    cafeWeather?: string;
+    storySpeaker?: ChiliStorySpeaker;
     storyArc?: unknown;
   };
   /**
@@ -2141,6 +2164,7 @@ export interface PreassignedSongSlot {
   /** v3.47 Step 3: planned lyric point of view for UI/bridge inspection and optional manual allocation. */
   pov?: LyricPerspective;
   storyPov?: ChiliStoryPov;
+  cafeStoryMode?: ChiliStoryPov;
   storySourceEpisodeId?: string;
   storySourceTitle?: string;
   storySourceSummary?: string;
@@ -2148,6 +2172,12 @@ export interface PreassignedSongSlot {
   storyNextHint?: string;
   storyLocation?: string;
   storySeason?: string;
+  cafeLocation?: string;
+  cafeType?: string;
+  cafeSeason?: string;
+  cafeTimeOfDay?: string;
+  cafeWeather?: string;
+  storySpeaker?: ChiliStorySpeaker;
   storyAct?: number;
   storyActLabel?: string;
   storyArcRole?: string;

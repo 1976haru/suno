@@ -95,7 +95,8 @@ const ADULT_ARCHETYPES: ChannelArchetype[] = [
   // 지시문 71 (TASK D) — en-chillhop도 성인 워크스페이스, moodWeights/
   // seasonWeights가 이 목록을 거쳐 en-chillhop에도 적용된다.
   'en-chillhop',
-  'jp-chillhop'
+  'jp-chillhop',
+  'jp-cafe-chillhop'
 ];
 
 /**
@@ -2125,6 +2126,26 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
     },
     moodWeights: { intimate: 2, 'calm-focus': 1, nostalgic: 1 },
     archetypeScope: ['jp-chillhop'],
+    axis: 'genre'
+  },
+  {
+    id: 'jp-cafe-chillhop-story-core',
+    patterns: [/CAF[EÉ]/i, /\bcafe\b/i, /coffee/i, /latte/i, /roaster/i, /CHILI/i, /チリ/u, /カフェ/u, /喫茶/u, /珈琲/u, /コーヒー/u, /ラテ/u, /窓際/u, /テラス/u, /閉店/u, /雨のカフェ/u, /雪の喫茶/u],
+    genreWeights: {
+      'chill-rap': 2,
+      'boom-bap-mellow': 2,
+      'jazz-rap': 2,
+      'lofi-hiphop-study': 2,
+      'en-deep-house-melodic': 2,
+      'en-deep-house-organic': 2,
+      'en-chill-house-emotional': 2,
+      'en-chill-deep-house': 2,
+      'en-lounge-house': 2,
+      'en-deep-house-soulful': 2,
+      'alt-rnb': 2
+    },
+    moodWeights: { intimate: 2, 'calm-focus': 1, nostalgic: 1 },
+    archetypeScope: ['jp-cafe-chillhop'],
     axis: 'genre'
   },
   // -------------------------------------------------------------------------

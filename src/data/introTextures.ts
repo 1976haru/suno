@@ -60,7 +60,7 @@ export const introTextures: IntroTexture[] = [
     labelKo: '뮤트 스트럼',
     labelEn: 'Muted strum',
     tag: 'muted acoustic strum intro texture (INTRO ONLY)',
-    suitedArchetypes: ['senior-morning', 'kids', 'j2000s', 'modern-chill', 'city-night', 'oldpop-lounge', 'kr-2030-pop', 'jp-2030-pop', 'en-chillhop', 'jp-chillhop']
+    suitedArchetypes: ['senior-morning', 'kids', 'j2000s', 'modern-chill', 'city-night', 'oldpop-lounge', 'kr-2030-pop', 'jp-2030-pop', 'en-chillhop', 'jp-chillhop', 'jp-cafe-chillhop']
   },
   {
     id: 'ag_nylon_waltz',
@@ -74,21 +74,21 @@ export const introTextures: IntroTexture[] = [
     labelKo: '재즈 컴핑',
     labelEn: 'Jazz comping',
     tag: 'clean jazz guitar comping intro texture (INTRO ONLY)',
-    suitedArchetypes: ['showa-cafe', 'showa-70s']
+    suitedArchetypes: ['showa-cafe', 'showa-70s', 'jp-cafe-chillhop']
   },
   {
     id: 'eg_tremolo',
     labelKo: '트레몰로 기타',
     labelEn: 'Tremolo guitar',
     tag: 'gentle tremolo electric guitar intro texture (INTRO ONLY)',
-    suitedArchetypes: ['showa-cafe', 'senior-morning', 'showa-70s', 'j2000s', 'modern-chill', 'city-night', 'oldpop-lounge', 'kr-2030-pop', 'jp-2030-pop', 'en-chillhop', 'jp-chillhop']
+    suitedArchetypes: ['showa-cafe', 'senior-morning', 'showa-70s', 'j2000s', 'modern-chill', 'city-night', 'oldpop-lounge', 'kr-2030-pop', 'jp-2030-pop', 'en-chillhop', 'jp-chillhop', 'jp-cafe-chillhop']
   },
   {
     id: 'eg_clean_arp',
     labelKo: '클린 아르페지오',
     labelEn: 'Clean arpeggio',
     tag: 'clean electric guitar arpeggio intro texture (INTRO ONLY)',
-    suitedArchetypes: ['showa-cafe', 'senior-morning', 'showa-70s', 'j2000s', 'modern-chill', 'city-night', 'oldpop-lounge', 'kr-2030-pop', 'jp-2030-pop', 'en-chillhop', 'jp-chillhop']
+    suitedArchetypes: ['showa-cafe', 'senior-morning', 'showa-70s', 'j2000s', 'modern-chill', 'city-night', 'oldpop-lounge', 'kr-2030-pop', 'jp-2030-pop', 'en-chillhop', 'jp-chillhop', 'jp-cafe-chillhop']
   },
   {
     id: 'eg_slide_swell',
@@ -102,21 +102,21 @@ export const introTextures: IntroTexture[] = [
     labelKo: '로즈 리프',
     labelEn: 'Rhodes riff',
     tag: 'warm Rhodes riff intro texture (INTRO ONLY)',
-    suitedArchetypes: ['showa-cafe', 'senior-morning', 'showa-70s', 'j2000s', 'modern-chill', 'city-night', 'oldpop-lounge', 'kr-2030-pop', 'jp-2030-pop', 'en-chillhop', 'jp-chillhop']
+    suitedArchetypes: ['showa-cafe', 'senior-morning', 'showa-70s', 'j2000s', 'modern-chill', 'city-night', 'oldpop-lounge', 'kr-2030-pop', 'jp-2030-pop', 'en-chillhop', 'jp-chillhop', 'jp-cafe-chillhop']
   },
   {
     id: 'ep_wurli_chop',
     labelKo: '월리처 찹',
     labelEn: 'Wurlitzer chop',
     tag: 'soft Wurlitzer chord chop intro texture (INTRO ONLY)',
-    suitedArchetypes: ['showa-cafe', 'showa-70s']
+    suitedArchetypes: ['showa-cafe', 'showa-70s', 'jp-cafe-chillhop']
   },
   {
     id: 'ep_glass_chords',
     labelKo: '유리빛 코드',
     labelEn: 'Glass chords',
     tag: 'glassy electric piano chord intro texture (INTRO ONLY)',
-    suitedArchetypes: ['showa-cafe', 'senior-morning', 'kids', 'j2000s', 'modern-chill', 'city-night', 'oldpop-lounge', 'kr-2030-pop', 'jp-2030-pop', 'en-chillhop', 'jp-chillhop']
+    suitedArchetypes: ['showa-cafe', 'senior-morning', 'kids', 'j2000s', 'modern-chill', 'city-night', 'oldpop-lounge', 'kr-2030-pop', 'jp-2030-pop', 'en-chillhop', 'jp-chillhop', 'jp-cafe-chillhop']
   },
   {
     id: 'ep_vintage_trem',
@@ -137,7 +137,7 @@ export const introTextures: IntroTexture[] = [
     labelKo: '따뜻한 스트링 패드',
     labelEn: 'Warm string pad',
     tag: 'warm string pad swell intro texture (INTRO ONLY)',
-    suitedArchetypes: ['senior-morning', 'showa-cafe', 'showa-70s', 'j2000s', 'city-night', 'oldpop-lounge', 'kr-2030-pop', 'jp-2030-pop']
+    suitedArchetypes: ['senior-morning', 'showa-cafe', 'showa-70s', 'j2000s', 'city-night', 'oldpop-lounge', 'kr-2030-pop', 'jp-2030-pop', 'jp-cafe-chillhop']
   },
   {
     id: 'str_counterline',
@@ -186,28 +186,28 @@ export const introTextures: IntroTexture[] = [
     labelKo: '밝은 신스 플럭',
     labelEn: 'Bright synth pluck',
     tag: 'bright synth pluck intro texture (INTRO ONLY)',
-    suitedArchetypes: ['kids', 'lofi-study', 'j2000s', 'modern-chill', 'city-night', 'en-chillhop', 'jp-chillhop']
+    suitedArchetypes: ['kids', 'lofi-study', 'j2000s', 'modern-chill', 'city-night', 'en-chillhop', 'jp-chillhop', 'jp-cafe-chillhop']
   },
   {
     id: 'syn_soft_arp',
     labelKo: '부드러운 신스 아르페지오',
     labelEn: 'Soft synth arpeggio',
     tag: 'soft synth arpeggio intro texture (INTRO ONLY)',
-    suitedArchetypes: ['kids', 'lofi-study', 'showa-cafe', 'j2000s', 'modern-chill', 'city-night', 'en-chillhop', 'jp-chillhop']
+    suitedArchetypes: ['kids', 'lofi-study', 'showa-cafe', 'j2000s', 'modern-chill', 'city-night', 'en-chillhop', 'jp-chillhop', 'jp-cafe-chillhop']
   },
   {
     id: 'syn_bell_glock',
     labelKo: '글로켄 벨',
     labelEn: 'Glockenspiel bell',
     tag: 'glockenspiel-like bell synth intro texture (INTRO ONLY)',
-    suitedArchetypes: ['kids', 'j2000s', 'modern-chill', 'en-chillhop', 'jp-chillhop']
+    suitedArchetypes: ['kids', 'j2000s', 'modern-chill', 'en-chillhop', 'jp-chillhop', 'jp-cafe-chillhop']
   },
   {
     id: 'syn_chime_steps',
     labelKo: '차임 계단',
     labelEn: 'Chime steps',
     tag: 'small chime-step synth intro texture (INTRO ONLY)',
-    suitedArchetypes: ['kids', 'lofi-study', 'j2000s', 'modern-chill', 'city-night', 'en-chillhop', 'jp-chillhop']
+    suitedArchetypes: ['kids', 'lofi-study', 'j2000s', 'modern-chill', 'city-night', 'en-chillhop', 'jp-chillhop', 'jp-cafe-chillhop']
   },
   // 지시문 31 (§4-3) — kr-idol-male/kr-idol-female 전용, K-pop 인트로 관행
   // 6종. verified: false — 실측 0세트, 장르 관습 판단.
