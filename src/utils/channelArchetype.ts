@@ -27,6 +27,16 @@ export function isEnChillhopArchetype(archetype: string | undefined): boolean {
   return archetype === 'en-chillhop';
 }
 
+const JP_CHILLHOP_ARCHETYPES = new Set<string>(['jp-chillhop']);
+
+export function isJpChillhopArchetype(archetype: string | undefined): boolean {
+  return JP_CHILLHOP_ARCHETYPES.has(archetype ?? '');
+}
+
+export function isChillhopArchetype(archetype: string | undefined): boolean {
+  return isEnChillhopArchetype(archetype) || isJpChillhopArchetype(archetype);
+}
+
 /**
  * TASK: Step1 archetype cards filtered by workspace — Step1Channel.tsx's
  * archetypeChoices grid used to render every archetype from every

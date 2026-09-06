@@ -1,6 +1,7 @@
 import type {
   BilingualPair,
   ChannelArchetype,
+  ChiliStoryPov,
   GenerationOptions,
   GenrePack,
   LyricLanguage,
@@ -9,6 +10,7 @@ import type {
   PreassignedSongSlot,
   SeasonPack,
   SongIdea,
+  WorkspaceId,
   YoutubeMetadata
 } from '../types';
 import { buildSignatureBlueprint, resolveBilingualPair } from './localGenerator';
@@ -27,6 +29,7 @@ import { checkDistinctChoices } from './distinctChoiceCheck';
 import { coerceDistinctChoice } from './distinctChoiceTypes';
 import { APP_VERSION } from './buildInfo';
 import { findGarbledLyricLines } from './lyricGarbleLint';
+import { applyChiliStoryGenerationContract, rawStoryFieldsFromObject, storyMetaFieldsFromOptions } from './chiliStoryPov';
 
 /**
  * v3.66 (TASK C) — split out of claudeCodeBridge.ts. This module is the
@@ -123,6 +126,16 @@ export interface BridgeImportMeta {
   bridgeVersion?: string;
   /** 지시문 55 (TASK A-2) — core/bridgeInstruction.ts의 buildBridgeMeta가 videoTitle이 있을 때만 실어 보낸다. */
   videoTitle?: string;
+  workspaceId?: WorkspaceId;
+  storyPov?: ChiliStoryPov;
+  storySourceEpisodeId?: string;
+  storySourceTitle?: string;
+  storySourceSummary?: string;
+  storyPreviousContext?: string;
+  storyNextHint?: string;
+  storyLocation?: string;
+  storySeason?: string;
+  storyArc?: unknown;
 }
 
 /**
@@ -156,7 +169,17 @@ export function extractBridgeImportMeta(rawText: string): BridgeImportMeta | nul
     ...(typeof obj.songCount === 'number' ? { songCount: obj.songCount } : {}),
     ...(isNonEmptyString(obj.lyricLanguage) ? { lyricLanguage: obj.lyricLanguage } : {}),
     ...(isNonEmptyString(obj.bridgeVersion) ? { bridgeVersion: obj.bridgeVersion } : {}),
-    ...(isNonEmptyString(obj.videoTitle) ? { videoTitle: obj.videoTitle } : {})
+    ...(isNonEmptyString(obj.videoTitle) ? { videoTitle: obj.videoTitle } : {}),
+    ...(isNonEmptyString(obj.workspaceId) ? { workspaceId: obj.workspaceId as WorkspaceId } : {}),
+    ...(obj.storyPov === 'couple' || obj.storyPov === 'male' || obj.storyPov === 'female' ? { storyPov: obj.storyPov } : {}),
+    ...(isNonEmptyString(obj.storySourceEpisodeId) ? { storySourceEpisodeId: obj.storySourceEpisodeId } : {}),
+    ...(isNonEmptyString(obj.storySourceTitle) ? { storySourceTitle: obj.storySourceTitle } : {}),
+    ...(isNonEmptyString(obj.storySourceSummary) ? { storySourceSummary: obj.storySourceSummary } : {}),
+    ...(isNonEmptyString(obj.storyPreviousContext) ? { storyPreviousContext: obj.storyPreviousContext } : {}),
+    ...(isNonEmptyString(obj.storyNextHint) ? { storyNextHint: obj.storyNextHint } : {}),
+    ...(isNonEmptyString(obj.storyLocation) ? { storyLocation: obj.storyLocation } : {}),
+    ...(isNonEmptyString(obj.storySeason) ? { storySeason: obj.storySeason } : {}),
+    ...(obj.storyArc && typeof obj.storyArc === 'object' ? { storyArc: obj.storyArc } : {})
   };
 }
 
@@ -401,6 +424,7 @@ function normalizeImportedSong(
     ...(isNonEmptyString(obj.lyricThemeText) ? { lyricThemeText: obj.lyricThemeText } : {}),
     ...(isNonEmptyString(obj.lyricThemeArc) ? { lyricThemeArc: obj.lyricThemeArc } : {}),
     ...(isNonEmptyString(obj.pov) ? { pov: obj.pov as SongIdea['pov'] } : {}),
+    ...rawStoryFieldsFromObject(obj),
     ...(isNonEmptyString(obj.verseStyle) ? { verseStyle: obj.verseStyle as SongIdea['verseStyle'] } : {}),
     ...(isNonEmptyString(obj.verseStyleText) ? { verseStyleText: obj.verseStyleText } : {}),
     ...(isNonEmptyString(obj.chorusStyle) ? { chorusStyle: obj.chorusStyle as SongIdea['chorusStyle'] } : {}),
@@ -518,6 +542,7 @@ export function importSongsJson(
   if (!season?.label || !opts?.channel || !Array.isArray(genres) || !Array.isArray(moods)) {
     return { blueprint: null, importedCount: 0, skippedCount: 0, skippedReasons: ['채널·시즌 설정을 먼저 선택한 뒤 가져오기를 실행하세요.'], warnings: [], requestedCount: opts?.songCount ?? 0 };
   }
+  opts = applyChiliStoryGenerationContract(opts);
 
   let parsed: unknown;
   try {
@@ -655,10 +680,26 @@ export function importSongsJson(
   // meta를 안 넣었으면") meta 대신 opts로 채운다. 둘 다 비어 있으면 키
   // 자체를 넣지 않는다.
   const resolvedVideoTitle = (opts.videoTitle?.trim() || meta?.videoTitle?.trim()) || undefined;
+  const importedStoryMeta = meta
+    ? {
+        ...(meta.workspaceId ? { workspaceId: meta.workspaceId } : {}),
+        ...(meta.storyPov ? { storyPov: meta.storyPov } : {}),
+        ...(meta.storySourceEpisodeId ? { storySourceEpisodeId: meta.storySourceEpisodeId } : {}),
+        ...(meta.storySourceTitle ? { storySourceTitle: meta.storySourceTitle } : {}),
+        ...(meta.storySourceSummary ? { storySourceSummary: meta.storySourceSummary } : {}),
+        ...(meta.storyPreviousContext ? { storyPreviousContext: meta.storyPreviousContext } : {}),
+        ...(meta.storyNextHint ? { storyNextHint: meta.storyNextHint } : {}),
+        ...(meta.storyLocation ? { storyLocation: meta.storyLocation } : {}),
+        ...(meta.storySeason ? { storySeason: meta.storySeason } : {}),
+        ...(meta.storyArc ? { storyArc: meta.storyArc } : {})
+      }
+    : {};
   const blueprint: PlaylistBlueprint = {
     ...blueprintBase,
     meta: {
       ...blueprintBase.meta,
+      ...storyMetaFieldsFromOptions(opts),
+      ...importedStoryMeta,
       bridgeVersion: meta?.bridgeVersion || APP_VERSION,
       ...(resolvedVideoTitle ? { videoTitle: resolvedVideoTitle } : {})
     }

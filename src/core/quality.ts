@@ -27,6 +27,7 @@ import { qualityPolicyForOptions } from '../data/workspaceQualityPolicies';
 import { evaluateDistinctChoiceGate } from './distinctChoiceGate';
 import { safetyForbiddenRuleIdsForWorkspace } from '../data/distinctChoicePolicy';
 import { workspaceForArchetype } from '../data/workspaces';
+import { japaneseChiliQualityWarningsForPack } from './japaneseChiliQuality';
 
 // TASK G1 (v3.10) — updated to match the terse compactMoneyChord/compactHook
 // wording ('I-V-vi-IV progression', 'repeats chorus 4x') that replaced the
@@ -994,6 +995,12 @@ export function scoreSongs(songs: SongIdea[], channel?: ChannelProfile, language
       })
     : undefined;
   const trackResultByNo = new Map((gateResult?.trackResults ?? []).map(r => [r.trackNo, r]));
+  const chiliWarningsByTrackNo = japaneseChiliQualityWarningsForPack(scored, {
+    channel,
+    language,
+    storyPov: scored.find(song => song.storyPov)?.storyPov,
+    songCount: scored.length
+  });
 
   return scored.map(song => {
     const warnings = [...(song.warnings || [])];
@@ -1007,6 +1014,12 @@ export function scoreSongs(songs: SongIdea[], channel?: ChannelProfile, language
       pushUnique(warnings, `distinctChoice (${trackResult.ruleId}): ${trackResult.reasonKo}${provisionalTag}`);
       if (gateResult?.verified) distinctChoicePenalty += 8;
     }
+    let chiliPenalty = 0;
+    const chiliWarnings = chiliWarningsByTrackNo.get(song.trackNo) ?? [];
+    for (const warning of chiliWarnings) {
+      pushUnique(warnings, warning);
+      chiliPenalty += 6;
+    }
     return {
       ...song,
       warnings,
@@ -1014,7 +1027,7 @@ export function scoreSongs(songs: SongIdea[], channel?: ChannelProfile, language
         ...(song.scores as SongScores),
         diversityScore: packDiversityScore(song, scored)
       },
-      qualityScore: Math.max(0, song.qualityScore - distinctChoicePenalty)
+      qualityScore: Math.max(0, song.qualityScore - distinctChoicePenalty - Math.min(18, chiliPenalty))
     };
   });
 }

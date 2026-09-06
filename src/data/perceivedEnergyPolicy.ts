@@ -100,5 +100,7 @@ export const PERCEIVED_ENERGY_POLICY: Record<WorkspaceId, PerceivedEnergyPolicy>
   'jp-kids': UNMEASURED_POLICY,
   'kr-idol-male': KR_IDOL_ENERGY_POLICY,
   'kr-idol-female': KR_IDOL_ENERGY_POLICY,
-  'en-chillhop': EN_CHILLHOP_ENERGY_POLICY
+  'en-chillhop': EN_CHILLHOP_ENERGY_POLICY,
+  // 지시문 79 — 장르/BPM 대역은 en-chillhop 코어를 공유하므로 같은 시작 앵커를 쓴다.
+  'jp-chillhop': EN_CHILLHOP_ENERGY_POLICY
 };

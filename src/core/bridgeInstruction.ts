@@ -36,6 +36,7 @@ import { buildPolicyExplorationInstructionLines, type PolicyExplorationSlotPlan 
 import { vocabularyBankById } from '../data/vocabularyBanks';
 import { isGenreEligibleForArchetype } from '../data/genreLibrary';
 import { resolveScenePlanningMode as resolveSharedScenePlanningMode } from './scenePlanningMode';
+import { applyChiliStoryGenerationContract, buildJpChillhopStoryInstructionLines, storyMetaFieldsFromOptions } from './chiliStoryPov';
 
 /**
  * v3.66 (TASK C) — split out of claudeCodeBridge.ts (was 1,207 lines, one of
@@ -77,7 +78,7 @@ export function defaultBridgeOutputPath(opts: Pick<GenerationOptions, 'channel' 
  * must not make meta required — see its own prohibitions section).
  */
 function buildBridgeMeta(
-  opts: Pick<GenerationOptions, 'channel' | 'customConcept' | 'projectTitle' | 'songCount' | 'lyricLanguage' | 'videoTitle'>,
+  opts: GenerationOptions,
   outputFilename: string
 ) {
   const setName = outputFilename.replace(/^lyrics\//, '').replace(/\.json$/, '');
@@ -97,7 +98,9 @@ function buildBridgeMeta(
     // 나가지만 requestPayload.meta에 담는 코드가 없어 팩까지 안 남았다.
     // videoTitle이 없을 때는 키 자체를 안 넣는다(§A-4 "videoTitle 없을
     // 때 meta 변화 0건").
-    ...(opts.videoTitle?.trim() ? { videoTitle: opts.videoTitle.trim() } : {})
+    ...(opts.videoTitle?.trim() ? { videoTitle: opts.videoTitle.trim() } : {}),
+    // 지시문 79 — jp-chillhop story POV/source/5막 arc는 meta에 additive로 싣는다.
+    ...storyMetaFieldsFromOptions(opts)
   };
 }
 
@@ -302,7 +305,7 @@ export interface ConceptSceneContext {
  * member rather than removed.
  */
 export function resolveScenePlanningMode(
-  opts: Pick<GenerationOptions, 'customConcept'> & { scenePlanningMode?: ScenePlanningMode },
+  opts: Pick<GenerationOptions, 'channel' | 'customConcept' | 'storyPov' | 'storySourceSummary'> & { scenePlanningMode?: ScenePlanningMode },
   conceptSceneContext: ConceptSceneContext | undefined
 ): ScenePlanningMode {
   return resolveSharedScenePlanningMode(opts, conceptSceneContext);
@@ -319,6 +322,7 @@ function buildBridgePayload(
   outputFilename?: string,
   conceptSceneContext?: ConceptSceneContext
 ) {
+  opts = applyChiliStoryGenerationContract(opts);
   const batch: BatchContext = {
     trackNoOffset: 0,
     totalSongCount: opts.songCount,
@@ -1878,6 +1882,7 @@ export function buildClaudeCodeInstruction(
   /** v5.24 (TASK A/B/C/D) — core/explorationPolicyEngine.ts's own pre-resolved plan for every workspace except senior-oldpop (which keeps using `explorationPlan` above). Optional and additive: omitted (or `enabled: false`) produces zero exploration text. */
   policyExplorationPlan?: PolicyExplorationSlotPlan
 ): string {
+  opts = applyChiliStoryGenerationContract(opts);
   // TASK (genre-archetype sanitization) — `genres` here is only ever a
   // lookup table for label/description text (per-track assignment is driven
   // by `preassignedSongs[i].genreId`, already sanitized upstream by
@@ -1981,6 +1986,7 @@ export function buildClaudeCodeInstruction(
     // v5.24 (TASK B/C/D) — the same slot-instruction shape, driven by
     // data/explorationPolicies.ts, for every workspace except senior-oldpop.
     ...buildPolicyExplorationInstructionLines(policyExplorationPlan ?? { enabled: false, workspaceId, trackNos: [], axis: null }),
+    ...buildJpChillhopStoryInstructionLines(opts, preassignedSongs),
     // 지시문 37 (TASK A-4) — K-pop-only part-map block; empty for every other workspace (no slot carries partPlan elsewhere).
     ...kpopPartPlanInstructionLines(preassignedSongs),
     // v5.24 (TASK G) — advisory, never-forced set-completeness suggestions

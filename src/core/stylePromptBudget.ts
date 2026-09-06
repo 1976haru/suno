@@ -42,7 +42,9 @@ const POLICY_BY_WORKSPACE: Record<WorkspaceId, StylePromptWordPolicy> = {
   'kr-idol-female': KPOP_POLICY,
   // 지시문 71 (TASK A) — 칠랩/힙합/딥하우스는 일반 팝과 같은 성격(파트맵/
   // 리듬 큐 지시문이 K-pop만큼 필요하지 않음) — DEFAULT_POLICY.
-  'en-chillhop': DEFAULT_POLICY
+  'en-chillhop': DEFAULT_POLICY,
+  // 지시문 79 — 일본 CHILI LAB도 성인 칠랩/딥하우스 계열이므로 같은 예산.
+  'jp-chillhop': DEFAULT_POLICY
 };
 
 export function stylePromptWordPolicyFor(workspaceId: WorkspaceId): StylePromptWordPolicy {

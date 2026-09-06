@@ -410,7 +410,8 @@ const SIGNATURE_MONEY_CHORD_BY_ARCHETYPE: Record<string, string> = {
   'lofi-study': 'jazzColor',
   // 지시문 71 (TASK A) — modern-chill과 같은 이유(칠랩/로파이 힙합 계열이
   // 이 채널의 핵심 정체성).
-  'en-chillhop': 'jazzColor'
+  'en-chillhop': 'jazzColor',
+  'jp-chillhop': 'jazzColor'
 };
 
 export function signatureMoneyChordId(archetype: string | undefined): string {
@@ -494,7 +495,8 @@ const MONEY_CHORD_ROTATION_POOL_BY_ARCHETYPE: Record<string, string[]> = {
   'lofi-study': ['jazzColor', 'cityPop', 'warmCycle', 'default', 'emotional', 'canon'],
   // 지시문 71 (TASK A) — modern-chill과 같은 풀 재사용(재즈 색 기반 칠랩/
   // 로파이 힙합 정체성) — 새 프리셋을 만들지 않는다(§하지 말 것 "재구현 금지").
-  'en-chillhop': ['jazzColor', 'emotional', 'cityPop', 'default', 'canon', 'popStandard']
+  'en-chillhop': ['jazzColor', 'emotional', 'cityPop', 'default', 'canon', 'popStandard'],
+  'jp-chillhop': ['jazzColor', 'emotional', 'cityPop', 'default', 'canon', 'popStandard']
 };
 
 export function moneyChordRotationPool(archetype: string | undefined): string[] {

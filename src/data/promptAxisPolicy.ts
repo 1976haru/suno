@@ -91,6 +91,15 @@ export const PROMPT_AXIS_POLICIES: Record<WorkspaceId, PromptAxisPolicy> = {
     maxLength: PROVISIONAL_MAX_LENGTH,
     verified: false,
     sourceKo: '미실측 — provisional. 게이트는 돌되 blocking하지 않는다.'
+  },
+  // 지시문 79 — 일본 CHILI LAB도 bridge 출력의 축 중복/길이 관찰은 같은
+  // 공통 엔진으로 보되, 첫 실전 세트 전까지는 미실측 정책으로 둔다.
+  'jp-chillhop': {
+    workspaceId: 'jp-chillhop',
+    singleDeclarationAxes: COMMON_SINGLE_DECLARATION_AXES,
+    maxLength: PROVISIONAL_MAX_LENGTH,
+    verified: false,
+    sourceKo: '미실측 — 지시문 79 일본 CHILI LAB provisional. 게이트는 돌되 blocking하지 않는다.'
   }
 };
 

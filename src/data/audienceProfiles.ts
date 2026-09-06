@@ -579,6 +579,49 @@ const EN_CHILLHOP_AUDIENCE_PROFILE: AudienceProfile = {
   arrangementDensityLimits: { sparseMin: 2, fullMax: 6 }
 };
 
+const JP_CHILLHOP_AUDIENCE_PROFILE: AudienceProfile = {
+  id: 'jp-chillhop',
+  labelKo: '일본 CHILI LAB',
+  constraints: [
+    'contemporary Japanese urban chillhop production',
+    'bass and drums carry the groove',
+    'natural conversational Japanese delivery',
+    'close-mic intimate phrasing',
+    'one-story-album continuity'
+  ],
+  exclusions: [
+    'vintage tape saturation',
+    'Showa-era AM-radio compression',
+    'nostalgic senior-radio announcer tone',
+    'English translationese Japanese',
+    'Korean lyric fallback',
+    'famous artist imitation'
+  ],
+  tempoFloor: 62,
+  tempoCeiling: 128,
+  genreBoundedTempo: true,
+  lyricWordRange: [180, 280],
+  songLengthSecondsRange: [165, 215],
+  relaxableAtPeak: [],
+  hardExclusions: [
+    'vintage tape saturation',
+    'Showa-era AM-radio compression',
+    'nostalgic senior-radio announcer tone',
+    'English translationese Japanese',
+    'Korean lyric fallback',
+    'famous artist imitation'
+  ],
+  killingPointSetId: 'jp-chillhop-default',
+  arcModelId: 'five-phase',
+  structureTemplateSetId: 'adult-t1-t5',
+  titlePatternSetId: 'adult-en-v1',
+  vocabularyBankIds: [],
+  lyricMetricsByLanguage: {
+    japanese: { primaryRange: [360, 520], syllableRange: [360, 520] }
+  },
+  arrangementDensityLimits: { sparseMin: 2, fullMax: 6 }
+};
+
 const KIDS_0_TO_2_AUDIENCE_PROFILE: AudienceProfile = {
   id: 'kids-0to2',
   labelKo: '동요 0~2세',
@@ -783,6 +826,7 @@ export const PROVISIONAL_AUDIENCE_PROFILES: AudienceProfile[] = [
   KR_KIDS_AUDIENCE_PROFILE,
   JP_KIDS_AUDIENCE_PROFILE,
   EN_CHILLHOP_AUDIENCE_PROFILE,
+  JP_CHILLHOP_AUDIENCE_PROFILE,
   KIDS_0_TO_2_AUDIENCE_PROFILE,
   KIDS_2_TO_4_AUDIENCE_PROFILE,
   KIDS_4_TO_7_AUDIENCE_PROFILE

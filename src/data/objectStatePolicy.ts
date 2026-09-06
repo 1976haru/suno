@@ -66,6 +66,13 @@ export const OBJECT_STATE_POLICY: Record<WorkspaceId, ObjectStatePolicy> = {
     kinds: ['message', 'vehicle'],
     verifiedKinds: [],
     sourceKo: '추정치 — 실측 없음.'
+  },
+  // 지시문 79 — 일본 CHILI LAB은 성인 도시 서사형 워크스페이스로, 문자/차량
+  // 상태 모순을 보되 첫 실전 세트 전까지는 advisory로만 둔다.
+  'jp-chillhop': {
+    kinds: ['message', 'vehicle'],
+    verifiedKinds: [],
+    sourceKo: '추정치 — 지시문 79 일본 CHILI LAB 스토리 POV 검증용. 첫 세트 측정 후 재조정.'
   }
 };
 

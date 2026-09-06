@@ -12,7 +12,6 @@ it('readiness badge vs actual', () => {
   console.warn = () => {};
   for (const ws of WORKSPACES) {
     const r = computeWorkspaceReadiness(ws, 0);
-    const genreItem = r.items.find(i => i.id === 'genre-pool');
     const chans = channelPresets.filter(c => (ws.archetypeIds as readonly string[]).includes(c.archetype));
     const actual = chans.map(c => {
       const opts = makeOptions({ channel: c, projectTitle: 'Audit2 Ready', songCount: 12, genreIds: c.preferredGenres } as Partial<GenerationOptions>) as GenerationOptions;

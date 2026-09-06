@@ -1,10 +1,14 @@
 import type { ChannelArchetype } from '../types';
 import { vocalPresets, type VocalPreset } from '../data/vocalPresets';
-import { isKidsArchetype } from '../utils/channelArchetype';
+import { isJpChillhopArchetype, isKidsArchetype } from '../utils/channelArchetype';
 import { buildVocalPlan, vocalTypeMatchesPresetGender, type VocalQuota, type VocalType } from './vocalPlan';
 import { MALE_VOCAL_TRAIT_AXES, FEMALE_VOCAL_TRAIT_AXES } from '../data/vocalTraits';
 import { vocalAffinityForGenre, vocalAvoidForGenre } from '../data/genreVocalAffinity';
 import { mulberry32 } from '../utils/prng';
+
+function equivalentVocalArchetypes(archetype: ChannelArchetype): ChannelArchetype[] {
+  return isJpChillhopArchetype(archetype) ? ['jp-chillhop', 'en-chillhop'] : [archetype];
+}
 
 /**
  * 지시문 38 (TASK D2) — Step2Concept.tsx의 보컬 프리셋 그리드가 쓰는
@@ -18,8 +22,9 @@ import { mulberry32 } from '../utils/prng';
 export function suitablePresetsForArchetype(channelArchetype: ChannelArchetype | undefined): VocalPreset[] {
   const archetype = channelArchetype ?? 'senior-morning';
   const kids = isKidsArchetype(archetype);
+  const allowedArchetypes = equivalentVocalArchetypes(archetype);
   return vocalPresets.filter(preset =>
-    Boolean(preset.forKids) === kids && (preset.forKids || Boolean(preset.suitedArchetypes?.includes(archetype)))
+    Boolean(preset.forKids) === kids && (preset.forKids || allowedArchetypes.some(allowed => preset.suitedArchetypes?.includes(allowed)))
   );
 }
 
@@ -89,7 +94,9 @@ function genreAffinityRank(presetId: string, genreId: string | undefined): numbe
 }
 
 function reasonFor(preset: VocalPreset, channelArchetype: ChannelArchetype | undefined, priorUses: number, genreId: string | undefined): string {
-  const suited = channelArchetype ? preset.suitedArchetypes?.includes(channelArchetype) : false;
+  const suited = channelArchetype
+    ? equivalentVocalArchetypes(channelArchetype).some(archetype => preset.suitedArchetypes?.includes(archetype))
+    : false;
   const base = suited ? `이 채널에 어울리는 음색이에요 — ${preset.description}` : preset.description;
   const affinityRank = genreAffinityRank(preset.id, genreId);
   const withGenre = affinityRank !== undefined ? `${base} 이 곡의 장르와도 잘 맞아요.` : base;

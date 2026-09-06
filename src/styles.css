@@ -360,6 +360,12 @@ textarea {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.two-col-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
 .choice-card {
   display: grid;
   gap: 6px;
@@ -912,6 +918,10 @@ textarea {
 
 .option-block {
   margin-top: 18px;
+}
+
+.option-block.compact {
+  margin-top: 10px;
 }
 
 /* 지시문 14 (TASK D-4) — DataManagementPanel.tsx's "과거 세트 이력 등록" diagnostic output, which is real multi-line Korean text (formatWorkspaceHistoryDiagnostic) that must keep its own line breaks instead of collapsing to one paragraph. */

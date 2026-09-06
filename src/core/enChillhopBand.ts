@@ -25,7 +25,7 @@ import {
   EN_CHILLHOP_HOUSE_BAND_GENRE_IDS,
   EN_CHILLHOP_RAP_BAND_GENRE_IDS
 } from '../data/genreLibrary';
-import { isEnChillhopArchetype } from '../utils/channelArchetype';
+import { isChillhopArchetype } from '../utils/channelArchetype';
 import type { ChannelArchetype } from '../types';
 
 /**
@@ -72,7 +72,7 @@ export function applyEnChillhopBandLock(
   archetype: ChannelArchetype | undefined,
   freeText: string
 ): string[] {
-  if (!isEnChillhopArchetype(archetype) || !genreIds.length) return [...genreIds];
+  if (!isChillhopArchetype(archetype) || !genreIds.length) return [...genreIds];
   const bandIds = enChillhopBandGenreIds(freeText, genreIds);
   const locked = genreIds.filter(id => bandIds.has(id));
   return locked.length ? locked : [...genreIds];

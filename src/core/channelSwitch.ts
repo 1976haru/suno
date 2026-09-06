@@ -2,6 +2,7 @@ import type { ChannelProfile, GenerationOptions, LyricLanguage } from '../types'
 import { normalizeGenreSelection, sanitizeGenreIdsForArchetype } from './genreSelection';
 import { defaultPackagingLanguageForChannel } from './packagingLanguage';
 import { detectProvenanceDowngrades } from './userChoices';
+import { applyChiliStoryGenerationContract, isJpChillhopOptions } from './chiliStoryPov';
 import { GENRE_FAMILIES } from '../data/genreFamilies';
 import { getGenreById, isGenreEligibleForArchetype } from '../data/genreLibrary';
 import { allocationForAxis, replaceAxisAllocation } from './diversityAllocation';
@@ -102,7 +103,11 @@ export function reconcileOptionsForChannelSwitch(
   }
 
   const nextPackagingLanguage = defaultPackagingLanguageForChannel(newChannel);
-  const nextLyricLanguage = keepUserLanguage ? previousOpts.lyricLanguage : newChannel.primaryLanguage;
+  const nextLyricLanguage = isJpChillhopOptions({ channel: newChannel })
+    ? 'japanese'
+    : keepUserLanguage
+      ? previousOpts.lyricLanguage
+      : newChannel.primaryLanguage;
   if (keepUserLanguage) {
     changesKo.push(`언어 설정(${LANGUAGE_LABEL_KO[nextLyricLanguage]})은 유지했습니다. 이 채널의 기본은 ${LANGUAGE_LABEL_KO[newChannel.primaryLanguage]}입니다.`);
   }
@@ -118,7 +123,7 @@ export function reconcileOptionsForChannelSwitch(
     changesKo.push(`채널 변경으로 직접 선택하신 ${otherDowngrades.map(d => d.labelKo).join(', ')} 설정이 채널 기본값으로 되돌아갔습니다.`);
   }
 
-  const opts: GenerationOptions = {
+  const nextOpts: GenerationOptions = {
     ...previousOpts,
     channel: newChannel,
     market: newChannel.market,
@@ -142,6 +147,7 @@ export function reconcileOptionsForChannelSwitch(
       moodIds: 'channel'
     }
   };
+  const opts = applyChiliStoryGenerationContract(nextOpts);
 
   return { opts, changesKo };
 }

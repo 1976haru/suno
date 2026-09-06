@@ -301,7 +301,23 @@ const EN_CHILLHOP: WorkspaceDefinition = {
   ready: true
 };
 
-export const workspaceDefinitions: WorkspaceDefinition[] = [SENIOR_OLDPOP, KR_2030, JP_2030, KR_KIDS, JP_KIDS, KR_IDOL_M, KR_IDOL_F, EN_CHILLHOP];
+const JP_CHILLHOP: WorkspaceDefinition = {
+  id: 'jp-chillhop',
+  labelKo: '일본 CHILI LAB',
+  descriptionKo: '일본 20~30대용 Japanese Chill Rap / Chill House / Story Playlist 워크스페이스.',
+  archetypeIds: ['jp-chillhop'],
+  defaultAudienceProfileId: 'jp-chillhop',
+  defaultLyricLanguage: 'japanese',
+  theme: { accent: '#0f9f8f', surface: '#effdf9' },
+  terms: {},
+  hiddenFeatures: [],
+  artistName: undefined,
+  contentTier: 'adult',
+  humanCreativeInterventionNote: undefined,
+  ready: true
+};
+
+export const workspaceDefinitions: WorkspaceDefinition[] = [SENIOR_OLDPOP, KR_2030, JP_2030, KR_KIDS, JP_KIDS, KR_IDOL_M, KR_IDOL_F, EN_CHILLHOP, JP_CHILLHOP];
 
 const BY_ID = new Map(workspaceDefinitions.map(w => [w.id, w]));
 

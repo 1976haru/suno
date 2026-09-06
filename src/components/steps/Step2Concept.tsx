@@ -20,7 +20,7 @@ import { hashSeed } from '../../utils/prng';
 import { povDistribution, resolvePerspectiveMode } from '../../core/lyricDiversityPlan';
 import { buildGenreRotationPlan, resolveGenreBlendMode } from '../../core/genreRotation';
 import { avoidWordPresets, joinAvoidWords, parseAvoidWords } from '../../data/avoidWordPresets';
-import { isKidsArchetype } from '../../utils/channelArchetype';
+import { isJpChillhopArchetype, isKidsArchetype } from '../../utils/channelArchetype';
 import { NEGATIVE_STYLE_TOGGLES, buildDefaultNegativeStyle, mergeNegativeStyleText, parseNegativeStyleTerms, withNegativeStyleTerm, withoutNegativeStyleTerm } from '../../data/negativeStyles';
 import { isPlausibleChordProgression, moneyChordPresets } from '../../data/moneyChords';
 import { genreSanitizationWarningKo, MAX_SECONDARY_GENRES, MAX_SELECTED_GENRES, normalizeGenreSelection, sanitizeGenreIdsForArchetype } from '../../core/genreSelection';
@@ -37,12 +37,22 @@ import { workspaceForArchetype } from '../../data/workspaces';
 import { LISTENING_INTENT_POLICY, DEFAULT_LISTENING_INTENT } from '../../data/listeningIntentPolicy';
 import { PERCEIVED_ENERGY_POLICY } from '../../data/perceivedEnergyPolicy';
 import { applyListeningIntentToOptions, listeningIntentApplicationStatus } from '../../core/listeningIntent';
+import {
+  applyChiliStoryGenerationContract,
+  CHILI_STORY_DEFAULT_SONG_COUNT,
+  CHILI_STORY_POV_LABEL_JA,
+  chiliStoryContractSummaryKo,
+  isSoloChiliStoryPov,
+  normalizeChiliStoryPov,
+  parseChiliStoryLine,
+  vocalQuotaForChiliStoryPov
+} from '../../core/chiliStoryPov';
 import ChoiceGrid from '../ChoiceGrid';
 import ConceptAgentPanel from '../ConceptAgentPanel';
 import DiversityAllocationPanel from '../DiversityAllocationPanel';
 import type { ConceptRecommendation } from '../../core/conceptAgent';
 import type { ConceptCompatibilityResult } from '../../core/conceptCompatibility';
-import type { ChannelProfile, GenerationOptions, GenrePack, ListeningIntent, MoodPack, SavedPackMeta, SeasonPack, LyricLanguage, DisplayLanguage, ProviderSettings, WorkspaceId } from '../../types';
+import type { ChannelProfile, ChiliStoryPov, GenerationOptions, GenrePack, ListeningIntent, MoodPack, SavedPackMeta, SeasonPack, LyricLanguage, DisplayLanguage, ProviderSettings, WorkspaceId } from '../../types';
 
 /** v4.2 (TASK E) — computed once at module load (QUALITY_THRESHOLDS is static data, not per-render/per-props), reused by the advanced-settings "기준값 검증 상태" summary below. */
 const THRESHOLD_BASIS_SUMMARY = thresholdsByBasis();
@@ -65,7 +75,8 @@ const LANGUAGE_IMPACT_NOTE_KO: Partial<Record<WorkspaceId, string>> = {
   'kr-kids': '동요를 한국어가 아닌 언어로 만들면 한국 아이가 따라 부르기 어려울 수 있습니다. 연령대별 어휘 정책과 "아동 서사 안전성" 검사(위험 행동 미교정·공포 결말 등 감지)는 한국어 세트에서만 적용됩니다 — 다른 언어로 고르면 이 축은 검사되지 않습니다.',
   'jp-kids': '동요를 일본어가 아닌 언어로 만들면 일본 아이가 따라 부르기 어려울 수 있습니다. "아동 서사 안전성" 검사는 일본어 세트에서만 적용됩니다 — 다른 언어로 고르면 이 축은 검사되지 않습니다.',
   'kr-idol-male': '한국 아이돌 팬덤 대상 어휘·정서가 다른 언어로는 달라질 수 있습니다.',
-  'kr-idol-female': '한국 아이돌 팬덤 대상 어휘·정서가 다른 언어로는 달라질 수 있습니다.'
+  'kr-idol-female': '한국 아이돌 팬덤 대상 어휘·정서가 다른 언어로는 달라질 수 있습니다.',
+  'jp-chillhop': '일본 CHILI LAB은 자연스러운 일본어 가사와 5막 스토리 POV가 핵심 계약입니다. 이 워크스페이스에서는 일본어로 고정됩니다.'
 };
 
 const languageOptions: { value: LyricLanguage; label: string; sub: string }[] = [
@@ -127,6 +138,12 @@ const PERSPECTIVE_SHORT_LABEL_KO: Record<GenerationOptions['perspective'], strin
   thirdPerson: '3인칭',
   radioHost: '라디오 DJ'
 };
+
+const CHILI_STORY_POV_CHOICES: { id: ChiliStoryPov; label: string; sublabel: string; description: string; recommended?: boolean }[] = [
+  { id: 'couple', label: CHILI_STORY_POV_LABEL_JA.couple, sublabel: 'Couple', description: '한 사건을 두 사람의 관계 흐름으로 이어가되, 보컬 성별은 고정하지 않습니다.', recommended: true },
+  { id: 'male', label: CHILI_STORY_POV_LABEL_JA.male, sublabel: 'Male POV', description: '남성 화자의 1인칭 일본어 이야기로 고정하고, 전 곡을 남성 보컬로 잠급니다.' },
+  { id: 'female', label: CHILI_STORY_POV_LABEL_JA.female, sublabel: 'Female POV', description: '여성 화자의 1인칭 일본어 이야기로 고정하고, 전 곡을 여성 보컬로 잠급니다.' }
+];
 
 interface Step2ConceptProps {
   opts: GenerationOptions;
@@ -236,6 +253,74 @@ export default function Step2Concept({
   const referenceMoodIssues = referenceMoodSafetyIssues(referenceMoodValue);
   const referenceMoodClause = buildReferenceMoodStyleClause(referenceMoodValue);
   const channelArchetype = opts.channel.archetype || 'senior-morning';
+  const isJpChillhop = isJpChillhopArchetype(channelArchetype);
+  const chiliStoryPov = normalizeChiliStoryPov(opts.storyPov);
+  const chiliStoryLockedQuota = isJpChillhop ? vocalQuotaForChiliStoryPov(chiliStoryPov, opts.songCount) : undefined;
+  const chiliStorySummaryKo = chiliStoryContractSummaryKo(opts);
+  const [storyLineDraft, setStoryLineDraft] = useState('');
+  const storyLineParsePreview = storyLineDraft.trim() ? parseChiliStoryLine(storyLineDraft) : null;
+  const lyricLanguageChoices = isJpChillhop
+    ? languageOptions.filter(option => option.value === 'japanese')
+    : isKidsArchetype(channelArchetype) ? languageOptions.filter(option => option.value !== 'bilingual') : languageOptions;
+  useEffect(() => {
+    if (!isJpChillhop) return;
+    setOpts(prev => {
+      const next = applyChiliStoryGenerationContract(prev);
+      const sameQuota = (!prev.vocalQuota && !next.vocalQuota)
+        || (prev.vocalQuota?.male === next.vocalQuota?.male && prev.vocalQuota?.female === next.vocalQuota?.female && prev.vocalQuota?.mixed === next.vocalQuota?.mixed);
+      if (
+        prev.lyricLanguage === next.lyricLanguage
+        && prev.storyPov === next.storyPov
+        && prev.perspective === next.perspective
+        && prev.perspectiveMode === next.perspectiveMode
+        && prev.perspectiveModeIsExplicitChoice === next.perspectiveModeIsExplicitChoice
+        && prev.vocalQuotaMode === next.vocalQuotaMode
+        && prev.scenePlanningMode === next.scenePlanningMode
+        && sameQuota
+      ) return prev;
+      return next;
+    });
+  }, [
+    isJpChillhop,
+    opts.channel.id,
+    opts.storyPov,
+    opts.storySourceSummary,
+    opts.songCount,
+    opts.lyricLanguage,
+    opts.perspective,
+    opts.perspectiveMode,
+    opts.perspectiveModeIsExplicitChoice,
+    opts.vocalQuota?.male,
+    opts.vocalQuota?.female,
+    opts.vocalQuota?.mixed,
+    opts.vocalQuotaMode,
+    opts.scenePlanningMode,
+    setOpts
+  ]);
+
+  function selectChiliStoryPov(pov: ChiliStoryPov) {
+    setOpts(prev => applyChiliStoryGenerationContract({
+      ...prev,
+      songCount: CHILI_STORY_DEFAULT_SONG_COUNT,
+      lyricLanguage: 'japanese',
+      packagingLanguage: 'japanese',
+      storyPov: pov,
+      choiceProvenance: {
+        ...prev.choiceProvenance,
+        lyricLanguage: 'user',
+        packagingLanguage: 'user',
+        songCount: 'user',
+        perspective: pov === 'couple' ? prev.choiceProvenance?.perspective ?? 'default' : 'user',
+        perspectiveMode: pov === 'couple' ? prev.choiceProvenance?.perspectiveMode ?? 'default' : 'user'
+      }
+    }));
+  }
+
+  function applyStoryLineDraft() {
+    const parsed = parseChiliStoryLine(storyLineDraft);
+    if (!parsed) return;
+    setOpts(prev => applyChiliStoryGenerationContract({ ...prev, ...parsed }));
+  }
   // TASK v3.39 Part D — kids channels see only the childlike presets; every
   // other channel keeps the plain adult presets, unchanged from before.
   // TASK v3.41 — the pool grew 5->16 (adult) / 3->10 (kids), so a flat
@@ -289,9 +374,10 @@ export default function Step2Concept({
   // this preview always showed a plain scaled 6/6/6 split here even for an
   // override channel, whose real generation ignores that default entirely —
   // the "고르게 배정" card lied about what the pack would actually get.
-  const hasFixedVocalQuota = Boolean(opts.channel.vocalQuotaOverride);
+  const hasChiliStoryVocalLock = Boolean(chiliStoryLockedQuota);
+  const hasFixedVocalQuota = Boolean(opts.channel.vocalQuotaOverride) || hasChiliStoryVocalLock;
   const flatDefaultQuota = isKidsArchetype(channelArchetype) ? DEFAULT_KIDS_VOCAL_QUOTA : DEFAULT_ADULT_VOCAL_QUOTA;
-  const defaultQuotaForChannel = opts.channel.vocalQuotaOverride ?? flatDefaultQuota;
+  const defaultQuotaForChannel = chiliStoryLockedQuota ?? opts.channel.vocalQuotaOverride ?? flatDefaultQuota;
   // 지시문 63 (TASK A) — genrePlan에서 역산한 쿼터 미리보기. AI 보컬
   // 추천(vocalRecommendationGenrePlan, 예전엔 이 아래 더 뒤에서 정의됐다)과
   // 같은 회전 알고리즘·같은 시드를 재사용해 이 화면의 두 미리보기(성비 역산 ·
@@ -916,6 +1002,95 @@ export default function Step2Concept({
       <label>Project title (프로젝트 제목)</label>
       <input value={opts.projectTitle} onChange={event => setOpts(prev => ({ ...prev, projectTitle: event.target.value }))} />
 
+      {isJpChillhop && (
+        <div className="option-block">
+          <ChoiceGrid
+            question="STORY 시점"
+            helper={chiliStorySummaryKo}
+            choices={CHILI_STORY_POV_CHOICES}
+            value={chiliStoryPov}
+            onChange={value => selectChiliStoryPov(value as ChiliStoryPov)}
+            columns={3}
+          />
+          <div className="two-col-grid">
+            <label>
+              원문 한 줄
+              <input
+                value={storyLineDraft}
+                onChange={event => setStoryLineDraft(clampToLimit('customConcept', event.target.value))}
+                placeholder="003. 비 오는 날 — 우산 하나를 같이 쓰고 역까지 걸어간 밤"
+              />
+            </label>
+            <label>
+              장소
+              <input
+                value={opts.storyLocation || ''}
+                onChange={event => setOpts(prev => applyChiliStoryGenerationContract({ ...prev, storyLocation: clampToLimit('customConcept', event.target.value) }))}
+                placeholder="中目黒, 終電ホーム, 雨のカフェ"
+              />
+            </label>
+          </div>
+          <div className="button-row" style={{ marginTop: 8 }}>
+            <button type="button" className="chip" disabled={!storyLineParsePreview} onClick={applyStoryLineDraft}>원문 적용</button>
+            {storyLineDraft.trim() && !storyLineParsePreview && <span className="supporting">형식: 003. 제목 — 사건 요약</span>}
+            {storyLineParsePreview && (
+              <span className="supporting">
+                {storyLineParsePreview.storySourceEpisodeId}. {storyLineParsePreview.storySourceTitle}
+              </span>
+            )}
+          </div>
+          <div className="two-col-grid">
+            <label>
+              이전 맥락
+              <textarea
+                value={opts.storyPreviousContext || ''}
+                onChange={event => setOpts(prev => applyChiliStoryGenerationContract({ ...prev, storyPreviousContext: clampToLimit('customConcept', event.target.value) }))}
+                placeholder="둘은 아직 마음을 확인하지 못했고, 메시지만 오래 이어졌다."
+              />
+            </label>
+            <label>
+              다음 힌트
+              <textarea
+                value={opts.storyNextHint || ''}
+                onChange={event => setOpts(prev => applyChiliStoryGenerationContract({ ...prev, storyNextHint: clampToLimit('customConcept', event.target.value) }))}
+                placeholder="다음 사건에서는 답장이 늦어지며 오해가 생긴다."
+              />
+            </label>
+          </div>
+          <div className="two-col-grid">
+            <label>
+              사건 제목
+              <input
+                value={opts.storySourceTitle || ''}
+                onChange={event => setOpts(prev => applyChiliStoryGenerationContract({ ...prev, storySourceTitle: clampToLimit('videoTitle', event.target.value) }))}
+                placeholder="雨のホーム"
+              />
+            </label>
+            <label>
+              계절
+              <input
+                value={opts.storySeason || ''}
+                onChange={event => setOpts(prev => applyChiliStoryGenerationContract({ ...prev, storySeason: clampToLimit('videoTitle', event.target.value) }))}
+                placeholder="late autumn rain"
+              />
+            </label>
+          </div>
+          <label>
+            사건 요약
+            <textarea
+              value={opts.storySourceSummary || ''}
+              onChange={event => setOpts(prev => applyChiliStoryGenerationContract({ ...prev, storySourceSummary: clampToLimit('customConcept', event.target.value) }))}
+              placeholder="ひとつの傘で駅まで歩いた夜。言えなかった言葉だけが雨音に残る。"
+            />
+          </label>
+          {isSoloChiliStoryPov(chiliStoryPov) && (
+            <p className="supporting">
+              🔒 {CHILI_STORY_POV_LABEL_JA[chiliStoryPov]}: 일본어 · 1인칭 고정 · {chiliStoryPov === 'male' ? '남성' : '여성'} 보컬 {opts.songCount}곡 · 상대 성별/듀엣 0곡
+            </p>
+          )}
+        </div>
+      )}
+
       {/* 지시문 32 (§1) — 채널×컨셉 시대 호환성 사전 경고. unsupported는 이유
           + 대안 채널만 보여준다(차단 아님 — 하루가 원하면 그대로 진행 가능).
           cross-style은 재해석 확인 체크박스 없이는 다음(설계안) 단계로 못
@@ -1260,7 +1435,9 @@ export default function Step2Concept({
         <h3>🎤 보컬 비율 ({opts.songCount}곡)</h3>
         {hasFixedVocalQuota ? (
           <p className="supporting">
-            🔒 이 채널은 보컬 성비가 채널 자체에 고정되어 있어요 (남성 {defaultQuotaForChannel.male}·여성 {defaultQuotaForChannel.female}·듀엣 {defaultQuotaForChannel.mixed}) — 채널 정체성(보이그룹/걸그룹 등)을 지키기 위해 배정 방식을 선택할 수 없습니다.
+            {hasChiliStoryVocalLock
+              ? `🔒 ${CHILI_STORY_POV_LABEL_JA[chiliStoryPov]} 계약으로 보컬 성비가 고정되어 있어요 (남성 ${defaultQuotaForChannel.male}·여성 ${defaultQuotaForChannel.female}·듀엣 ${defaultQuotaForChannel.mixed}) — STORY POV를 지키기 위해 배정 방식을 선택할 수 없습니다.`
+              : `🔒 이 채널은 보컬 성비가 채널 자체에 고정되어 있어요 (남성 ${defaultQuotaForChannel.male}·여성 ${defaultQuotaForChannel.female}·듀엣 ${defaultQuotaForChannel.mixed}) — 채널 정체성(보이그룹/걸그룹 등)을 지키기 위해 배정 방식을 선택할 수 없습니다.`}
           </p>
         ) : (
           <>
@@ -1357,6 +1534,13 @@ export default function Step2Concept({
       </div>
 
       {vocalPickerExpanded && (
+        hasChiliStoryVocalLock ? (
+          <div className="option-block compact">
+            <p className="supporting">
+              {CHILI_STORY_POV_LABEL_JA[chiliStoryPov]}는 보컬 톤 직접 선택을 잠급니다. 실제 브릿지 지시문과 프리할당은 남성 {resolvedVocalQuotaPreview.male}곡 · 여성 {resolvedVocalQuotaPreview.female}곡 · 듀엣 {resolvedVocalQuotaPreview.mixed}곡으로 고정됩니다.
+            </p>
+          </div>
+        ) : (
       <>
       {/* TASK v3.39 Part D — a kids channel only ever showed the 5 adult
           voice presets here (no childlike option existed at all), so the
@@ -1459,6 +1643,7 @@ export default function Step2Concept({
           흡수됐다(중복 UI 제거, §"낡은 경로를 남긴 채 새 경로를 추가하지
           않는다"). */}
       </>
+        )
       )}
 
       {/* 지시문 39 (TASK A) — AI 머니코드 추천 패널. 지시문 38(TASK D)과
@@ -1763,17 +1948,24 @@ export default function Step2Concept({
               있다. docs/LANGUAGE_POLICY.md 참조. */}
           <div className="chips">
             {/* TASK v3.38 Part B1 (language follow-up) — the kids channel only supports korean/japanese/english (selectable per set, default korean); bilingual is not offered for it. */}
-            {(isKidsArchetype(channelArchetype) ? languageOptions.filter(option => option.value !== 'bilingual') : languageOptions).map(option => (
+            {lyricLanguageChoices.map(option => (
               <button
                 type="button"
                 key={option.value}
                 className={opts.lyricLanguage === option.value ? 'chip active' : 'chip'}
-                onClick={() => setOpts(prev => ({ ...prev, lyricLanguage: option.value, choiceProvenance: { ...prev.choiceProvenance, lyricLanguage: 'user' } }))}
+                onClick={() => setOpts(prev => applyChiliStoryGenerationContract({
+                  ...prev,
+                  lyricLanguage: option.value,
+                  choiceProvenance: { ...prev.choiceProvenance, lyricLanguage: 'user' }
+                }))}
               >
                 {option.label} <span className="supporting">({option.sub})</span>
               </button>
             ))}
           </div>
+          {isJpChillhop && (
+            <p className="supporting">JP CHILI LAB STORY는 자연스러운 일본어 가사를 품질 게이트로 검사하므로 일본어만 선택할 수 있습니다.</p>
+          )}
           {/* 지시문 34 (TASK B) — 차단 없이 안내만 한다. 채널의 primaryLanguage(기본값) 자체는 바꾸지 않는다 — 지금 이 세트만 다르게 골랐다는 사실과 그 영향을 알린다. */}
           {opts.lyricLanguage !== opts.channel.primaryLanguage && (
             <p className="supporting" style={{ borderLeft: '3px solid #d68910', paddingLeft: 8 }}>
@@ -1825,54 +2017,65 @@ export default function Step2Concept({
             columns={4}
           />
 
-          <ChoiceGrid
-            question="가사의 시점"
-            choices={PERSPECTIVE_CHOICES}
-            value={opts.perspective}
-            onChange={value => setOpts(prev => ({ ...prev, perspective: value as GenerationOptions['perspective'], choiceProvenance: { ...prev.choiceProvenance, perspective: 'user' } }))}
-            columns={4}
-          />
+          {isJpChillhop && isSoloChiliStoryPov(chiliStoryPov) ? (
+            <div className="option-block compact">
+              <h3>STORY 시점 잠금</h3>
+              <p className="supporting">
+                {CHILI_STORY_POV_LABEL_JA[chiliStoryPov]}는 15곡 모두 해당 인물의 1인칭으로 고정됩니다. 브릿지 지시문은 perspective=firstPerson, perspectiveMode=fixed로 전달됩니다.
+              </p>
+            </div>
+          ) : (
+            <>
+              <ChoiceGrid
+                question="가사의 시점"
+                choices={PERSPECTIVE_CHOICES}
+                value={opts.perspective}
+                onChange={value => setOpts(prev => ({ ...prev, perspective: value as GenerationOptions['perspective'], choiceProvenance: { ...prev.choiceProvenance, perspective: 'user' } }))}
+                columns={4}
+              />
 
-          {/* TASK v6.0 (perspectiveMode) — "이 시점을 얼마나 강하게 적용할지"
-              선택. 셋 다 songCount/perspective가 바뀔 때마다 다시 계산되는
-              실제 배분 수치를 라벨에 보여줘요 (v5.9 보컬 쿼터 미리보기와 같은
-              방식) — 라벨의 숫자와 실제 생성 결과가 어긋나지 않도록. */}
-          <ChoiceGrid
-            question="적용 방식"
-            helper={isKidsArchetype(channelArchetype)
-              ? '아이 채널은 선택하지 않으면 자동 분산이 기본이에요 (실제 아이 동요 문장은 시점과 무관하게 주제별로 미리 쓰여 있어, 이 선택은 곡에 붙는 시점 표시에 반영돼요).'
-              : '선택하지 않으면 중심 시점이 기본이에요.'}
-            choices={[
-              {
-                id: 'fixed',
-                label: `${opts.songCount}곡 전부 ${perspectiveShortLabel}`,
-                sublabel: 'Fixed',
-                description: `모든 곡을 ${perspectiveShortLabel} 시점 하나로 통일해요.`
-              },
-              {
-                id: 'dominant',
-                label: `${perspectiveShortLabel} 중심 (${dominantPovPreview[opts.perspective] ?? 0}곡) · 나머지 다른 시점`,
-                sublabel: 'Dominant',
-                description: `${perspectiveShortLabel}이 중심이고, 나머지는 다른 시점으로 섞여요.`,
-                recommended: !isKidsArchetype(channelArchetype)
-              },
-              {
-                id: 'varied',
-                label: '자동 분산',
-                sublabel: 'Varied',
-                description: `시점을 고르게 섞어요 (${variedPovSummaryKo}).`,
-                recommended: isKidsArchetype(channelArchetype)
-              }
-            ]}
-            value={resolvedPerspectiveMode}
-            onChange={value => setOpts(prev => ({
-              ...prev,
-              perspectiveMode: value as GenerationOptions['perspectiveMode'],
-              perspectiveModeIsExplicitChoice: true,
-              choiceProvenance: { ...prev.choiceProvenance, perspectiveMode: 'user' }
-            }))}
-            columns={3}
-          />
+              {/* TASK v6.0 (perspectiveMode) — "이 시점을 얼마나 강하게 적용할지"
+                  선택. 셋 다 songCount/perspective가 바뀔 때마다 다시 계산되는
+                  실제 배분 수치를 라벨에 보여줘요 (v5.9 보컬 쿼터 미리보기와 같은
+                  방식) — 라벨의 숫자와 실제 생성 결과가 어긋나지 않도록. */}
+              <ChoiceGrid
+                question="적용 방식"
+                helper={isKidsArchetype(channelArchetype)
+                  ? '아이 채널은 선택하지 않으면 자동 분산이 기본이에요 (실제 아이 동요 문장은 시점과 무관하게 주제별로 미리 쓰여 있어, 이 선택은 곡에 붙는 시점 표시에 반영돼요).'
+                  : '선택하지 않으면 중심 시점이 기본이에요.'}
+                choices={[
+                  {
+                    id: 'fixed',
+                    label: `${opts.songCount}곡 전부 ${perspectiveShortLabel}`,
+                    sublabel: 'Fixed',
+                    description: `모든 곡을 ${perspectiveShortLabel} 시점 하나로 통일해요.`
+                  },
+                  {
+                    id: 'dominant',
+                    label: `${perspectiveShortLabel} 중심 (${dominantPovPreview[opts.perspective] ?? 0}곡) · 나머지 다른 시점`,
+                    sublabel: 'Dominant',
+                    description: `${perspectiveShortLabel}이 중심이고, 나머지는 다른 시점으로 섞여요.`,
+                    recommended: !isKidsArchetype(channelArchetype)
+                  },
+                  {
+                    id: 'varied',
+                    label: '자동 분산',
+                    sublabel: 'Varied',
+                    description: `시점을 고르게 섞어요 (${variedPovSummaryKo}).`,
+                    recommended: isKidsArchetype(channelArchetype)
+                  }
+                ]}
+                value={resolvedPerspectiveMode}
+                onChange={value => setOpts(prev => ({
+                  ...prev,
+                  perspectiveMode: value as GenerationOptions['perspectiveMode'],
+                  perspectiveModeIsExplicitChoice: true,
+                  choiceProvenance: { ...prev.choiceProvenance, perspectiveMode: 'user' }
+                }))}
+                columns={3}
+              />
+            </>
+          )}
 
           <div className="option-block">
             <h3>머니코드 직접 입력 (로마숫자 코드 표기를 아는 경우만)</h3>

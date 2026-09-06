@@ -104,7 +104,8 @@ const CONTENT_CHECKS_POLICY: Record<WorkspaceId, WorkspaceContentChecksPolicy> =
   // 린트 어느 축도 en-chillhop의 정체성이 아니다 — kr-2030/jp-2030과
   // 다르게 relationshipContinuityLanguage도 두지 않는다(영어 가사
   // 워크스페이스라 언어 축 자체가 무의미).
-  'en-chillhop': { idolTitleLintApplies: false }
+  'en-chillhop': { idolTitleLintApplies: false },
+  'jp-chillhop': { relationshipContinuityLanguage: 'japanese', idolTitleLintApplies: false }
 };
 
 const BILINGUAL_CAPABLE_ARCHETYPES: ReadonlySet<ChannelArchetype> = new Set([

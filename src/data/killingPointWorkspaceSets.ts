@@ -42,6 +42,8 @@ export function killingPointSetForNonKidsArchetype(archetype: ChannelArchetype |
     // 이 워크스페이스에 그대로 유효).
     case 'en-chillhop':
       return KR_2030_KILLING_POINTS;
+    case 'jp-chillhop':
+      return JP_2030_KILLING_POINTS;
     default:
       return undefined;
   }

@@ -563,6 +563,8 @@ export const EN_CHILLHOP_CORE_GENRE_IDS = [
   'en-lounge-house'
 ] as const;
 
+export const JP_CHILLHOP_CORE_GENRE_IDS = EN_CHILLHOP_CORE_GENRE_IDS;
+
 /**
  * 지시문 71 (TASK E) — §1.3 BPM 대역 문제(칠랩·힙합 62-98 vs 하우스
  * 110-128, 10 BPM 이상 빈 구간)를 세트 배분 단계에서 처리하기 위한 두
@@ -734,7 +736,8 @@ export const CORE_GENRE_IDS_BY_ARCHETYPE: Record<ChannelArchetype, readonly stri
   'kr-idol-male': KRIDOL_M_CORE_GENRE_IDS,
   'kr-idol-female': KRIDOL_F_CORE_GENRE_IDS,
   // 지시문 71 (TASK A/B) — en-chillhop workspace's genre layer.
-  'en-chillhop': EN_CHILLHOP_CORE_GENRE_IDS
+  'en-chillhop': EN_CHILLHOP_CORE_GENRE_IDS,
+  'jp-chillhop': JP_CHILLHOP_CORE_GENRE_IDS
 };
 
 const allCoreGenreIds = new Set<string>([
@@ -749,7 +752,8 @@ const allCoreGenreIds = new Set<string>([
   ...KR_KIDS_CORE_GENRE_IDS,
   ...JP_KIDS_CORE_GENRE_IDS,
   ...KRIDOL_M_CORE_GENRE_IDS,
-  ...EN_CHILLHOP_CORE_GENRE_IDS
+  ...EN_CHILLHOP_CORE_GENRE_IDS,
+  ...JP_CHILLHOP_CORE_GENRE_IDS
 ]);
 
 const quietCafeSignals = [
@@ -3318,13 +3322,11 @@ const KR_2030_POP_CROSS_ARCHETYPE_GENRE_IDS: ReadonlySet<string> = new Set([
 // jazz-lofi-vocal-jazz 항목, KR_2030_POP_CROSS_ARCHETYPE_GENRE_IDS)를 그대로
 // 재사용해 'en-chillhop'만 추가한다. 소유권(genreWorkspaceOwnership.ts)도
 // 옮기지 않는다 — 참조만.
-const EN_CHILLHOP_CROSS_ARCHETYPE_GENRE_IDS: readonly string[] = [
-  'chill-rap', 'boom-bap-mellow', 'jazz-rap', 'lofi-hiphop-study', 'trap-soul', 'alt-rnb'
-];
+const CHILLHOP_CROSS_ARCHETYPE_GENRE_IDS: readonly string[] = EN_CHILLHOP_CORE_GENRE_IDS;
 
 const CROSS_ARCHETYPE_ADDITIONS: Readonly<Record<string, ChannelArchetype[]>> = {
   'jazz-lofi-vocal-jazz': ['modern-chill', 'kr-2030-pop'],
-  ...Object.fromEntries(EN_CHILLHOP_CROSS_ARCHETYPE_GENRE_IDS.map(id => [id, ['en-chillhop'] as ChannelArchetype[]]))
+  ...Object.fromEntries(CHILLHOP_CROSS_ARCHETYPE_GENRE_IDS.map(id => [id, ['en-chillhop', 'jp-chillhop'] as ChannelArchetype[]]))
 };
 
 const allGenreSources = [...legacyGenreProfiles, ...kidsGenreProfiles, ...oldpopGenrePacks, ...kr2030GenrePacks, ...jp2030GenrePacks, ...krkidsGenrePacks, ...jpkidsGenrePacks, ...kridolMaleGenrePacks, ...eraGenrePacks, ...modernGenrePacks, ...enChillhopGenrePacks, ...notionDerivedGenrePacks];

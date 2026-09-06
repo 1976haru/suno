@@ -94,6 +94,7 @@ import { getGenreById, isGenreEligibleForArchetype } from '../data/genreLibrary'
 import { genreSanitizationWarningKo, sanitizeGenreIdsForArchetype } from './genreSelection';
 import { conceptChannelFitWarningKo, evaluateConceptChannelFit } from './conceptChannelFit';
 import { applyEnChillhopBandLock } from './enChillhopBand';
+import { applyChiliStoryGenerationContract, chiliStorySlotFields, storyFieldsFromSlot } from './chiliStoryPov';
 
 export type { PreassignedSongSlot };
 
@@ -125,7 +126,7 @@ function appendGenreAutoRemainder(manualPlan: string[], autoPlan: string[], song
  * longer collide on identity because they never choose it.
  */
 export function preallocateSongSlots(
-  opts: Pick<GenerationOptions, 'channel' | 'projectTitle' | 'lyricLanguage' | 'songCount' | 'genreIds' | 'moodIds' | 'moneyChordMode' | 'moneyChordModeIsExplicitChoice' | 'customMoneyChord' | 'earwormMode' | 'vocalQuota' | 'vocalQuotaMode' | 'vocalTone' | 'vocalPresetPlan' | 'avoidWords' | 'negativeStyle' | 'introUniqueness' | 'diversityAllocations' | 'perspective' | 'customLyricThemeScene' | 'customConcept' | 'genreBlendWeights' | 'genreBlendMode' | 'audience' | 'ratingInsights' | 'slotOrderOverride'>,
+  opts: Pick<GenerationOptions, 'channel' | 'projectTitle' | 'lyricLanguage' | 'songCount' | 'genreIds' | 'moodIds' | 'moneyChordMode' | 'moneyChordModeIsExplicitChoice' | 'customMoneyChord' | 'earwormMode' | 'vocalQuota' | 'vocalQuotaMode' | 'vocalTone' | 'vocalPresetPlan' | 'avoidWords' | 'negativeStyle' | 'introUniqueness' | 'diversityAllocations' | 'perspective' | 'perspectiveMode' | 'perspectiveModeIsExplicitChoice' | 'scenePlanningMode' | 'customLyricThemeScene' | 'customConcept' | 'storyPov' | 'storySourceEpisodeId' | 'storySourceTitle' | 'storySourceSummary' | 'storyPreviousContext' | 'storyNextHint' | 'storyLocation' | 'storySeason' | 'genreBlendWeights' | 'genreBlendMode' | 'audience' | 'ratingInsights' | 'slotOrderOverride'>,
   genres: GenrePack[],
   // TASK v3.72 (TASK E) — recentVocalComboSignatures is optional and
   // additive: core/vocalComboLedger.ts's last few "M:<register>|F:<register>"
@@ -169,6 +170,7 @@ export function preallocateSongSlots(
     recentSituations?: string[];
   }
 ): PreassignedSongSlot[] {
+  opts = applyChiliStoryGenerationContract(opts);
   // TASK (genre-archetype sanitization) — mirrors core/localGenerator.ts's
   // generateLocalBlueprint identical fix (see that function's own doc
   // comment for the full reasoning): this is the real batch/Realtime/bridge
@@ -1358,6 +1360,7 @@ export function preallocateSongSlots(
       // vocabularyBankForScene a second time with the same arguments.
       vocabularyBankId: sceneVocabularyBank.id,
       pov: povPlan[idx],
+      ...chiliStorySlotFields(opts, trackNo),
       ...(sectionStyle ? sectionStyle : {}),
       vocalText,
       vocalVariantText: resolvedVocalVariantText,
@@ -1647,6 +1650,7 @@ export function reconcileWithPreassignedSlot(
     : hookMode === 'ai-creative' && song.hookPhrase?.trim()
       ? song.hookPhrase
       : slot.hookPhrase;
+  const slotStoryFields = storyFieldsFromSlot(slot);
   const completeFields = [
     slot.vocalText,
     slot.moneyChordText,
@@ -1750,6 +1754,7 @@ export function reconcileWithPreassignedSlot(
       ...(slot.lyricThemeText ? { lyricThemeText: slot.lyricThemeText } : {}),
       ...(slot.lyricThemeArc ? { lyricThemeArc: slot.lyricThemeArc } : {}),
       ...(slot.pov ? { pov: slot.pov } : {}),
+      ...slotStoryFields,
       ...(slot.verseStyle ? { verseStyle: slot.verseStyle } : {}),
       ...(slot.verseStyleText ? { verseStyleText: slot.verseStyleText } : {}),
       ...(slot.chorusStyle ? { chorusStyle: slot.chorusStyle } : {}),
@@ -1855,6 +1860,7 @@ export function reconcileWithPreassignedSlot(
     ...(slot.lyricThemeText ? { lyricThemeText: slot.lyricThemeText } : {}),
     ...(slot.lyricThemeArc ? { lyricThemeArc: slot.lyricThemeArc } : {}),
     ...(slot.pov ? { pov: slot.pov } : {}),
+    ...slotStoryFields,
     ...(slot.verseStyle ? { verseStyle: slot.verseStyle } : {}),
     ...(slot.verseStyleText ? { verseStyleText: slot.verseStyleText } : {}),
     ...(slot.chorusStyle ? { chorusStyle: slot.chorusStyle } : {}),

@@ -309,6 +309,18 @@ export const EXPLORATION_POLICIES: Record<WorkspaceId, WorkspaceExplorationPolic
     noFailureFraming: false,
     closingLineKo: 'If even one of these four tracks sounds fresh, call it a win.',
     minSongCount: 8
+  },
+  'jp-chillhop': {
+    workspaceId: 'jp-chillhop',
+    enabled: true,
+    slotCount: 4,
+    axes: AGE2030_AXES,
+    frozen: [...AGE2030_FROZEN, 'STORY POV hard lock and 5-act continuity'],
+    toneKo: '가장 자유로움 — 단, 같은 이야기와 POV 고정 안에서',
+    slotPositionFractions: [0.33, 0.61, 0.83, 0.89],
+    noFailureFraming: false,
+    closingLineKo: 'この4曲のうち物語の視点が強く残る曲があれば成功です。',
+    minSongCount: 8
   }
 };
 

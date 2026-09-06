@@ -18,7 +18,7 @@ interface RawPackSong {
 }
 
 const REAL_SONGS = (pack as { songs: RawPackSong[] }).songs;
-const ALL_WORKSPACE_IDS: WorkspaceId[] = ['senior-oldpop', 'kr-2030', 'jp-2030', 'kr-idol-male', 'kr-idol-female', 'kr-kids', 'jp-kids', 'en-chillhop'];
+const ALL_WORKSPACE_IDS: WorkspaceId[] = ['senior-oldpop', 'kr-2030', 'jp-2030', 'kr-idol-male', 'kr-idol-female', 'kr-kids', 'jp-kids', 'en-chillhop', 'jp-chillhop'];
 
 describe('[지시문 17 TASK B, 인수 기준] 실제 20260808 팩 — T10 편지 상태 모순 검출', () => {
   it('T10 "Before I Lose My Nerve"이 letter kind blocking으로 검출된다', () => {
@@ -165,7 +165,7 @@ describe('[지시문 17 TASK B] vehicle/container/door/window/light — 합성 �
 });
 
 describe('[지시문 17 TASK B-4] 정책 구조 무결성', () => {
-  it('OBJECT_STATE_POLICY가 7개 워크스페이스를 전부 커버한다', () => {
+  it('OBJECT_STATE_POLICY가 9개 워크스페이스를 전부 커버한다', () => {
     expect(Object.keys(OBJECT_STATE_POLICY).sort()).toEqual([...ALL_WORKSPACE_IDS].sort());
   });
 

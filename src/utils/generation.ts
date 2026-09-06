@@ -1,6 +1,7 @@
 import type { ChannelProfile, GenerationOptions, PlaylistBlueprint } from '../types';
 import { defaultAvoidWordsString } from '../data/avoidWordPresets';
 import { buildDefaultNegativeStyle } from '../data/negativeStyles';
+import { applyChiliStoryGenerationContract } from '../core/chiliStoryPov';
 import { normalizeGenreSelection } from '../core/genreSelection';
 import { defaultPackagingLanguageForChannel } from '../core/packagingLanguage';
 import { isKidsArchetype } from './channelArchetype';
@@ -104,7 +105,7 @@ export function applySetTitlePrefixesToBlueprint(blueprint: PlaylistBlueprint, e
 }
 
 export function createInitialOptions(channel: ChannelProfile): GenerationOptions {
-  return {
+  return applyChiliStoryGenerationContract({
     channel,
     projectTitle: 'Autumn to Christmas Playlist Pack',
     // 지시문 38 (TASK A) — 하루의 결정: 기본 세트 크기 18 → 15. 18은
@@ -155,5 +156,5 @@ export function createInitialOptions(channel: ChannelProfile): GenerationOptions
     personaMode: false,
     packagingLanguage: defaultPackagingLanguageForChannel(channel),
     earwormMode: false
-  };
+  });
 }

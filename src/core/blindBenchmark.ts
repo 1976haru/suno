@@ -214,7 +214,9 @@ export const MINIMUM_CONCEPTS_PER_WORKSPACE: Record<WorkspaceId, number> = {
   'kr-idol-female': 1,
   // 지시문 71 (TASK A) — 신규 워크스페이스, 다른 성인 단일 아키타입
   // 워크스페이스(kr-2030/jp-2030)와 동일하게 2.
-  'en-chillhop': 2
+  'en-chillhop': 2,
+  // 지시문 79 — 일본 CHILI LAB도 성인 단일 아키타입 워크스페이스로 같은 최소치.
+  'jp-chillhop': 2
 };
 
 export function meetsMinimumConceptCount(workspaceId: WorkspaceId, conceptCount: number): boolean {

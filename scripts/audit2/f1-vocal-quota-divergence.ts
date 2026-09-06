@@ -4,7 +4,7 @@
  */
 import { channelPresets, genrePacks } from '../../src/data/presets';
 import { buildGenreRotationPlan } from '../../src/core/genreRotation';
-import { deriveVocalQuotaFromGenrePlan, resolveBaseVocalQuota } from '../../src/core/vocalQuotaFromGenre';
+import { deriveVocalQuotaFromGenrePlan } from '../../src/core/vocalQuotaFromGenre';
 import { hashSeed } from '../../src/utils/prng';
 import { seedForBlueprint } from '../../src/core/lyricEngine';
 import { preallocateSongSlots } from '../../src/core/batchPreallocation';

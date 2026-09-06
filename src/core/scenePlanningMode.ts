@@ -1,4 +1,5 @@
 import type { GenerationOptions, ScenePlanningMode } from '../types';
+import { isJpChillhopOptions, isSoloChiliStoryPov, normalizeChiliStoryPov } from './chiliStoryPov';
 
 /**
  * Bridge-only context for concept-driven lyric scene generation. The fixed
@@ -22,9 +23,12 @@ export interface ConceptSceneContext {
  * fixed-pool uniqueness is not a validity requirement.
  */
 export function resolveScenePlanningMode(
-  opts: Pick<GenerationOptions, 'customConcept'> & { scenePlanningMode?: ScenePlanningMode },
+  opts: Pick<GenerationOptions, 'channel' | 'customConcept' | 'storyPov' | 'storySourceSummary'> & { scenePlanningMode?: ScenePlanningMode },
   conceptSceneContext: ConceptSceneContext | undefined
 ): ScenePlanningMode {
   if (opts.scenePlanningMode) return opts.scenePlanningMode;
+  if (isJpChillhopOptions(opts) && isSoloChiliStoryPov(normalizeChiliStoryPov(opts.storyPov)) && opts.storySourceSummary?.trim()) {
+    return 'same-story-comparison';
+  }
   return conceptSceneContext && opts.customConcept?.trim() ? 'concept-generated' : 'fixed-pool';
 }

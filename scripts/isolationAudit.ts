@@ -70,6 +70,8 @@ function themeWorkspaceOf(theme: { id: string }): WorkspaceId {
   if (theme.id.startsWith('krkidolf-')) return 'kr-idol-female';
   // 지시문 71 (TASK A) — en-chillhop's own theme prefix.
   if (theme.id.startsWith('enchillhop-')) return 'en-chillhop';
+  // 지시문 79 — jp-chillhop's own CHILI LAB STORY theme prefix.
+  if (theme.id.startsWith('jpchillhop-')) return 'jp-chillhop';
   return 'senior-oldpop';
 }
 
@@ -109,7 +111,7 @@ export function checkL1(): CheckResult[] {
 // L2 — 무배정 신규 장르 (기존 320종은 inferArchetypes() 대상이라 제외)
 // ---------------------------------------------------------------------------
 function isNewGenreId(id: string): boolean {
-  return /^(kr2030-|jp2030-|krkids-|jpkids-)/.test(id);
+  return /^(kr2030-|jp2030-|krkids-|jpkids-|jpchillhop-)/.test(id);
 }
 
 export function checkL2(): CheckResult {

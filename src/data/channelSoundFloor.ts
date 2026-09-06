@@ -256,6 +256,28 @@ export const CHANNEL_SOUND_FLOORS: ChannelSoundFloor[] = [
     maxPaletteVariety: 0,
     maxUncoveredGenreTracks: 0,
     noteKo: '어떤 컨셉이 와도 이 조건은 유지됩니다 — 시니어/빈티지 질감으로 흘러가지 않게 막는 바닥입니다'
+  },
+  {
+    id: 'jp-chillhop-floor',
+    workspaceId: 'jp-chillhop',
+    labelKo: '일본 CHILI LAB 사운드 바닥',
+    archetypeIds: ['jp-chillhop'],
+    requiredAtoms: [
+      'contemporary Japanese urban production',
+      'bass and drums carry the groove',
+      'intimate chill rap or chill house pulse'
+    ],
+    forbiddenAtoms: [
+      'vintage tape saturation',
+      'Showa-era AM-radio compression',
+      'nostalgic senior-radio announcer tone',
+      'aggressive festival EDM drop'
+    ],
+    productionEraTags: ['2020s'],
+    minPaletteVariety: 0,
+    maxPaletteVariety: 0,
+    maxUncoveredGenreTracks: 0,
+    noteKo: '일본 CHILI LAB은 현대 일본 도시 관계 스토리용 사운드 바닥을 쓴다. 시니어/Showa 질감으로 폴백하지 않는다.'
   }
 ];
 

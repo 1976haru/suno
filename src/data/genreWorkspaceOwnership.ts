@@ -30,12 +30,12 @@ export type GenreWorkspaceOwnership = Record<string, WorkspaceId[]>;
 // 다대다 소유 패턴.
 const EXPLICIT_MULTI_WORKSPACE_GENRE_IDS: Readonly<Record<string, WorkspaceId[]>> = {
   'kr2030-noir-deep-house': ['kr-2030', 'senior-oldpop'],
-  'chill-rap': ['senior-oldpop', 'en-chillhop'],
-  'boom-bap-mellow': ['senior-oldpop', 'en-chillhop'],
-  'jazz-rap': ['senior-oldpop', 'en-chillhop'],
-  'lofi-hiphop-study': ['senior-oldpop', 'en-chillhop'],
-  'trap-soul': ['senior-oldpop', 'en-chillhop'],
-  'alt-rnb': ['senior-oldpop', 'en-chillhop']
+  'chill-rap': ['senior-oldpop', 'en-chillhop', 'jp-chillhop'],
+  'boom-bap-mellow': ['senior-oldpop', 'en-chillhop', 'jp-chillhop'],
+  'jazz-rap': ['senior-oldpop', 'en-chillhop', 'jp-chillhop'],
+  'lofi-hiphop-study': ['senior-oldpop', 'en-chillhop', 'jp-chillhop'],
+  'trap-soul': ['senior-oldpop', 'en-chillhop', 'jp-chillhop'],
+  'alt-rnb': ['senior-oldpop', 'en-chillhop', 'jp-chillhop']
 };
 
 function genreWorkspacesOf(genreId: string): WorkspaceId[] {
@@ -49,7 +49,7 @@ function genreWorkspacesOf(genreId: string): WorkspaceId[] {
   if (genreId.startsWith('kridol-')) return ['kr-idol-male', 'kr-idol-female'];
   // 지시문 71 (TASK A) — en-deep-house-*/en-house-garage-swing, 이
   // 워크스페이스 전용 신규 id.
-  if (genreId.startsWith('en-')) return ['en-chillhop'];
+  if (genreId.startsWith('en-')) return ['en-chillhop', 'jp-chillhop'];
   return ['senior-oldpop'];
 }
 

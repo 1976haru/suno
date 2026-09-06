@@ -16,7 +16,7 @@ import { sanitizeGenreIdsForArchetype } from './genreSelection';
 import { moodPacks, seasonPacks } from '../data/presets';
 import { matchConceptRules } from '../data/conceptKeywords';
 import { hookDevices } from '../data/hookDevices';
-import { isEnChillhopArchetype, isKidsArchetype } from '../utils/channelArchetype';
+import { isChillhopArchetype, isKidsArchetype } from '../utils/channelArchetype';
 import { introTexturesForArchetype } from '../data/introTextures';
 import {
   ADULT_STRUCTURE_TEMPLATE_IDS,
@@ -491,7 +491,7 @@ function chooseGenreIds(
   let enChillhopOtherBandIds: Set<string> | undefined;
   let enChillhopCrossoverAllowance = 0;
   let enChillhopCrossoverUsed = 0;
-  if (isEnChillhopArchetype(channel.archetype)) {
+  if (isChillhopArchetype(channel.archetype)) {
     const houseSignal = /딥\s*하우스|deep\s*house|하우스\s*비트|하우스\s*그루브|하우스\s*뮤직|house\s*beat|house\s*groove|house\s*music|개러지|게러지|garage/i.test(freeText);
     // 지시문 76 (TASK A) — 브리지 3종(98~114 BPM)은 양쪽 대역의 정규 후보다.
     // 대역별 후보가 6종 → 9종이 되어 12곡 세트의 장르당 반복이 2.0 → 1.3회로
@@ -969,7 +969,7 @@ function makeAllocations(freeText: string, channel: ChannelProfile, songCount: n
   // evenSpread 문서 주석에 배분 수치를 적어 뒀다. 다른 워크스페이스는
   // 이 인자를 받지 않으므로 배분이 한 곡도 바뀌지 않는다(§10).
   const genreAllocation = applyPrimaryGenreMinShare(
-    allocateGenreCounts(genreIds, songCount, protectedGenreIds, { evenSpread: isEnChillhopArchetype(channel.archetype), keepSingletons: isEnChillhopArchetype(channel.archetype) }),
+    allocateGenreCounts(genreIds, songCount, protectedGenreIds, { evenSpread: isChillhopArchetype(channel.archetype), keepSingletons: isChillhopArchetype(channel.archetype) }),
     channel,
     songCount
   );

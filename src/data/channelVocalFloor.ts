@@ -132,6 +132,24 @@ export const CHANNEL_VOCAL_FLOORS: ChannelVocalFloor[] = [
     reasonKo: 'kr-2030-vocal-floor와 같은 근거 — 젊고 도시적인 톤. 빈티지 크루너/오페라틱 발성으로 흘러가지 않게 막는 바닥.'
   },
   {
+    id: 'jp-chillhop-vocal-floor',
+    workspaceId: 'jp-chillhop',
+    labelKo: '일본 CHILI LAB 보컬 바닥',
+    archetypeIds: ['jp-chillhop'],
+    requiredTraits: [
+      'natural conversational Japanese vocal delivery',
+      'intimate close-mic sung-rap phrasing',
+      'contemporary urban vocal placement'
+    ],
+    forbiddenTraits: [
+      'showa-era announcer tone',
+      'operatic projection',
+      'English translationese delivery',
+      'famous artist soundalike vocals'
+    ],
+    reasonKo: '일본어 관계 스토리 앨범용 보컬 바닥. 남/여 STORY 성별 고정은 core/chiliStoryPov.ts가 별도로 강제한다.'
+  },
+  {
     id: 'kr-kids-vocal-floor',
     workspaceId: 'kr-kids',
     labelKo: '한국 동요 보컬 바닥',

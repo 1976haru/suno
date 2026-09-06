@@ -94,7 +94,8 @@ const ADULT_ARCHETYPES: ChannelArchetype[] = [
   'kr-2030-pop', 'jp-2030-pop', 'kr-idol-male', 'kr-idol-female',
   // 지시문 71 (TASK D) — en-chillhop도 성인 워크스페이스, moodWeights/
   // seasonWeights가 이 목록을 거쳐 en-chillhop에도 적용된다.
-  'en-chillhop'
+  'en-chillhop',
+  'jp-chillhop'
 ];
 
 /**
@@ -2101,6 +2102,30 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
     moodWeights: { 'calm-focus': 2 },
     genreWeights: { 'chill-rap': 1, 'lofi-hiphop-study': 1 },
     archetypeScope: ['en-chillhop']
+  },
+  {
+    id: 'jp-chillhop-story-core',
+    patterns: [/CHILI/i, /칠리/, /彼のSTORY/u, /彼女のSTORY/u, /ふたりのSTORY/u, /雨/u, /終電/u, /告白/u, /再会/u, /ドライブ/u, /カフェ/u, /駅/u, /返信/u, /夜/u, /恋/u],
+    genreWeights: {
+      'chill-rap': 2,
+      'boom-bap-mellow': 2,
+      'jazz-rap': 2,
+      'lofi-hiphop-study': 2,
+      'trap-soul': 2,
+      'en-deep-house-melodic': 2,
+      'en-deep-house-organic': 2,
+      'en-house-garage-swing': 2,
+      'en-deep-house-vocal-anthem': 2,
+      'en-deep-house-tech-groove': 2,
+      'en-deep-house-soulful': 2,
+      'alt-rnb': 2,
+      'en-chill-house-emotional': 2,
+      'en-chill-deep-house': 2,
+      'en-lounge-house': 2
+    },
+    moodWeights: { intimate: 2, 'calm-focus': 1, nostalgic: 1 },
+    archetypeScope: ['jp-chillhop'],
+    axis: 'genre'
   },
   // -------------------------------------------------------------------------
   // 지시문 77 (TASK B) — 발성(onset) 축. 이 6개 규칙만이 vocalPresetWeights를

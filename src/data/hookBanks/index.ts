@@ -14,6 +14,7 @@ import { krIdolFemaleOverride } from './krIdolFemale';
 import { modernChillOverride } from './modernChill';
 import { cityNightOverride } from './cityNight';
 import { enChillhopOverride } from './enChillhop';
+import { jpChillhopOverride } from './jpChillhop';
 
 export function overrideForArchetype(archetype: ChannelArchetype | undefined, language: LyricLanguage): HookVocabularyOverride {
   switch (archetype) {
@@ -87,6 +88,8 @@ export function overrideForArchetype(archetype: ChannelArchetype | undefined, la
     // jp-2030-pop과 같은 이유로 명시적 case를 둔다.
     case 'en-chillhop':
       return enChillhopOverride;
+    case 'jp-chillhop':
+      return jpChillhopOverride(language);
     case 'senior-morning':
     default:
       return seniorMorningOverride;

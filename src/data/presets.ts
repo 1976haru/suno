@@ -1039,6 +1039,47 @@ export const channelPresets: ChannelProfile[] = [
     ],
     seoKeywords: ['bayside house playlist', 'japan drive house music', 'lounge house english vocal', 'harbour night house mix', 'chill house japan city', 'airport road drive playlist'],
     archetype: 'en-chillhop'
+  },
+  {
+    id: 'jp-chili-lab-story',
+    name: 'CHILI LAB JP STORY',
+    englishName: 'CHILI LAB JP STORY',
+    market: 'japan',
+    primaryLanguage: 'japanese',
+    audience: 'twenties',
+    promise: 'Japanese CHILI LAB relationship story playlist for a 5-act same-story album told through intimate Japanese chill rap and chill house',
+    visualIdentity: 'modern Japanese city-night relationship stills, rainy station glass, cafe window light, thumbnail-only visual identity',
+    defaultVocal: 'balanced Japanese relationship vocal, intimate close-mic delivery, soft sung-rap phrasing',
+    preferredGenres: [
+      'chill-rap',
+      'boom-bap-mellow',
+      'jazz-rap',
+      'lofi-hiphop-study',
+      'trap-soul',
+      'en-deep-house-melodic',
+      'en-deep-house-organic',
+      'en-house-garage-swing',
+      'en-deep-house-vocal-anthem',
+      'en-deep-house-tech-groove',
+      'en-deep-house-soulful',
+      'alt-rnb',
+      'en-chill-house-emotional',
+      'en-chill-deep-house',
+      'en-lounge-house'
+    ],
+    preferredMoods: ['intimate', 'calm-focus', 'nostalgic'],
+    forbiddenCliches: [
+      'specific artist imitation',
+      'soundalike vocals',
+      'signature hook of an existing song',
+      'English-to-Japanese literal translation',
+      'Korean lyric fallback',
+      'Showa-era AM-radio tone',
+      'enka melodrama',
+      'aggressive festival EDM drop'
+    ],
+    seoKeywords: ['Japanese chill rap', 'Japanese chill house', 'CHILI LAB STORY', '彼のSTORY', '彼女のSTORY', '雨の日プレイリスト'],
+    archetype: 'jp-chillhop'
   }
 ];
 
