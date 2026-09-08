@@ -35,6 +35,7 @@ import { hashSeed } from '../utils/prng';
 import { validateChannelProfile } from '../utils/channelProfile';
 import { lyricThemesForOptions } from '../data/lyricThemes';
 import { resolveScenePlanningMode, type ConceptSceneContext } from './scenePlanningMode';
+import { applyChiliStoryGenerationContract } from './chiliStoryPov';
 
 export interface PreflightReason {
   /** Matches ResolvedGenerationContract.mismatches[].field / DesignIssue.id for a soft (acknowledgeable) reason; one of this module's own hard-block ids ('channelArchetype' | 'genreZeroSongs' | 'workspaceScaffold') for a hard one. */
@@ -410,18 +411,19 @@ export async function evaluateGenerationRequest(
   designGateEvaluator: DesignGateEvaluator = evaluateDesignGate
 ): Promise<PreflightResult> {
   const { workspaceId, options, genres, avoid, acknowledgedSignature, conceptSceneContext } = input;
-  const slots = preallocateSongSlots(options, genres, avoid);
-  const choices = userChoicesFromOptions(options);
-  const contract = buildResolvedGenerationContract(options, choices, slots, workspaceId);
+  const effectiveOptions = applyChiliStoryGenerationContract(options);
+  const slots = preallocateSongSlots(effectiveOptions, genres, avoid);
+  const choices = userChoicesFromOptions(effectiveOptions);
+  const contract = buildResolvedGenerationContract(effectiveOptions, choices, slots, workspaceId);
   const constraints = resolveConstraintsFromOptions(
-    options,
-    audienceProfileForChannelArchetype(options.channel.archetype, options.audience),
+    effectiveOptions,
+    audienceProfileForChannelArchetype(effectiveOptions.channel.archetype, effectiveOptions.audience),
     workspaceId
   );
-  const designGate = await designGateEvaluator(slots, constraints, options);
+  const designGate = await designGateEvaluator(slots, constraints, effectiveOptions);
   return resolveGenerationPreflight({
     workspaceId,
-    options,
+    options: effectiveOptions,
     slots,
     contract,
     designGate,

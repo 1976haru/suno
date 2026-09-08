@@ -130,9 +130,14 @@ export interface BridgeImportMeta {
   workspaceId?: WorkspaceId;
   storyPov?: ChiliStoryPov;
   cafeStoryMode?: ChiliStoryPov;
+  storySourceLine?: string;
+  storyPlanLine?: string;
+  storyPlanEpisodeId?: string;
+  storyPovTitle?: string;
   storySourceEpisodeId?: string;
   storySourceTitle?: string;
   storySourceSummary?: string;
+  storyPovIntentSummary?: string;
   storyPreviousContext?: string;
   storyNextHint?: string;
   storyLocation?: string;
@@ -182,9 +187,14 @@ export function extractBridgeImportMeta(rawText: string): BridgeImportMeta | nul
     ...(isNonEmptyString(obj.workspaceId) ? { workspaceId: obj.workspaceId as WorkspaceId } : {}),
     ...(obj.storyPov === 'couple' || obj.storyPov === 'male' || obj.storyPov === 'female' ? { storyPov: obj.storyPov } : {}),
     ...(obj.cafeStoryMode === 'couple' || obj.cafeStoryMode === 'male' || obj.cafeStoryMode === 'female' ? { cafeStoryMode: obj.cafeStoryMode } : {}),
+    ...(isNonEmptyString(obj.storySourceLine) ? { storySourceLine: obj.storySourceLine } : {}),
+    ...(isNonEmptyString(obj.storyPlanLine) ? { storyPlanLine: obj.storyPlanLine } : {}),
+    ...(isNonEmptyString(obj.storyPlanEpisodeId) ? { storyPlanEpisodeId: obj.storyPlanEpisodeId } : {}),
+    ...(isNonEmptyString(obj.storyPovTitle) ? { storyPovTitle: obj.storyPovTitle } : {}),
     ...(isNonEmptyString(obj.storySourceEpisodeId) ? { storySourceEpisodeId: obj.storySourceEpisodeId } : {}),
     ...(isNonEmptyString(obj.storySourceTitle) ? { storySourceTitle: obj.storySourceTitle } : {}),
     ...(isNonEmptyString(obj.storySourceSummary) ? { storySourceSummary: obj.storySourceSummary } : {}),
+    ...(isNonEmptyString(obj.storyPovIntentSummary) ? { storyPovIntentSummary: obj.storyPovIntentSummary } : {}),
     ...(isNonEmptyString(obj.storyPreviousContext) ? { storyPreviousContext: obj.storyPreviousContext } : {}),
     ...(isNonEmptyString(obj.storyNextHint) ? { storyNextHint: obj.storyNextHint } : {}),
     ...(isNonEmptyString(obj.storyLocation) ? { storyLocation: obj.storyLocation } : {}),
@@ -702,9 +712,14 @@ export function importSongsJson(
         ...(meta.workspaceId ? { workspaceId: meta.workspaceId } : {}),
         ...(meta.storyPov ? { storyPov: meta.storyPov } : {}),
         ...(meta.cafeStoryMode ? { cafeStoryMode: meta.cafeStoryMode } : {}),
+        ...(meta.storySourceLine ? { storySourceLine: meta.storySourceLine } : {}),
+        ...(meta.storyPlanLine ? { storyPlanLine: meta.storyPlanLine } : {}),
+        ...(meta.storyPlanEpisodeId ? { storyPlanEpisodeId: meta.storyPlanEpisodeId } : {}),
+        ...(meta.storyPovTitle ? { storyPovTitle: meta.storyPovTitle } : {}),
         ...(meta.storySourceEpisodeId ? { storySourceEpisodeId: meta.storySourceEpisodeId } : {}),
         ...(meta.storySourceTitle ? { storySourceTitle: meta.storySourceTitle } : {}),
         ...(meta.storySourceSummary ? { storySourceSummary: meta.storySourceSummary } : {}),
+        ...(meta.storyPovIntentSummary ? { storyPovIntentSummary: meta.storyPovIntentSummary } : {}),
         ...(meta.storyPreviousContext ? { storyPreviousContext: meta.storyPreviousContext } : {}),
         ...(meta.storyNextHint ? { storyNextHint: meta.storyNextHint } : {}),
         ...(meta.storyLocation ? { storyLocation: meta.storyLocation } : {}),

@@ -113,6 +113,23 @@ function appendGenreAutoRemainder(manualPlan: string[], autoPlan: string[], song
     : plan;
 }
 
+function storyAwareIdentity(
+  opts: Pick<GenerationOptions, 'storyPov' | 'storySourceTitle' | 'lyricLanguage'>,
+  trackNo: number,
+  title: string,
+  hook: string
+): { title: string; hook: string } {
+  const sourceTitle = opts.storySourceTitle?.trim();
+  if (!sourceTitle || opts.lyricLanguage !== 'japanese' || (opts.storyPov !== 'male' && opts.storyPov !== 'female')) {
+    return { title, hook };
+  }
+  const perspective = opts.storyPov === 'male' ? '彼の視点' : '彼女の視点';
+  return {
+    title: `${sourceTitle} · ${title} · ${perspective} ${trackNo}`,
+    hook: `${hook} · ${sourceTitle} ${perspective} ${trackNo}`
+  };
+}
+
 /**
  * TASK B2 (v3.6) — parallel Anthropic Message Batch requests run with no
  * visibility into each other (see providers/batchAnthropic.ts's known
@@ -126,7 +143,7 @@ function appendGenreAutoRemainder(manualPlan: string[], autoPlan: string[], song
  * longer collide on identity because they never choose it.
  */
 export function preallocateSongSlots(
-  opts: Pick<GenerationOptions, 'channel' | 'projectTitle' | 'lyricLanguage' | 'songCount' | 'genreIds' | 'moodIds' | 'moneyChordMode' | 'moneyChordModeIsExplicitChoice' | 'customMoneyChord' | 'earwormMode' | 'vocalQuota' | 'vocalQuotaMode' | 'vocalTone' | 'vocalPresetPlan' | 'avoidWords' | 'negativeStyle' | 'introUniqueness' | 'diversityAllocations' | 'perspective' | 'perspectiveMode' | 'perspectiveModeIsExplicitChoice' | 'scenePlanningMode' | 'customLyricThemeScene' | 'customConcept' | 'storyPov' | 'cafeStoryMode' | 'storySourceEpisodeId' | 'storySourceTitle' | 'storySourceSummary' | 'storyPreviousContext' | 'storyNextHint' | 'storyLocation' | 'storySeason' | 'cafeLocation' | 'cafeType' | 'cafeSeason' | 'cafeTimeOfDay' | 'cafeWeather' | 'storySpeaker' | 'genreBlendWeights' | 'genreBlendMode' | 'audience' | 'ratingInsights' | 'slotOrderOverride'>,
+  opts: Pick<GenerationOptions, 'channel' | 'projectTitle' | 'lyricLanguage' | 'songCount' | 'genreIds' | 'moodIds' | 'moneyChordMode' | 'moneyChordModeIsExplicitChoice' | 'customMoneyChord' | 'earwormMode' | 'vocalQuota' | 'vocalQuotaMode' | 'vocalTone' | 'vocalPresetPlan' | 'avoidWords' | 'negativeStyle' | 'introUniqueness' | 'diversityAllocations' | 'perspective' | 'perspectiveMode' | 'perspectiveModeIsExplicitChoice' | 'scenePlanningMode' | 'customLyricThemeScene' | 'customConcept' | 'storyPov' | 'cafeStoryMode' | 'storySourceLine' | 'storyPlanLine' | 'storyPlanEpisodeId' | 'storyPovTitle' | 'storySourceEpisodeId' | 'storySourceTitle' | 'storySourceSummary' | 'storyPovIntentSummary' | 'storyPreviousContext' | 'storyNextHint' | 'storyLocation' | 'storySeason' | 'cafeLocation' | 'cafeType' | 'cafeSeason' | 'cafeTimeOfDay' | 'cafeWeather' | 'storySpeaker' | 'genreBlendWeights' | 'genreBlendMode' | 'audience' | 'ratingInsights' | 'slotOrderOverride'>,
   genres: GenrePack[],
   // TASK v3.72 (TASK E) — recentVocalComboSignatures is optional and
   // additive: core/vocalComboLedger.ts's last few "M:<register>|F:<register>"
@@ -266,12 +283,22 @@ export function preallocateSongSlots(
   // 127 BPM이 함께 나왔다(실측 25세트 중 9세트). 규칙은 그대로 두고
   // core/enChillhopBand.ts의 공통 함수를 두 경로가 함께 부른다.
   // en-chillhop이 아니면 입력 그대로다.
+  const genreAllocation = allocationForAxis(opts.diversityAllocations, 'genre');
+  const manualGenreIds = genreAllocation?.mode === 'manual'
+    ? Object.keys(genreAllocation.counts).filter(id => {
+        const genre = getGenreById(id);
+        return (genreAllocation.counts[id] ?? 0) > 0 && Boolean(genre) && isGenreEligibleForArchetype(genre!, archetype);
+      })
+    : [];
+  if (manualGenreIds.length) {
+    const existingGenreIds = new Set(genres.map(genre => genre.id));
+    genres = [...genres, ...manualGenreIds.filter(id => !existingGenreIds.has(id)).map(id => getGenreById(id)).filter((genre): genre is NonNullable<typeof genre> => Boolean(genre))];
+  }
   const genrePool = applyEnChillhopBandLock(
-    Array.from(new Set((opts.genreIds ?? genres.map(genre => genre.id)).filter(Boolean))),
+    Array.from(new Set([...(opts.genreIds ?? genres.map(genre => genre.id)), ...manualGenreIds].filter(Boolean))),
     opts.channel.archetype,
     `${opts.customConcept ?? ''} ${opts.projectTitle ?? ''}`
   );
-  const genreAllocation = allocationForAxis(opts.diversityAllocations, 'genre');
   /**
    * 지시문 10 (TASK A-3) — real measured bug: this is the actual genre pool
    * the real bridge deployment path (core/bridgeInstruction.ts's
@@ -352,10 +379,12 @@ export function preallocateSongSlots(
     ? buildGenreCountRotationPlan(eraQuotaCounts, Object.keys(eraQuotaCounts), opts.songCount, seed)
     : buildGenreRotationPlan(genrePool, opts.songCount, seed);
   const manualGenrePlan = genreAllocation?.mode === 'manual'
-    ? buildGenreCountRotationPlan(genreAllocation.counts, genrePool, opts.songCount, seed)
+    ? buildGenreCountRotationPlan(genreAllocation.counts, manualGenreIds, opts.songCount, seed)
     : [];
   const genrePlan = manualGenrePlan.length
-    ? appendGenreAutoRemainder(manualGenrePlan, autoGenrePlan, opts.songCount)
+    ? manualGenrePlan.length >= opts.songCount
+      ? manualGenrePlan.slice(0, opts.songCount)
+      : appendGenreAutoRemainder(manualGenrePlan, autoGenrePlan, opts.songCount)
     : autoGenrePlan;
   // v3.82 (TASK A) — flagship (track 2, idx=1) genre override from a
   // verified-good combo (see core/verifiedCombos.ts's own doc comment: a
@@ -1048,9 +1077,10 @@ export function preallocateSongSlots(
   const slots = Array.from({ length: opts.songCount }, (_, idx) => {
     const trackNo = idx + 1;
     const songRole = songRoles[idx];
-    const { title, hook } = trackNo <= 3
+    const generatedIdentity = trackNo <= 3
       ? nextContestedTitle(nextTitle, opts.lyricLanguage, opts.channel.archetype, songRole, songRole === 'cold-open' ? 'cold-open' : 'flagship', packContext, 3, false, constraints)
       : nextTitle(songRole);
+    const { title, hook } = storyAwareIdentity(opts, trackNo, generatedIdentity.title, generatedIdentity.hook);
     const vocalType = vocalPlan ? vocalPlan[idx] : undefined;
     const vocalPresetOverride = resolveVocalPresetOverride(idx, vocalType);
     // 지시문 49 (TASK A) — SongIdea.vocalPresetSource/PreassignedSongSlot.

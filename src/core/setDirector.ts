@@ -20,6 +20,7 @@ import { isChillhopArchetype, isKidsArchetype } from '../utils/channelArchetype'
 import { introTexturesForArchetype } from '../data/introTextures';
 import {
   ADULT_STRUCTURE_TEMPLATE_IDS,
+  allocationForAxis,
   VOCAL_TYPE_IDS
 } from './diversityAllocation';
 import { buildLyricThemePlan, povDistribution, resolvePerspectiveMode } from './lyricDiversityPlan';
@@ -48,6 +49,7 @@ import { eraIntentForWorkspace } from '../data/workspaceEraIntent';
 import { tightenEraConstraintForSenior } from './seniorOldpopPolicy';
 import { BREADTH_THRESHOLDS } from './designGate';
 import { DEFAULT_ADULT_VOCAL_QUOTA, leaningAdultVocalQuota, leaningGenderFor, scaleVocalQuota } from './vocalPlan';
+import { applyChiliStoryGenerationContract, resolveEffectiveStoryVocalQuota } from './chiliStoryPov';
 import { assertUserChoicesPreserved, emptyUserChoices, type UserExplicitChoices } from './userChoices';
 
 /**
@@ -734,6 +736,44 @@ function vocalCounts(songCount: number) {
   return exactBalancedCounts(VOCAL_TYPE_IDS, songCount);
 }
 
+const CHILI_STORY_OPTION_KEYS = [
+  'storyPov',
+  'cafeStoryMode',
+  'storySourceLine',
+  'storySourceEpisodeId',
+  'storySourceTitle',
+  'storySourceSummary',
+  'storyPreviousContext',
+  'storyNextHint',
+  'storyLocation',
+  'storySeason',
+  'cafeLocation',
+  'cafeType',
+  'cafeSeason',
+  'cafeTimeOfDay',
+  'cafeWeather',
+  'storySpeaker',
+  'scenePlanningMode'
+] satisfies (keyof GenerationOptions)[];
+
+function chiliStoryOptionPatch(source: Partial<GenerationOptions> | undefined): Partial<GenerationOptions> {
+  if (!source) return {};
+  const result: Partial<GenerationOptions> = {};
+  for (const key of CHILI_STORY_OPTION_KEYS) {
+    if (source[key] !== undefined) {
+      (result as Record<string, unknown>)[key] = source[key];
+    }
+  }
+  return result;
+}
+
+function withChiliStoryOptions(base: GenerationOptions, source: Partial<GenerationOptions> | undefined): GenerationOptions {
+  return applyChiliStoryGenerationContract({
+    ...base,
+    ...chiliStoryOptionPatch(source)
+  });
+}
+
 /**
  * v3.77 (TASK A) — real gap found while verifying this task's own §10 "결과물
  * 검사에서 이 기능이 작동했는가를 직접 확인": the real Step2Concept -> Step2Plan
@@ -767,12 +807,28 @@ function vocalCounts(songCount: number) {
  * same scaleVocalQuota call, and same "leaning never applies" rule a fixed
  * quota already implies in batchPreallocation.ts/localGenerator.ts.
  */
-function resolveVocalCounts(channel: ChannelProfile, songCount: number, vocalTone: string | undefined): Record<string, number> {
+function resolveVocalCounts(channel: ChannelProfile, songCount: number, vocalTone: string | undefined, storyOptions?: Partial<GenerationOptions>): Record<string, number> {
+  const storyQuota = resolveEffectiveStoryVocalQuota({ channel, songCount, ...chiliStoryOptionPatch(storyOptions) });
+  if (storyQuota) return { male: storyQuota.male, female: storyQuota.female, mixed: storyQuota.mixed };
   if (channel.vocalQuotaOverride) return { ...scaleVocalQuota(channel.vocalQuotaOverride, songCount) };
   if (isKidsArchetype(channel.archetype) || !vocalTone) return vocalCounts(songCount);
   const leaning = leaningGenderFor({ channel, vocalTone });
   if (!leaning) return vocalCounts(songCount);
   return { ...leaningAdultVocalQuota(DEFAULT_ADULT_VOCAL_QUOTA, songCount, leaning) };
+}
+
+function vocalAllocationReasoningKo(channel: ChannelProfile, songCount: number, storyOptions?: Partial<GenerationOptions>): string {
+  const storyQuota = resolveEffectiveStoryVocalQuota({ channel, songCount, ...chiliStoryOptionPatch(storyOptions) });
+  if (storyQuota) {
+    if (storyQuota.male === songCount && storyQuota.female === 0 && storyQuota.mixed === 0) {
+      return `STORY 선택에 따라 보컬은 남성 솔로 ${songCount}곡(100%)으로 고정하고, 구조 템플릿은 5종을 순환시켰습니다.`;
+    }
+    if (storyQuota.female === songCount && storyQuota.male === 0 && storyQuota.mixed === 0) {
+      return `STORY 선택에 따라 보컬은 여성 솔로 ${songCount}곡(100%)으로 고정하고, 구조 템플릿은 5종을 순환시켰습니다.`;
+    }
+    return `STORY 선택에 따라 보컬은 남성 ${storyQuota.male}곡 · 여성 ${storyQuota.female}곡 · 듀엣 ${storyQuota.mixed}곡으로 고정하고, 구조 템플릿은 5종을 순환시켰습니다.`;
+  }
+  return '보컬은 남성/여성/듀엣 축을 균등 배분하고, 구조 템플릿은 5종을 순환시켰습니다.';
 }
 
 /**
@@ -917,7 +973,16 @@ function applyPrimaryGenreMinShare(allocation: GenreAllocationSlot[], channel: C
   return result;
 }
 
-function makeAllocations(freeText: string, channel: ChannelProfile, songCount: number, genreIds: string[], vocalTone?: string, choices?: UserExplicitChoices, protectedGenreIds: string[] = []): AxisAllocation[] {
+function makeAllocations(
+  freeText: string,
+  channel: ChannelProfile,
+  songCount: number,
+  genreIds: string[],
+  vocalTone?: string,
+  choices?: UserExplicitChoices,
+  protectedGenreIds: string[] = [],
+  storyOptions?: Partial<GenerationOptions>
+): AxisAllocation[] {
   const emptyBase = buildBaseOptions(freeText, channel, songCount, genreIds, [], choices);
   // TASK v3.64 (TASK A) — this used to slice the theme pool in raw array
   // order (the first N ids), which bypassed core/lyricDiversityPlan.ts's
@@ -980,7 +1045,7 @@ function makeAllocations(freeText: string, channel: ChannelProfile, songCount: n
       mode: 'manual',
       counts: Object.fromEntries(genreAllocation.map(slot => [slot.genreId, slot.songCount]))
     },
-    { axis: 'vocalType', mode: 'manual', counts: resolveVocalCounts(channel, songCount, vocalTone) },
+    { axis: 'vocalType', mode: 'manual', counts: resolveVocalCounts(channel, songCount, vocalTone, storyOptions) },
     { axis: 'introTexture', mode: 'manual', counts: countsFromSlots(introIds, songCount, 4) },
     { axis: 'hookDevice', mode: 'manual', counts: countsFromSlots(hookIds, songCount, 4) },
     // v4.16 (TASK B) — weighted 3:4:2 (sparse:medium:full, see promptComposer.ts's
@@ -1386,7 +1451,8 @@ export function buildSetPlanFromIntent(
    */
   vocalTone?: string,
   /** v5.7 (TASK v5.7, TASK A) — see core/userChoices.ts. Threaded into buildBaseOptions so the plan's own moneyChordMode preview matches what generation will actually use instead of the old hardcoded 'default'. */
-  choices: UserExplicitChoices = emptyUserChoices()
+  choices: UserExplicitChoices = emptyUserChoices(),
+  storyOptions?: Partial<GenerationOptions>
 ): SetPlan {
   const safeSongCount = clamp(intent.segments.reduce((sum, segment) => sum + segment.songCount, 0) || 18, 1, 80);
   const blendWarnings: string[] = [];
@@ -1509,7 +1575,7 @@ export function buildSetPlanFromIntent(
   ).counts;
   const selectedIds = Object.keys(quotaAdjustedGenreCounts);
 
-  const allocations = makeAllocations(intent.intentKo, channel, safeSongCount, selectedIds, vocalTone, choices);
+  const allocations = makeAllocations(intent.intentKo, channel, safeSongCount, selectedIds, vocalTone, choices, [], storyOptions);
   const genreAxisIndex = allocations.findIndex(item => item.axis === 'genre');
   if (genreAxisIndex >= 0) allocations[genreAxisIndex] = { axis: 'genre', mode: 'manual', counts: quotaAdjustedGenreCounts };
 
@@ -1518,7 +1584,7 @@ export function buildSetPlanFromIntent(
   // means preallocateSongSlots' own killingPointBoostFromInsights call
   // computes an empty boost map, i.e. zero influence — exactly what the
   // toggle turning "off" needs.
-  const opts = { ...buildBaseOptions(intent.intentKo, channel, safeSongCount, selectedIds, allocations, choices), ratingInsights: history.insights };
+  const opts = withChiliStoryOptions({ ...buildBaseOptions(intent.intentKo, channel, safeSongCount, selectedIds, allocations, choices), ratingInsights: history.insights }, storyOptions);
   const selectedIdSet = new Set(selectedIds);
   const genres = genreLibrary.filter(genre => selectedIdSet.has(genre.id));
   const slots = preallocateSongSlots(opts, genres, { usedTitles: [], usedHooks: history.recentHooks });
@@ -1617,7 +1683,8 @@ export function directSetLocal(
   /** TASK v4.9 (TASK A, §1-6) — explicit user choice (GenerationOptions.paletteFamilyOverride, Step2Plan.tsx's "이 세트의 계열" radio); undefined trusts resolveMainFamilyId's own auto-resolution (concept keyword hint, then recency rotation). */
   paletteFamilyOverride?: string,
   /** v5.7 (TASK v5.7, TASK A) — see core/userChoices.ts. Threaded into buildBaseOptions/makeAllocations so this plan's own moneyChordMode preview reflects the user's real pick instead of setDirector.ts's old hardcoded 'default'. */
-  choices: UserExplicitChoices = emptyUserChoices()
+  choices: UserExplicitChoices = emptyUserChoices(),
+  storyOptions?: Partial<GenerationOptions>
 ): SetPlan {
   const safeSongCount = clamp(Math.round(songCount) || 18, 1, 80);
   const listeningContext = detectListeningContext(freeText);
@@ -1660,7 +1727,7 @@ export function directSetLocal(
         '아티스트명은 프롬프트에 넣지 않고 음악 특성으로만 분해했습니다.'
       ],
       unknownTermsKo
-    }, channel, history, breadth, breadthSource, vocalTone, choices);
+    }, channel, history, breadth, breadthSource, vocalTone, choices, storyOptions);
   }
 
   // v3.63 재작성 (TASK B) — explicit "X 느낌이 나는 Y" genre-blend request.
@@ -1684,7 +1751,7 @@ export function directSetLocal(
             listeningContext.settingKo !== NO_LISTENING_CONTEXT_KO ? `청취 상황(${listeningContext.settingKo})을 반영했습니다.` : '별도 청취 상황 지정은 없었습니다.'
           ],
           unknownTermsKo
-        }, channel, history, breadth, breadthSource, vocalTone, choices);
+        }, channel, history, breadth, breadthSource, vocalTone, choices, storyOptions);
       }
     }
   }
@@ -1816,7 +1883,20 @@ export function directSetLocal(
       eraRestoredCounts[id] = (eraRestoredCounts[id] ?? 0) + 1;
     }
   }
-  const selectedIds = eraConstraint.unspecified ? preQuotaSelectedIds : Object.keys(eraRestoredCounts);
+  const incomingManualGenre = allocationForAxis(storyOptions?.diversityAllocations, 'genre');
+  const incomingManualGenreIds = incomingManualGenre?.mode === 'manual'
+    ? Object.keys(incomingManualGenre.counts).filter(id => {
+        const genre = getGenreById(id);
+        return (incomingManualGenre.counts[id] ?? 0) > 0 && Boolean(genre) && isGenreEligibleForArchetype(genre!, channel.archetype || 'senior-morning');
+      })
+    : [];
+  const incomingManualGenreTotal = incomingManualGenreIds.reduce((sum, id) => sum + Math.max(0, Math.round(incomingManualGenre?.counts[id] ?? 0)), 0);
+  const hasExactIncomingManualGenre = incomingManualGenre?.mode === 'manual'
+    && incomingManualGenreTotal === safeSongCount
+    && incomingManualGenreIds.length > 0;
+  const selectedIds = hasExactIncomingManualGenre
+    ? incomingManualGenreIds
+    : eraConstraint.unspecified ? preQuotaSelectedIds : Object.keys(eraRestoredCounts);
   // 지시문 24 TASK A — era-unspecified path never built eraRestoredCounts,
   // so makeAllocations' own allocateGenreCounts call was the only place
   // still computing final genre counts for it — and its internal
@@ -1826,7 +1906,11 @@ export function directSetLocal(
   // (era-specified already restores drops via eraRestoredCounts above, but
   // protecting here too costs nothing and guards against a future allocator
   // change reintroducing the same class of drop).
-  const allocations = makeAllocations(freeText, channel, safeSongCount, selectedIds, vocalTone, choices, userSelectedIds);
+  const allocations = makeAllocations(freeText, channel, safeSongCount, selectedIds, vocalTone, choices, userSelectedIds, storyOptions);
+  if (hasExactIncomingManualGenre) {
+    const genreAxisIndex = allocations.findIndex(allocation => allocation.axis === 'genre');
+    if (genreAxisIndex >= 0) allocations[genreAxisIndex] = { ...incomingManualGenre! };
+  }
   // 지시문 24 (TASK A-2/A-3/A-4) — 사용자 장르 선택에 관한 설명을
   // reasoningKo(중립 정보, Step2Plan.tsx가 .supporting으로 렌더)로 남긴다.
   // warnings(.error 렌더, 실제 문제 전용)와 섞지 않는다 — 이건 정상 동작
@@ -1903,7 +1987,7 @@ export function directSetLocal(
   // leaning-aware manual vocalType allocation just built above, instead of
   // resolving vocalType leaning while still previewing with the untouched
   // channel default.
-  const opts = { ...buildBaseOptions(freeText, channel, safeSongCount, selectedIds, allocations, choices), ...(vocalTone?.trim() ? { vocalTone: vocalTone.trim() } : {}), ratingInsights: history.insights };
+  const opts = withChiliStoryOptions({ ...buildBaseOptions(freeText, channel, safeSongCount, selectedIds, allocations, choices), ...(vocalTone?.trim() ? { vocalTone: vocalTone.trim() } : {}), ratingInsights: history.insights }, storyOptions);
   const selectedIdSet = new Set(selectedIds);
   const genres = genreLibrary.filter(genre => selectedIdSet.has(genre.id));
   const slots = preallocateSongSlots(opts, genres, { usedTitles: [], usedHooks: history.recentHooks });
@@ -1955,7 +2039,7 @@ export function directSetLocal(
         families.length
           ? `선택한 패밀리 ${families.map(family => family.labelKo).join(', ')}에서 ${selectedIds.length}개 장르를 골랐고 같은 장르는 최대 5곡 이하가 되도록 배분했습니다.`
           : `${selectedIds.length}개 장르를 골랐고 같은 장르는 최대 5곡 이하가 되도록 배분했습니다.`,
-        '보컬은 남성/여성/듀엣 축을 균등 배분하고, 구조 템플릿은 5종을 순환시켰습니다.',
+        vocalAllocationReasoningKo(channel, safeSongCount, storyOptions),
         '인트로/훅 장치/밀도는 문구가 아니라 그룹 제약으로 브릿지에 전달합니다.',
         breadthSource === 'user'
           ? `이 세트의 성격을 "${BREADTH_LABEL_KO[breadth]}"으로 직접 선택하셨습니다.`

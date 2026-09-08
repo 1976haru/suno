@@ -20,6 +20,7 @@ import {
   type VocalQuota
 } from './vocalPlan';
 import { resolveBaseVocalQuota } from './vocalQuotaFromGenre';
+import { isStoryVocalHardLocked } from './chiliStoryPov';
 
 /**
  * v3.78 (TASK A) — "관문 1": everything a slot plan (PreassignedSongSlot[])
@@ -256,6 +257,10 @@ function vocalIssues(slots: PreassignedSongSlot[], opts: GenerationOptions, cons
   // run / segment balance) with "did the plan land within the override's own
   // (songCount-scaled) counts" instead. A channel with no override is
   // completely unaffected — falls through to the unchanged checks below.
+  const storyVocalLock = isStoryVocalHardLocked(opts);
+  if (storyVocalLock.locked) {
+    return quotaFidelityIssues(counts, storyVocalLock.quota, opts.songCount, autoFix);
+  }
   if (opts.channel.vocalQuotaOverride) {
     return quotaFidelityIssues(counts, opts.channel.vocalQuotaOverride, opts.songCount, autoFix);
   }

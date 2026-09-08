@@ -10,6 +10,7 @@ import { PALETTE_FAMILIES } from '../../data/paletteFamilies';
 import { channelSoundFloorForArchetype } from '../../data/channelSoundFloor';
 import { normalizeDiversityAllocations } from '../../core/diversityAllocation';
 import { resolveVocalAllocationMode, summarizeVocalTraitDistribution } from '../../core/vocalPlan';
+import { applyChiliStoryGenerationContract, isStoryVocalHardLocked } from '../../core/chiliStoryPov';
 import { getRatings } from '../../core/ratingLedger';
 import { analyzeRatings } from '../../core/ratingAnalysis';
 import { preallocateSongSlots } from '../../core/batchPreallocation';
@@ -111,7 +112,7 @@ export function reorderSlotsBySegment(slots: PreassignedSongSlot[], segments: Se
 function applyPlanToOptions(plan: SetPlan, setOpts: Step2PlanProps['setOpts'], ratingInsights: RatingInsightLike[] | undefined) {
   const genreAllocation = plan.allocations.find(allocation => allocation.axis === 'genre');
   const genreIds = genreAllocation ? Object.keys(genreAllocation.counts) : [];
-  setOpts(prev => ({
+  setOpts(prev => applyChiliStoryGenerationContract({
     ...prev,
     genreIds: genreIds.length ? genreIds : prev.genreIds,
     diversityAllocations: normalizeDiversityAllocations(plan.allocations),
@@ -173,7 +174,7 @@ export default function Step2Plan({ opts, setOpts, onDesignGateStatusChange }: S
       recentGenreIds: [...readRecentGenreIds(opts.channel.id), ...recentAvoid],
       recentHooks: [],
       insights: appliedInsights
-    }, familyIds, opts.vocalTone, opts.breadthOverride, opts.paletteFamilyOverride, userChoicesFromOptions(opts)),
+    }, familyIds, opts.vocalTone, opts.breadthOverride, opts.paletteFamilyOverride, userChoicesFromOptions(opts), opts),
     // 지시문 19 (TASK C) — real gap the exhaustive-deps warning caught:
     // userChoicesFromOptions(opts) above also reads opts.genreIds,
     // opts.selectedGenreFamilyIds, and opts.choiceProvenance, none of
@@ -286,7 +287,7 @@ export default function Step2Plan({ opts, setOpts, onDesignGateStatusChange }: S
     [gateGenreIdsKey]
   );
   const gateOpts = useMemo(
-    () => ({ ...opts, genreIds: gateGenreIds, diversityAllocations: allocations }),
+    () => applyChiliStoryGenerationContract({ ...opts, genreIds: gateGenreIds, diversityAllocations: allocations }),
     [opts, gateGenreIds, allocations]
   );
   // v3.82 (TASK A) — same best-effort IndexedDB read as VerifiedComboPanel's
@@ -344,6 +345,7 @@ export default function Step2Plan({ opts, setOpts, onDesignGateStatusChange }: S
     [gateVerifiedCombos, gateGenreIds]
   );
   const vocalSummaryKo = `남성 솔로 ${vocalDistribution.quota.male}곡 · 여성 솔로 ${vocalDistribution.quota.female}곡 · 듀엣 ${vocalDistribution.quota.mixed}곡`;
+  const storyVocalLock = isStoryVocalHardLocked(gateOpts);
   // TASK v5.13 — real bug: this used to be `!opts.vocalTone` (Step2Plan.tsx
   // pre-v5.13), which is always `false` since createInitialOptions
   // (utils/generation.ts) seeds vocalTone to channel.defaultVocal — a
@@ -354,7 +356,7 @@ export default function Step2Plan({ opts, setOpts, onDesignGateStatusChange }: S
   // (isVocalToneBalanced) AND additionally distinguishes a channel's own
   // fixed gender quota (vocalQuotaOverride, e.g. kr-idol-male) from a real
   // balanced default — see VocalAllocationMode's own doc comment (types.ts).
-  const vocalAllocationMode = resolveVocalAllocationMode(opts);
+  const vocalAllocationMode = resolveVocalAllocationMode(gateOpts);
 
   const constraints = useMemo(
     () => resolveConstraintsFromOptions(gateOpts, audienceProfileForChannelArchetype(gateOpts.channel.archetype, gateOpts.audience), currentWorkspaceId()),
@@ -413,7 +415,7 @@ export default function Step2Plan({ opts, setOpts, onDesignGateStatusChange }: S
     // applyDesignGateAutoFix comment / core/userChoices.ts's
     // provenanceForSystemFix doc comment for why this is currently a no-op
     // for the 13 tracked fields but stays correct for a future autoFix.
-    setOpts(prev => ({ ...prev, ...fix, choiceProvenance: { ...prev.choiceProvenance, ...provenanceForSystemFix(fix) } }));
+    setOpts(prev => applyChiliStoryGenerationContract({ ...prev, ...fix, choiceProvenance: { ...prev.choiceProvenance, ...provenanceForSystemFix(fix) } }));
   }
 
   function updateCount(axis: DiversityAxisId, id: string, value: number) {
@@ -483,7 +485,9 @@ export default function Step2Plan({ opts, setOpts, onDesignGateStatusChange }: S
           <p className="supporting">✅ 이 설계가 지금 세트에 적용되어 있습니다 — 아래 표대로 생성됩니다.</p>
         ) : (
           <p className="warning">
-            ⚠ 이 설계는 아직 적용되지 않았습니다 — <b>[설계 적용]</b>을 누르지 않으면 아래 &quot;{opts.songCount}곡 계획&quot; 표의 장르·BPM·보컬은 실제 생성에 반영되지 않고, 채널 기본 구성으로 생성됩니다.
+            {storyVocalLock.locked
+              ? <>⚠ 이 설계는 아직 적용되지 않았습니다 — <b>[설계 적용]</b>을 누르지 않으면 아래 &quot;{opts.songCount}곡 계획&quot; 표의 장르·BPM은 실제 생성에 반영되지 않습니다. 보컬은 STORY 선택에 따라 {storyVocalLock.gender === 'male' ? '남성' : '여성'} 100%로 유지됩니다.</>
+              : <>⚠ 이 설계는 아직 적용되지 않았습니다 — <b>[설계 적용]</b>을 누르지 않으면 아래 &quot;{opts.songCount}곡 계획&quot; 표의 장르·BPM·보컬은 실제 생성에 반영되지 않고, 채널 기본 구성으로 생성됩니다.</>}
           </p>
         )}
         {plan.appliedInsightsKo.length > 0 && (
@@ -630,10 +634,14 @@ export default function Step2Plan({ opts, setOpts, onDesignGateStatusChange }: S
       <div className="option-block">
         <div className="section-head">
           <h3>보컬 배분</h3>
-          <button type="button" onClick={() => setEditingAxis('vocalType')}>
-            <SlidersHorizontal size={15} />
-            조정
-          </button>
+          {storyVocalLock.locked ? (
+            <span className="chip active">STORY 고정</span>
+          ) : (
+            <button type="button" onClick={() => setEditingAxis('vocalType')}>
+              <SlidersHorizontal size={15} />
+              조정
+            </button>
+          )}
         </div>
         <div className="chips">
           <span className="chip active">남성 솔로 {vocalDistribution.quota.male}곡</span>
@@ -646,6 +654,11 @@ export default function Step2Plan({ opts, setOpts, onDesignGateStatusChange }: S
             <p className="supporting">창법 {axisSummaryLine(vocalDistribution.delivery)}</p>
             <p className="supporting">질감 {axisSummaryLine(vocalDistribution.timbre)}</p>
           </>
+        )}
+        {storyVocalLock.locked && (
+          <p className="supporting">
+            STORY 선택에 따라 보컬은 {storyVocalLock.gender === 'male' ? '남성' : '여성'} 100%로 고정됩니다.
+          </p>
         )}
       </div>
 
@@ -731,7 +744,7 @@ export default function Step2Plan({ opts, setOpts, onDesignGateStatusChange }: S
 
       <p className="supporting">최근 장르 {readRecentGenreIds(opts.channel.id).length}개를 참고했고, 최근 훅은 생성 단계의 기존 ledger가 제외합니다.</p>
 
-      {editingAxis && editing && (
+      {editingAxis && editing && !(storyVocalLock.locked && editingAxis === 'vocalType') && (
         <div className="modal-backdrop" role="presentation" onClick={() => setEditingAxis(null)}>
           <div className="modal-card" role="dialog" aria-modal="true" onClick={event => event.stopPropagation()}>
             <div className="section-head">

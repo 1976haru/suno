@@ -43,11 +43,14 @@ import {
   CHILI_STORY_DEFAULT_SONG_COUNT,
   CHILI_STORY_POV_LABEL_JA,
   chiliStoryContractSummaryKo,
+  clearChiliStorySoloVocalLock,
+  isStoryVocalHardLocked,
   isSoloChiliStoryPov,
   normalizeChiliStoryPov,
-  parseChiliStoryLine,
-  vocalQuotaForCafeStoryMode,
-  vocalQuotaForChiliStoryPov
+  parseChiliStoryPlanLine,
+  resolveChiliStorySource,
+  resolveEffectiveStoryVocalQuota,
+  storyInputUiModeForWorkspace
 } from '../../core/chiliStoryPov';
 import ChoiceGrid from '../ChoiceGrid';
 import ConceptAgentPanel from '../ConceptAgentPanel';
@@ -269,21 +272,39 @@ export default function Step2Concept({
   const chiliStoryLabelMap = isJpCafeChillhop ? CAFE_STORY_MODE_LABEL_JA : CHILI_STORY_POV_LABEL_JA;
   const chiliStoryModeChoices = isJpCafeChillhop ? CAFE_STORY_MODE_CHOICES : CHILI_STORY_POV_CHOICES;
   const chiliStoryModeQuestion = isJpCafeChillhop ? '카페 스토리 모드' : 'STORY 시점';
-  const chiliStoryLockedQuota = isJpCafeChillhop
-    ? vocalQuotaForCafeStoryMode(chiliStoryPov, opts.songCount)
-    : isJpChillhop ? vocalQuotaForChiliStoryPov(chiliStoryPov, opts.songCount) : undefined;
+  const chiliStoryLockedQuota = resolveEffectiveStoryVocalQuota(opts);
+  const chiliStoryVocalLock = isStoryVocalHardLocked(opts);
+  const storyInputUiMode = storyInputUiModeForWorkspace(workspaceForArchetype(channelArchetype)?.id);
+  const usesCafeStoryInputUi = storyInputUiMode === 'jp-cafe-story';
   const chiliStorySummaryKo = chiliStoryContractSummaryKo(opts);
-  const [storyLineDraft, setStoryLineDraft] = useState('');
-  const storyLineParsePreview = storyLineDraft.trim() ? parseChiliStoryLine(storyLineDraft) : null;
+  const storyPlanLineValue = opts.storyPlanLine || opts.storySourceLine || '';
+  const storySourceLineValue = storyPlanLineValue;
+  const storyPlanParsePreview = storyPlanLineValue.trim() ? parseChiliStoryPlanLine(storyPlanLineValue) : null;
+  const storyLineParsePreview = storySourceLineValue.trim() ? resolveChiliStorySource({ rawLine: storySourceLineValue, separateSummary: opts.storySourceSummary }) : null;
+  const recognizedStoryEpisodeId = storyPlanParsePreview?.sourceEpisodeId ?? storyLineParsePreview?.storySourceEpisodeId ?? opts.storySourceEpisodeId;
+  const recognizedStoryTitle = storyPlanParsePreview?.sourceTitle ?? storyLineParsePreview?.storySourceTitle ?? opts.storySourceTitle;
   const lyricLanguageChoices = isJapaneseChili
     ? languageOptions.filter(option => option.value === 'japanese')
     : isKidsArchetype(channelArchetype) ? languageOptions.filter(option => option.value !== 'bilingual') : languageOptions;
+  function sameVocalTypeAllocation(
+    left: GenerationOptions['diversityAllocations'],
+    right: GenerationOptions['diversityAllocations']
+  ): boolean {
+    const leftAxis = left?.find(allocation => allocation.axis === 'vocalType');
+    const rightAxis = right?.find(allocation => allocation.axis === 'vocalType');
+    if (!leftAxis && !rightAxis) return true;
+    return leftAxis?.mode === rightAxis?.mode
+      && leftAxis?.counts.male === rightAxis?.counts.male
+      && leftAxis?.counts.female === rightAxis?.counts.female
+      && leftAxis?.counts.mixed === rightAxis?.counts.mixed;
+  }
   useEffect(() => {
     if (!isJapaneseChili) return;
     setOpts(prev => {
       const next = applyChiliStoryGenerationContract(prev);
       const sameQuota = (!prev.vocalQuota && !next.vocalQuota)
         || (prev.vocalQuota?.male === next.vocalQuota?.male && prev.vocalQuota?.female === next.vocalQuota?.female && prev.vocalQuota?.mixed === next.vocalQuota?.mixed);
+      const sameVocalAllocation = sameVocalTypeAllocation(prev.diversityAllocations, next.diversityAllocations);
       if (
         prev.lyricLanguage === next.lyricLanguage
         && prev.storyPov === next.storyPov
@@ -292,9 +313,11 @@ export default function Step2Concept({
         && prev.perspectiveMode === next.perspectiveMode
         && prev.perspectiveModeIsExplicitChoice === next.perspectiveModeIsExplicitChoice
         && prev.vocalQuotaMode === next.vocalQuotaMode
+        && prev.storyVocalQuotaSource === next.storyVocalQuotaSource
         && prev.scenePlanningMode === next.scenePlanningMode
         && prev.storySpeaker === next.storySpeaker
         && sameQuota
+        && sameVocalAllocation
       ) return prev;
       return next;
     });
@@ -313,34 +336,54 @@ export default function Step2Concept({
     opts.vocalQuota?.female,
     opts.vocalQuota?.mixed,
     opts.vocalQuotaMode,
+    opts.storyVocalQuotaSource,
+    opts.diversityAllocations,
     opts.scenePlanningMode,
     setOpts
   ]);
 
   function selectChiliStoryPov(pov: ChiliStoryPov) {
     const locksPerspective = isJpCafeChillhop || pov !== 'couple';
-    setOpts(prev => applyChiliStoryGenerationContract({
-      ...prev,
-      songCount: CHILI_STORY_DEFAULT_SONG_COUNT,
-      lyricLanguage: 'japanese',
-      packagingLanguage: 'japanese',
-      storyPov: pov,
-      ...(isJpCafeChillhop ? { cafeStoryMode: pov } : {}),
-      choiceProvenance: {
-        ...prev.choiceProvenance,
-        lyricLanguage: 'user',
-        packagingLanguage: 'user',
-        songCount: 'user',
-        perspective: locksPerspective ? 'user' : prev.choiceProvenance?.perspective ?? 'default',
-        perspectiveMode: locksPerspective ? 'user' : prev.choiceProvenance?.perspectiveMode ?? 'default'
-      }
-    }));
+    setOpts(prev => {
+      const base = isJpChillhop && pov === 'couple' ? clearChiliStorySoloVocalLock(prev) : prev;
+      return applyChiliStoryGenerationContract({
+        ...base,
+        songCount: CHILI_STORY_DEFAULT_SONG_COUNT,
+        lyricLanguage: 'japanese',
+        packagingLanguage: 'japanese',
+        storyPov: pov,
+        ...(isJpCafeChillhop ? { cafeStoryMode: pov } : {}),
+        choiceProvenance: {
+          ...base.choiceProvenance,
+          lyricLanguage: 'user',
+          packagingLanguage: 'user',
+          songCount: 'user',
+          perspective: locksPerspective ? 'user' : base.choiceProvenance?.perspective ?? 'default',
+          perspectiveMode: locksPerspective ? 'user' : base.choiceProvenance?.perspectiveMode ?? 'default'
+        }
+      });
+    });
   }
 
   function applyStoryLineDraft() {
-    const parsed = parseChiliStoryLine(storyLineDraft);
-    if (!parsed) return;
-    setOpts(prev => applyChiliStoryGenerationContract({ ...prev, ...parsed }));
+    const plan = parseChiliStoryPlanLine(storyPlanLineValue);
+    if (plan) {
+      setOpts(prev => applyChiliStoryGenerationContract({
+        ...prev,
+        storyPlanLine: storyPlanLineValue.trim(),
+        storySourceLine: storyPlanLineValue.trim(),
+        ...(plan.planEpisodeId ? { storyPlanEpisodeId: plan.planEpisodeId } : {}),
+        ...(plan.povTitle ? { storyPovTitle: plan.povTitle } : {}),
+        ...(plan.sourceEpisodeId ? { storySourceEpisodeId: plan.sourceEpisodeId } : {}),
+        ...(plan.sourceTitle ? { storySourceTitle: plan.sourceTitle } : {}),
+        ...(plan.sourceEventSummary ? { storySourceSummary: plan.sourceEventSummary, customConcept: plan.sourceEventSummary } : {}),
+        ...(plan.povIntentSummary ? { storyPovIntentSummary: plan.povIntentSummary } : {})
+      }));
+      return;
+    }
+    const parsed = resolveChiliStorySource({ rawLine: storySourceLineValue, separateSummary: opts.storySourceSummary });
+    if (!parsed.storySourceTitle) return;
+    setOpts(prev => applyChiliStoryGenerationContract({ ...prev, storySourceLine: storySourceLineValue.trim(), ...parsed }));
   }
   // TASK v3.39 Part D — kids channels see only the childlike presets; every
   // other channel keeps the plain adult presets, unchanged from before.
@@ -1033,51 +1076,103 @@ export default function Step2Concept({
             onChange={value => selectChiliStoryPov(value as ChiliStoryPov)}
             columns={3}
           />
-          <div className="two-col-grid">
-            <label>
-              원문 한 줄
-              <input
-                value={storyLineDraft}
-                onChange={event => setStoryLineDraft(clampToLimit('customConcept', event.target.value))}
-                placeholder="003. 비 오는 날 — 우산 하나를 같이 쓰고 역까지 걸어간 밤"
-              />
-            </label>
-            <label>
-              장소
-              <input
-                value={opts.storyLocation || ''}
-                onChange={event => setOpts(prev => applyChiliStoryGenerationContract({ ...prev, storyLocation: clampToLimit('customConcept', event.target.value) }))}
-                placeholder={isJpCafeChillhop ? '京都 三条, 雨の路地カフェ' : '中目黒, 終電ホーム, 雨のカフェ'}
-              />
-            </label>
+          <label>
+            원문 한 줄
+            <input
+              value={storySourceLineValue}
+              onChange={event => setOpts(prev => applyChiliStoryGenerationContract({ ...prev, storyPlanLine: clampToLimit('customConcept', event.target.value), storySourceLine: clampToLimit('customConcept', event.target.value) }))}
+              placeholder="003. 비 오는 날 — 우산 하나를 같이 쓰고 역까지 걸어간 밤"
+            />
+          </label>
+          <div className="button-row" style={{ marginTop: 8 }}>
+            <button type="button" className="chip" disabled={!storyLineParsePreview} onClick={applyStoryLineDraft}>원문 적용</button>
+            {storySourceLineValue.trim() && !storyLineParsePreview && <span className="supporting">형식: 003. 제목 — 사건 요약</span>}
+            {(recognizedStoryEpisodeId || recognizedStoryTitle) && (
+              <span className="supporting">
+                자동 인식: {recognizedStoryEpisodeId ? `EP.${recognizedStoryEpisodeId}` : 'EP.-'}{recognizedStoryTitle ? ` · ${recognizedStoryTitle}` : ''}
+              </span>
+            )}
           </div>
-          {isJpCafeChillhop && (
-            <>
+          <label>
+            사건 요약
+            <textarea
+              value={opts.storySourceSummary || ''}
+              onChange={event => setOpts(prev => applyChiliStoryGenerationContract({ ...prev, storySourceSummary: clampToLimit('customConcept', event.target.value) }))}
+              placeholder="ひとつの傘で駅まで歩いた夜。言えなかった言葉だけが雨音に残る。"
+            />
+          </label>
+          {usesCafeStoryInputUi && (
+            <div className="two-col-grid">
+              <label>
+                카페 장소
+                <input
+                  value={opts.cafeLocation || ''}
+                  onChange={event => setOpts(prev => applyChiliStoryGenerationContract({ ...prev, cafeLocation: clampToLimit('customConcept', event.target.value) }))}
+                  placeholder="京都 三条, 鎌倉 海辺, 札幌 雪の日"
+                />
+              </label>
+              <label>
+                계절/분위기
+                <input
+                  value={(opts.cafeSeason || opts.storySeason) || ''}
+                  onChange={event => setOpts(prev => applyChiliStoryGenerationContract({
+                    ...prev,
+                    cafeSeason: clampToLimit('videoTitle', event.target.value),
+                    storySeason: clampToLimit('videoTitle', event.target.value)
+                  }))}
+                  placeholder="spring rain, late autumn rain"
+                />
+              </label>
+            </div>
+          )}
+          <details className="option-block compact">
+            <summary>고급 스토리 설정</summary>
+            <div className="two-col-grid">
+              <label>
+                이전 맥락
+                <textarea
+                  value={opts.storyPreviousContext || ''}
+                  onChange={event => setOpts(prev => applyChiliStoryGenerationContract({ ...prev, storyPreviousContext: clampToLimit('customConcept', event.target.value) }))}
+                  placeholder="둘은 아직 마음을 확인하지 못했고, 메시지만 오래 이어졌다."
+                />
+              </label>
+              <label>
+                다음 힌트
+                <textarea
+                  value={opts.storyNextHint || ''}
+                  onChange={event => setOpts(prev => applyChiliStoryGenerationContract({ ...prev, storyNextHint: clampToLimit('customConcept', event.target.value) }))}
+                  placeholder="다음 사건에서는 답장이 늦어지며 오해가 생긴다."
+                />
+              </label>
+            </div>
+            <div className="two-col-grid">
+              <label>
+                장소
+                <input
+                  value={opts.storyLocation || ''}
+                  onChange={event => setOpts(prev => applyChiliStoryGenerationContract({ ...prev, storyLocation: clampToLimit('customConcept', event.target.value) }))}
+                  placeholder={usesCafeStoryInputUi ? '京都 三条, 雨の路地カフェ' : '中目黒, 終電ホーム, 雨のカフェ'}
+                />
+              </label>
+              <label>
+                계절
+                <input
+                  value={(usesCafeStoryInputUi ? opts.cafeSeason : opts.storySeason) || ''}
+                  onChange={event => setOpts(prev => applyChiliStoryGenerationContract(usesCafeStoryInputUi
+                    ? { ...prev, cafeSeason: clampToLimit('videoTitle', event.target.value), storySeason: clampToLimit('videoTitle', event.target.value) }
+                    : { ...prev, storySeason: clampToLimit('videoTitle', event.target.value) }))}
+                  placeholder="late autumn rain"
+                />
+              </label>
+            </div>
+            {usesCafeStoryInputUi && (
               <div className="two-col-grid">
-                <label>
-                  카페 장소
-                  <input
-                    value={opts.cafeLocation || ''}
-                    onChange={event => setOpts(prev => applyChiliStoryGenerationContract({ ...prev, cafeLocation: clampToLimit('customConcept', event.target.value) }))}
-                    placeholder="京都 三条, 鎌倉 海辺, 札幌 雪の日"
-                  />
-                </label>
                 <label>
                   카페 타입
                   <input
                     value={opts.cafeType || ''}
                     onChange={event => setOpts(prev => applyChiliStoryGenerationContract({ ...prev, cafeType: clampToLimit('customConcept', event.target.value) }))}
                     placeholder="喫茶店, ロースタリー, 窓際の小さなカフェ"
-                  />
-                </label>
-              </div>
-              <div className="two-col-grid">
-                <label>
-                  카페 시간
-                  <input
-                    value={opts.cafeTimeOfDay || ''}
-                    onChange={event => setOpts(prev => applyChiliStoryGenerationContract({ ...prev, cafeTimeOfDay: clampToLimit('videoTitle', event.target.value) }))}
-                    placeholder="夕方, 閉店前, 雨上がりの午後"
                   />
                 </label>
                 <label>
@@ -1089,69 +1184,24 @@ export default function Step2Concept({
                   />
                 </label>
               </div>
-            </>
-          )}
-          <div className="button-row" style={{ marginTop: 8 }}>
-            <button type="button" className="chip" disabled={!storyLineParsePreview} onClick={applyStoryLineDraft}>원문 적용</button>
-            {storyLineDraft.trim() && !storyLineParsePreview && <span className="supporting">형식: 003. 제목 — 사건 요약</span>}
-            {storyLineParsePreview && (
-              <span className="supporting">
-                {storyLineParsePreview.storySourceEpisodeId}. {storyLineParsePreview.storySourceTitle}
-              </span>
             )}
-          </div>
-          <div className="two-col-grid">
-            <label>
-              이전 맥락
-              <textarea
-                value={opts.storyPreviousContext || ''}
-                onChange={event => setOpts(prev => applyChiliStoryGenerationContract({ ...prev, storyPreviousContext: clampToLimit('customConcept', event.target.value) }))}
-                placeholder="둘은 아직 마음을 확인하지 못했고, 메시지만 오래 이어졌다."
-              />
-            </label>
-            <label>
-              다음 힌트
-              <textarea
-                value={opts.storyNextHint || ''}
-                onChange={event => setOpts(prev => applyChiliStoryGenerationContract({ ...prev, storyNextHint: clampToLimit('customConcept', event.target.value) }))}
-                placeholder="다음 사건에서는 답장이 늦어지며 오해가 생긴다."
-              />
-            </label>
-          </div>
-          <div className="two-col-grid">
-            <label>
-              사건 제목
-              <input
-                value={opts.storySourceTitle || ''}
-                onChange={event => setOpts(prev => applyChiliStoryGenerationContract({ ...prev, storySourceTitle: clampToLimit('videoTitle', event.target.value) }))}
-                placeholder="雨のホーム"
-              />
-            </label>
-            <label>
-              계절
-              <input
-                value={(isJpCafeChillhop ? opts.cafeSeason : opts.storySeason) || ''}
-                onChange={event => setOpts(prev => applyChiliStoryGenerationContract(isJpCafeChillhop
-                  ? { ...prev, cafeSeason: clampToLimit('videoTitle', event.target.value), storySeason: clampToLimit('videoTitle', event.target.value) }
-                  : { ...prev, storySeason: clampToLimit('videoTitle', event.target.value) }))}
-                placeholder="late autumn rain"
-              />
-            </label>
-          </div>
-          <label>
-            사건 요약
-            <textarea
-              value={opts.storySourceSummary || ''}
-              onChange={event => setOpts(prev => applyChiliStoryGenerationContract({ ...prev, storySourceSummary: clampToLimit('customConcept', event.target.value) }))}
-              placeholder="ひとつの傘で駅まで歩いた夜。言えなかった言葉だけが雨音に残る。"
-            />
-          </label>
-          {isSoloChiliStoryPov(chiliStoryPov) && (
+            {usesCafeStoryInputUi && (
+              <label>
+                카페 시간
+                <input
+                  value={opts.cafeTimeOfDay || ''}
+                  onChange={event => setOpts(prev => applyChiliStoryGenerationContract({ ...prev, cafeTimeOfDay: clampToLimit('videoTitle', event.target.value) }))}
+                  placeholder="夕方, 閉店前, 雨上がりの午後"
+                />
+              </label>
+            )}
+          </details>
+          {chiliStoryVocalLock.locked && (
             <p className="supporting">
-              🔒 {chiliStoryLabelMap[chiliStoryPov]}: 일본어 · 1인칭 고정 · {chiliStoryPov === 'male' ? '남성' : '여성'} 보컬 {opts.songCount}곡 · 상대 성별/듀엣 0곡
+              🔒 {chiliStoryLabelMap[chiliStoryPov]}: 일본어 · 1인칭 고정 · {chiliStoryVocalLock.gender === 'male' ? '남성' : '여성'} 보컬 {opts.songCount}곡 · 상대 성별/듀엣 0곡
             </p>
           )}
-          {isJpCafeChillhop && chiliStoryPov === 'couple' && chiliStoryLockedQuota && (
+          {usesCafeStoryInputUi && chiliStoryPov === 'couple' && chiliStoryLockedQuota && (
             <p className="supporting">
               🔒 {CAFE_STORY_MODE_LABEL_JA.couple}: 일본어 · 1인칭 고정 · 남성 {chiliStoryLockedQuota.male}곡 · 여성 {chiliStoryLockedQuota.female}곡 · 혼성 {chiliStoryLockedQuota.mixed}곡
             </p>

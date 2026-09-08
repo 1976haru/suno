@@ -1,4 +1,5 @@
 import type {
+  AxisAllocation,
   ChannelProfile,
   ChiliStoryPov,
   ChiliStorySpeaker,
@@ -15,6 +16,7 @@ import {
   isJpCafeChillhopArchetype,
   isJpChillhopArchetype
 } from '../utils/channelArchetype';
+import { normalizeDiversityAllocations } from './diversityAllocation';
 import type { VocalQuota } from './vocalPlan';
 
 export const JP_CHILLHOP_WORKSPACE_ID: WorkspaceId = 'jp-chillhop';
@@ -58,14 +60,22 @@ type ChiliStoryOptionsLike = {
   perspective?: LyricPerspective;
   perspectiveMode?: GenerationOptions['perspectiveMode'];
   perspectiveModeIsExplicitChoice?: boolean;
+  vocalTone?: string;
   vocalQuota?: VocalQuota;
   vocalQuotaMode?: GenerationOptions['vocalQuotaMode'];
+  storyVocalQuotaSource?: GenerationOptions['storyVocalQuotaSource'];
+  diversityAllocations?: AxisAllocation[];
   scenePlanningMode?: ScenePlanningMode;
   storyPov?: ChiliStoryPov;
   cafeStoryMode?: ChiliStoryPov;
+  storySourceLine?: string;
+  storyPlanLine?: string;
+  storyPlanEpisodeId?: string;
+  storyPovTitle?: string;
   storySourceEpisodeId?: string;
   storySourceTitle?: string;
   storySourceSummary?: string;
+  storyPovIntentSummary?: string;
   storyPreviousContext?: string;
   storyNextHint?: string;
   storyLocation?: string;
@@ -79,10 +89,36 @@ type ChiliStoryOptionsLike = {
 };
 
 export interface ParsedChiliStoryLine {
-  storySourceEpisodeId: string;
+  storySourceEpisodeId?: string;
   storySourceTitle: string;
-  storySourceSummary: string;
+  storySourceSummary?: string;
 }
+
+export interface ResolvedChiliStorySource {
+  storySourceEpisodeId?: string;
+  storySourceTitle?: string;
+  storySourceSummary?: string;
+}
+
+export interface ParsedChiliStoryPlanLine {
+  planEpisodeId?: string;
+  povTitle: string;
+  sourceEpisodeId?: string;
+  sourceTitle?: string;
+  sourceEventSummary?: string;
+  povIntentSummary?: string;
+}
+
+export type StoryVocalLock =
+  | { locked: false }
+  | {
+      locked: true;
+      gender: 'male' | 'female';
+      quota: VocalQuota;
+      reason: 'jp-chili-solo-story';
+    };
+
+export type StoryInputUiMode = 'default' | 'jp-chili-story-simple' | 'jp-cafe-story';
 
 export function normalizeChiliStoryPov(value: unknown): ChiliStoryPov {
   return value === 'male' || value === 'female' || value === 'couple' ? value : 'couple';
@@ -131,6 +167,101 @@ function storyPovFromOptions(opts: ChiliStoryOptionsLike): ChiliStoryPov {
   return normalizeChiliStoryPov(isJpCafeChillhopOptions(opts) ? opts.cafeStoryMode ?? opts.storyPov : opts.storyPov);
 }
 
+export function resolveEffectiveStoryVocalQuota(opts: ChiliStoryOptionsLike): VocalQuota | undefined {
+  if (!isJapaneseChiliStoryOptions(opts)) return undefined;
+  const storyPov = storyPovFromOptions(opts);
+  return isJpCafeChillhopOptions(opts)
+    ? vocalQuotaForCafeStoryMode(storyPov, opts.songCount)
+    : vocalQuotaForChiliStoryPov(storyPov, opts.songCount);
+}
+
+export function isStoryVocalHardLocked(opts: ChiliStoryOptionsLike): StoryVocalLock {
+  if (!isJapaneseChiliStoryOptions(opts)) return { locked: false };
+  const storyPov = storyPovFromOptions(opts);
+  if (!isSoloChiliStoryPov(storyPov)) return { locked: false };
+  const quota = resolveEffectiveStoryVocalQuota(opts);
+  return quota ? { locked: true, gender: storyPov, quota, reason: 'jp-chili-solo-story' } : { locked: false };
+}
+
+export function storyInputUiModeForWorkspace(workspaceId: WorkspaceId | undefined): StoryInputUiMode {
+  if (workspaceId === JP_CHILLHOP_WORKSPACE_ID) return 'jp-chili-story-simple';
+  if (workspaceId === JP_CAFE_CHILLHOP_WORKSPACE_ID) return 'jp-cafe-story';
+  return 'default';
+}
+
+function vocalTypeAllocationForQuota(quota: VocalQuota): AxisAllocation {
+  return {
+    axis: 'vocalType',
+    mode: 'manual',
+    counts: { male: quota.male, female: quota.female, mixed: quota.mixed }
+  };
+}
+
+function withoutVocalTypeAllocation(allocations: AxisAllocation[] | undefined): AxisAllocation[] {
+  return normalizeDiversityAllocations(allocations).filter(allocation => allocation.axis !== 'vocalType');
+}
+
+function quotaEquals(a: VocalQuota | undefined, b: VocalQuota | undefined): boolean {
+  return Boolean(a && b && a.male === b.male && a.female === b.female && a.mixed === b.mixed);
+}
+
+function isSoloStoryQuotaShape(quota: VocalQuota | undefined, songCount: number): boolean {
+  return quotaEquals(quota, vocalQuotaForChiliStoryPov('male', songCount))
+    || quotaEquals(quota, vocalQuotaForChiliStoryPov('female', songCount));
+}
+
+function hasStoryOwnedSoloVocalQuota(opts: ChiliStoryOptionsLike): boolean {
+  return isSoloStoryQuotaShape(opts.vocalQuota, opts.songCount)
+    && (opts.storyVocalQuotaSource === 'story-contract' || opts.vocalQuotaMode === 'balanced');
+}
+
+function hasStoryOwnedSoloVocalTypeAllocation(opts: ChiliStoryOptionsLike): boolean {
+  if (opts.storyVocalQuotaSource !== 'story-contract' && opts.vocalQuotaMode !== 'balanced') return false;
+  const allocation = normalizeDiversityAllocations(opts.diversityAllocations).find(item => item.axis === 'vocalType');
+  if (!allocation || allocation.mode !== 'manual') return false;
+  return isSoloStoryQuotaShape({
+    male: Number(allocation.counts.male ?? 0),
+    female: Number(allocation.counts.female ?? 0),
+    mixed: Number(allocation.counts.mixed ?? 0)
+  }, opts.songCount);
+}
+
+export function clearChiliStorySoloVocalLock<T extends ChiliStoryOptionsLike>(opts: T): T {
+  return {
+    ...opts,
+    vocalQuota: undefined,
+    vocalQuotaMode: undefined,
+    storyVocalQuotaSource: undefined,
+    diversityAllocations: withoutVocalTypeAllocation(opts.diversityAllocations)
+  } as T;
+}
+
+function withStoryVocalQuota<T extends ChiliStoryOptionsLike>(opts: T, quota: VocalQuota): T {
+  return {
+    ...opts,
+    vocalQuota: quota,
+    vocalQuotaMode: undefined,
+    storyVocalQuotaSource: 'story-contract',
+    diversityAllocations: [
+      ...withoutVocalTypeAllocation(opts.diversityAllocations),
+      vocalTypeAllocationForQuota(quota)
+    ]
+  } as T;
+}
+
+function normalizeStoryVocalTone(value: string | undefined, gender: 'male' | 'female'): string {
+  const tone = value?.trim() ?? '';
+  const oppositeGender = gender === 'female'
+    ? /\b(?:male|man|men|tenor|baritone|falsetto)\b/i
+    : /\b(?:female|woman|women|soprano|alto)\b/i;
+  if (!tone || oppositeGender.test(tone)) {
+    return gender === 'female'
+      ? 'restrained female lead vocal, intimate contemporary Japanese delivery'
+      : 'restrained male lead vocal, intimate contemporary Japanese delivery';
+  }
+  return tone;
+}
+
 function speakerFor(storyPov: ChiliStoryPov, vocalType?: PreassignedSongSlot['vocalType']): ChiliStorySpeaker {
   if (storyPov === 'male' || storyPov === 'female') return storyPov;
   if (vocalType === 'male' || vocalType === 'female') return vocalType;
@@ -150,43 +281,102 @@ export function applyChiliStoryGenerationContract<T extends ChiliStoryOptionsLik
   } as T;
 
   if (isCafe) {
-    return {
+    return withStoryVocalQuota({
       ...base,
+      ...(isSoloChiliStoryPov(storyPov) ? { vocalTone: normalizeStoryVocalTone(opts.vocalTone, storyPov) } : {}),
       perspective: 'firstPerson',
       perspectiveMode: 'fixed',
       perspectiveModeIsExplicitChoice: true,
-      vocalQuota: vocalQuotaForCafeStoryMode(storyPov, opts.songCount),
-      vocalQuotaMode: 'balanced',
       scenePlanningMode: 'same-story-comparison',
       storySpeaker: speakerFor(storyPov)
-    } as T;
+    } as T, vocalQuotaForCafeStoryMode(storyPov, opts.songCount));
   }
 
-  if (!isSoloChiliStoryPov(storyPov)) return base;
+  if (!isSoloChiliStoryPov(storyPov)) {
+    if (hasStoryOwnedSoloVocalQuota(base) || hasStoryOwnedSoloVocalTypeAllocation(base)) {
+      return {
+        ...base,
+        vocalQuota: undefined,
+        vocalQuotaMode: undefined,
+        storyVocalQuotaSource: undefined,
+        diversityAllocations: withoutVocalTypeAllocation(base.diversityAllocations)
+      } as T;
+    }
+    return base;
+  }
   const sourceSummaryPresent = Boolean(opts.storySourceSummary?.trim());
   const scenePlanningMode = sourceSummaryPresent
     ? 'same-story-comparison'
     : base.scenePlanningMode === 'same-story-comparison'
       ? undefined
       : base.scenePlanningMode;
-  return {
+  return withStoryVocalQuota({
     ...base,
+    vocalTone: normalizeStoryVocalTone(opts.vocalTone, storyPov),
     perspective: 'firstPerson',
     perspectiveMode: 'fixed',
     perspectiveModeIsExplicitChoice: true,
-    vocalQuota: vocalQuotaForChiliStoryPov(storyPov, opts.songCount),
-    vocalQuotaMode: 'balanced',
     scenePlanningMode
-  } as T;
+  } as T, vocalQuotaForChiliStoryPov(storyPov, opts.songCount)!);
+}
+
+export function parseChiliStorySourceLine(input: string): ParsedChiliStoryLine | null {
+  const value = input.trim();
+  if (!value) return null;
+  const numbered = value.match(/^(\d{1,4})\s*[\.)]\s*(.+)$/u);
+  const episodeId = numbered?.[1]?.padStart(3, '0');
+  const body = numbered?.[2]?.trim() ?? value;
+  const inline = body.match(/^(.+?)\s*(?:[-:：]|[–—])\s*(.+)$/u);
+  return {
+    ...(episodeId ? { storySourceEpisodeId: episodeId } : {}),
+    storySourceTitle: (inline?.[1] ?? body).trim(),
+    ...(inline?.[2]?.trim() ? { storySourceSummary: inline[2].trim() } : {})
+  };
+}
+
+export function resolveChiliStorySource(input: { rawLine?: string; separateSummary?: string }): ResolvedChiliStorySource {
+  const parsed = parseChiliStorySourceLine(input.rawLine ?? '');
+  const separateSummary = input.separateSummary?.trim();
+  return {
+    ...(parsed?.storySourceEpisodeId ? { storySourceEpisodeId: parsed.storySourceEpisodeId } : {}),
+    ...(parsed?.storySourceTitle ? { storySourceTitle: parsed.storySourceTitle } : {}),
+    ...((separateSummary || parsed?.storySourceSummary)
+      ? { storySourceSummary: separateSummary || parsed?.storySourceSummary }
+      : {})
+  };
 }
 
 export function parseChiliStoryLine(input: string): ParsedChiliStoryLine | null {
-  const match = input.trim().match(/^(\d{1,4})\s*[\.)]\s*(.+?)\s*(?:[-:：]|[–—])\s*(.+)$/u);
-  if (!match) return null;
+  return parseChiliStorySourceLine(input);
+}
+
+function splitStorySentences(input: string): string[] {
+  return input.split(/(?<=[.!?。！？])\s*/u).map(value => value.trim()).filter(Boolean);
+}
+
+export function parseChiliStoryPlanLine(input: string): ParsedChiliStoryPlanLine | null {
+  const value = input.trim();
+  if (!value) return null;
+  const numbered = value.match(/^(\d{1,4})\s*[.)]\s*(.+)$/u);
+  const planEpisodeId = numbered?.[1]?.padStart(3, '0');
+  const body = numbered?.[2]?.trim() ?? value;
+  const ep = body.match(/\bEP\.?\s*(\d{1,4})\b/iu);
+  const sourceEpisodeId = ep?.[1]?.padStart(3, '0');
+  const beforeSource = ep ? body.slice(0, ep.index).trim() : '';
+  const povTitle = beforeSource.replace(/[|:：,，]+\s*$/u, '').trim() || body.split(/[.!?。！？]/u)[0].trim();
+  const afterEpisode = ep ? body.slice((ep.index ?? 0) + ep[0].length).trim() : '';
+  const quoted = afterEpisode.match(/^["“「『](.+?)["”」』]\s*(.*)$/u);
+  const sourceTitle = quoted?.[1]?.trim() || (afterEpisode ? afterEpisode.split(/[.!?。！？]/u)[0].trim() : undefined);
+  const remainder = (quoted?.[2]?.trim() || (sourceTitle ? afterEpisode.slice(sourceTitle.length).trim() : ''))
+    .replace(/^[.。:：\-–—]\s*/u, '');
+  const sentences = splitStorySentences(remainder);
   return {
-    storySourceEpisodeId: match[1].padStart(3, '0'),
-    storySourceTitle: match[2].trim(),
-    storySourceSummary: match[3].trim()
+    ...(planEpisodeId ? { planEpisodeId } : {}),
+    povTitle,
+    ...(sourceEpisodeId ? { sourceEpisodeId } : {}),
+    ...(sourceTitle ? { sourceTitle } : {}),
+    ...(sentences[0] ? { sourceEventSummary: sentences[0] } : {}),
+    ...(sentences.slice(1).join(' ') ? { povIntentSummary: sentences.slice(1).join(' ') } : {})
   };
 }
 
@@ -196,9 +386,14 @@ function nonEmptyField<T extends string>(value: T | undefined): T | undefined {
 
 function storySourceFields(opts: ChiliStoryOptionsLike) {
   return {
+    ...(nonEmptyField(opts.storySourceLine) ? { storySourceLine: nonEmptyField(opts.storySourceLine) } : {}),
+    ...(nonEmptyField(opts.storyPlanLine) ? { storyPlanLine: nonEmptyField(opts.storyPlanLine) } : {}),
+    ...(nonEmptyField(opts.storyPlanEpisodeId) ? { storyPlanEpisodeId: nonEmptyField(opts.storyPlanEpisodeId) } : {}),
+    ...(nonEmptyField(opts.storyPovTitle) ? { storyPovTitle: nonEmptyField(opts.storyPovTitle) } : {}),
     ...(nonEmptyField(opts.storySourceEpisodeId) ? { storySourceEpisodeId: nonEmptyField(opts.storySourceEpisodeId) } : {}),
     ...(nonEmptyField(opts.storySourceTitle) ? { storySourceTitle: nonEmptyField(opts.storySourceTitle) } : {}),
     ...(nonEmptyField(opts.storySourceSummary) ? { storySourceSummary: nonEmptyField(opts.storySourceSummary) } : {}),
+    ...(nonEmptyField(opts.storyPovIntentSummary) ? { storyPovIntentSummary: nonEmptyField(opts.storyPovIntentSummary) } : {}),
     ...(nonEmptyField(opts.storyPreviousContext) ? { storyPreviousContext: nonEmptyField(opts.storyPreviousContext) } : {}),
     ...(nonEmptyField(opts.storyNextHint) ? { storyNextHint: nonEmptyField(opts.storyNextHint) } : {}),
     ...(nonEmptyField(opts.storyLocation) ? { storyLocation: nonEmptyField(opts.storyLocation) } : {}),
@@ -319,9 +514,14 @@ export function storyFieldsFromSlot(slot: PreassignedSongSlot): Partial<SongStor
   return {
     ...(slot.storyPov ? { storyPov: slot.storyPov } : {}),
     ...(slot.cafeStoryMode ? { cafeStoryMode: slot.cafeStoryMode } : {}),
+    ...(slot.storySourceLine ? { storySourceLine: slot.storySourceLine } : {}),
+    ...(slot.storyPlanLine ? { storyPlanLine: slot.storyPlanLine } : {}),
+    ...(slot.storyPlanEpisodeId ? { storyPlanEpisodeId: slot.storyPlanEpisodeId } : {}),
+    ...(slot.storyPovTitle ? { storyPovTitle: slot.storyPovTitle } : {}),
     ...(slot.storySourceEpisodeId ? { storySourceEpisodeId: slot.storySourceEpisodeId } : {}),
     ...(slot.storySourceTitle ? { storySourceTitle: slot.storySourceTitle } : {}),
     ...(slot.storySourceSummary ? { storySourceSummary: slot.storySourceSummary } : {}),
+    ...(slot.storyPovIntentSummary ? { storyPovIntentSummary: slot.storyPovIntentSummary } : {}),
     ...(slot.storyPreviousContext ? { storyPreviousContext: slot.storyPreviousContext } : {}),
     ...(slot.storyNextHint ? { storyNextHint: slot.storyNextHint } : {}),
     ...(slot.storyLocation ? { storyLocation: slot.storyLocation } : {}),
@@ -342,9 +542,14 @@ type SongStoryFields = Pick<
   PreassignedSongSlot,
   | 'storyPov'
   | 'cafeStoryMode'
+  | 'storySourceLine'
+  | 'storyPlanLine'
+  | 'storyPlanEpisodeId'
+  | 'storyPovTitle'
   | 'storySourceEpisodeId'
   | 'storySourceTitle'
   | 'storySourceSummary'
+  | 'storyPovIntentSummary'
   | 'storyPreviousContext'
   | 'storyNextHint'
   | 'storyLocation'
@@ -371,9 +576,14 @@ export function rawStoryFieldsFromObject(obj: Record<string, unknown>): Partial<
   return {
     ...(obj.storyPov ? { storyPov } : {}),
     ...(obj.cafeStoryMode ? { cafeStoryMode } : {}),
+    ...(nonEmptyField(typeof obj.storySourceLine === 'string' ? obj.storySourceLine : undefined) ? { storySourceLine: String(obj.storySourceLine).trim() } : {}),
+    ...(nonEmptyField(typeof obj.storyPlanLine === 'string' ? obj.storyPlanLine : undefined) ? { storyPlanLine: String(obj.storyPlanLine).trim() } : {}),
+    ...(nonEmptyField(typeof obj.storyPlanEpisodeId === 'string' ? obj.storyPlanEpisodeId : undefined) ? { storyPlanEpisodeId: String(obj.storyPlanEpisodeId).trim() } : {}),
+    ...(nonEmptyField(typeof obj.storyPovTitle === 'string' ? obj.storyPovTitle : undefined) ? { storyPovTitle: String(obj.storyPovTitle).trim() } : {}),
     ...(nonEmptyField(typeof obj.storySourceEpisodeId === 'string' ? obj.storySourceEpisodeId : undefined) ? { storySourceEpisodeId: String(obj.storySourceEpisodeId).trim() } : {}),
     ...(nonEmptyField(typeof obj.storySourceTitle === 'string' ? obj.storySourceTitle : undefined) ? { storySourceTitle: String(obj.storySourceTitle).trim() } : {}),
     ...(nonEmptyField(typeof obj.storySourceSummary === 'string' ? obj.storySourceSummary : undefined) ? { storySourceSummary: String(obj.storySourceSummary).trim() } : {}),
+    ...(nonEmptyField(typeof obj.storyPovIntentSummary === 'string' ? obj.storyPovIntentSummary : undefined) ? { storyPovIntentSummary: String(obj.storyPovIntentSummary).trim() } : {}),
     ...(nonEmptyField(typeof obj.storyPreviousContext === 'string' ? obj.storyPreviousContext : undefined) ? { storyPreviousContext: String(obj.storyPreviousContext).trim() } : {}),
     ...(nonEmptyField(typeof obj.storyNextHint === 'string' ? obj.storyNextHint : undefined) ? { storyNextHint: String(obj.storyNextHint).trim() } : {}),
     ...(nonEmptyField(typeof obj.storyLocation === 'string' ? obj.storyLocation : undefined) ? { storyLocation: String(obj.storyLocation).trim() } : {}),
@@ -399,15 +609,26 @@ export function buildJpChillhopStoryInstructionLines(
   const storyPov = storyPovFromOptions(opts);
   const povLabel = (isCafe ? CAFE_STORY_MODE_LABEL_JA : CHILI_STORY_POV_LABEL_JA)[storyPov];
   const source = storySourceFields(opts);
+  const sourcePrefix = source.storySourceLine ? `raw line "${source.storySourceLine}" / ` : '';
   const sourceLine = source.storySourceSummary
-    ? `- Source event: episode ${source.storySourceEpisodeId ?? '(unlisted)'} "${source.storySourceTitle ?? 'untitled'}" - ${source.storySourceSummary}`
-    : '- Source event: no user episode summary was supplied; create one coherent original Japanese relationship episode and keep it consistent across all tracks.';
+    ? `- Source event: ${sourcePrefix}episode ${source.storySourceEpisodeId ?? '(unlisted)'} "${source.storySourceTitle ?? 'untitled'}" - ${source.storySourceSummary}`
+    : source.storySourceLine
+      ? `- Source event: raw line "${source.storySourceLine}". Parse it as the event seed, then keep one coherent original Japanese relationship episode consistent across all tracks.`
+      : '- Source event: no user episode summary was supplied; create one coherent original Japanese relationship episode and keep it consistent across all tracks.';
+  const planBrief = [
+    ...(source.storyPovTitle ? [`- POV TITLE: ${source.storyPovTitle}`] : []),
+    ...(source.storyPlanEpisodeId ? [`- POV PLAN EPISODE: EP.${source.storyPlanEpisodeId}`] : []),
+    ...(source.storySourceTitle ? [`- SOURCE STORY TITLE: ${source.storySourceTitle}`] : []),
+    ...(source.storyPovIntentSummary ? [`- POV INTENT: ${source.storyPovIntentSummary}`] : [])
+  ];
+  const quota = resolveEffectiveStoryVocalQuota(opts);
+  const quotaText = quota ? `male ${quota.male}/${opts.songCount}, female ${quota.female}/${opts.songCount}, mixed/duet ${quota.mixed}/${opts.songCount}` : '';
   const vocalLine = storyPov === 'male'
-    ? `- VOCAL HARD LOCK: every one of the ${opts.songCount} songs is male vocal only. Do not write female lead, duet, mixed, group, or gender-ambiguous lead vocal.`
+    ? `- VOCAL HARD LOCK: every one of the ${opts.songCount} songs is male vocal only (${quotaText}). Do not write female lead, duet, mixed, group, or gender-ambiguous lead vocal.`
     : storyPov === 'female'
-      ? `- VOCAL HARD LOCK: every one of the ${opts.songCount} songs is female vocal only. Do not write male lead, duet, mixed, group, or gender-ambiguous lead vocal.`
+      ? `- VOCAL HARD LOCK: every one of the ${opts.songCount} songs is female vocal only (${quotaText}). Do not write male lead, duet, mixed, group, or gender-ambiguous lead vocal.`
       : isCafe
-        ? '- Couple Cafe Story Mode: follow preassignedSongs vocalType exactly; for 15 tracks this means 6 male, 6 female, and 3 mixed couple tracks, with mixed below half the pack.'
+        ? `- Couple Cafe Story Mode: follow preassignedSongs vocalType exactly (${quotaText}); mixed couple tracks stay below half the pack.`
         : '- Couple POV: do not hard-lock vocal gender here; keep the two-person relationship continuous without reducing it to a pronoun swap.';
 
   const sharedLines = [
@@ -441,6 +662,7 @@ export function buildJpChillhopStoryInstructionLines(
       '[JP CAFE CHILI LAB STORY CONTRACT]',
       `- Workspace is "jp-cafe-chillhop"; Cafe Story Mode is ${povLabel} (cafeStoryMode="${storyPov}", storyPov="${storyPov}"). Write natively in natural contemporary Japanese. Do not draft in English or Korean and translate afterward.`,
       ...(cafeSettingParts.length ? [`- Cafe setting supplied by app: ${cafeSettingParts.join(' / ')}.`] : []),
+      ...planBrief,
       sourceLine,
       '- Treat the pack as a 5-act cafe story album. For a 15-track run, keep exactly 3 tracks per act: Act 1 arrival/first expression/place/season; Act 2 conversation/tea/coffee/small actions; Act 3 realization/central hook; Act 4 hesitation/resentment/unsaid words; Act 5 leaving cafe/message/station/umbrella/seaside/next promise.',
       '- Keep the cafe as the event center. Short before/after movement is allowed, but do not let the pack drift into airport, moving-day, office, commute, or generic travel stories. Do not repeat the same table scene across all 15 songs.',
@@ -457,6 +679,7 @@ export function buildJpChillhopStoryInstructionLines(
     `- Workspace is "jp-chillhop"; POV selector is ${povLabel} (storyPov="${storyPov}"). Write natively in natural contemporary Japanese. Do not draft in English or Korean and translate afterward.`,
     '- For 彼のSTORY / 彼女のSTORY, every lyric must stay first-person from that POV. This is not a pronoun swap: change memories, details, guilt, hesitation, and emotional logic for that side.',
     sourceLine,
+    ...planBrief,
     '- Treat the pack as one 5-act story album. For a 15-track run, keep exactly 3 tracks per act; for any other songCount, keep all 5 acts represented in order.',
     '- Preserve each track\'s storyAct, storyActLabel, and storyArcRole from preassignedSongs. Use those fields as narrative structure, not as literal lyric text.',
     ...sharedLines,
@@ -468,7 +691,7 @@ export function chiliStoryContractSummaryKo(opts: ChiliStoryOptionsLike): string
   if (!isJapaneseChiliStoryOptions(opts)) return '';
   const isCafe = isJpCafeChillhopOptions(opts);
   const storyPov = storyPovFromOptions(opts);
-  const quota = isCafe ? vocalQuotaForCafeStoryMode(storyPov, opts.songCount) : vocalQuotaForChiliStoryPov(storyPov, opts.songCount);
+  const quota = resolveEffectiveStoryVocalQuota(opts);
   const quotaText = quota ? `남성 ${quota.male} / 여성 ${quota.female} / 혼성 ${quota.mixed}` : '보컬 하드락 없음';
   const sourceText = opts.storySourceSummary?.trim()
     ? `원작 사건: ${opts.storySourceEpisodeId ? `${opts.storySourceEpisodeId}. ` : ''}${opts.storySourceTitle || '제목 없음'}`

@@ -50,6 +50,7 @@ import { resolveGenerationPreflight, type PreflightReason, type PreflightResult 
 import { combineMultiSetPreflight, evaluateMultiSetGenerationRequest, type MultiSetPreflightSummary } from '../../core/multiSetGeneration';
 import { resolveVocalAllocationMode, vocalLabel } from '../../core/vocalPlan';
 import { readLastGeneratedByChoice, rememberGeneratedByChoice } from '../../core/generatedByPreference';
+import { applyChiliStoryGenerationContract, isStoryVocalHardLocked } from '../../core/chiliStoryPov';
 import DryRunPreviewModal from '../DryRunPreviewModal';
 import BatchJobPanel from '../BatchJobPanel';
 import type { BatchJobRecord } from '../../core/batchJobs';
@@ -309,8 +310,11 @@ function GenerationContractPanel({
   // when a vocal-tone preset is also picked on top of it (that combination
   // gets its own "채널 고정 성별 + 선택 음색 반영" wording, matching the task
   // doc's own mockup, rather than collapsing into the plain 'channel-fixed' text).
+  const storyVocalLock = isStoryVocalHardLocked(opts);
   const vocalAllocationMode = resolveVocalAllocationMode(opts);
-  const vocalAllocationLine = vocalAllocationMode === 'channel-fixed' && contract.vocal.presetApplied
+  const vocalAllocationLine = storyVocalLock.locked
+    ? `STORY ${storyVocalLock.gender === 'male' ? '남성' : '여성'} 100% 고정`
+    : vocalAllocationMode === 'channel-fixed' && contract.vocal.presetApplied
     ? '채널 고정 성별 + 선택 음색 반영'
     : VOCAL_ALLOCATION_MODE_LABEL_KO[vocalAllocationMode];
   const vocalToneLine = vocalToneLabelKo(opts, contract);
@@ -929,20 +933,21 @@ export default function Step3Generate({
   const bridgePrerequisites: BridgeImportPrerequisites = { hasSelectedChannel, hasSelectedSeason };
   const bridgeBlockMessage = bridgeImportBlockMessage(bridgePrerequisites);
   const canImportBridge = !bridgeBlockMessage;
+  const effectiveStoryOpts = useMemo(() => applyChiliStoryGenerationContract(opts), [opts]);
 
   // Representative preview of the first batch — later batches add accumulated
   // usedTitles/usedHooks, called out in the modal's own copy.
   const previewBatch: BatchContext = { trackNoOffset: 0, totalSongCount: opts.songCount, usedTitles: [], usedHooks: [], lockedIdentity: null };
-  const previewSystemPrompt = buildSystemInstruction(opts, previewBatch, undefined, provider.generateThumbnailText ?? false);
-  const previewUserPrompt = JSON.stringify(buildUserInstruction(opts, genres, moods, season, previewBatch, provider.generateThumbnailText ?? false), null, 2);
+  const previewSystemPrompt = buildSystemInstruction(effectiveStoryOpts, previewBatch, undefined, provider.generateThumbnailText ?? false);
+  const previewUserPrompt = JSON.stringify(buildUserInstruction(effectiveStoryOpts, genres, moods, season, previewBatch, provider.generateThumbnailText ?? false), null, 2);
 
   // TASK v3.24 — same locally pre-decided title/hook assignment the Batch
   // API path already uses (preallocateSongSlots), so a coding agent's
   // free-form generation can't collide with itself across tracks, and the
   // import step below can reconcile against the same slots.
   const bridgePreassignedSongs = useMemo(
-    () => preallocateSongSlots(opts, genres, bridgeAvoid),
-    [opts, genres, bridgeAvoid]
+    () => preallocateSongSlots(effectiveStoryOpts, genres, bridgeAvoid),
+    [effectiveStoryOpts, genres, bridgeAvoid]
   );
   // TASK v5.10 (contract screen) — the "이대로 생성합니다" confirmation this
   // whole task exists for: built off the SAME opts/slots every generation
@@ -951,10 +956,10 @@ export default function Step3Generate({
   // the same provenance builder Step2Plan.tsx's own plan preview already
   // calls — see core/userChoices.ts's own doc comment for why this is the
   // one place "user picked this" gets decided.
-  const generationChoices = useMemo(() => userChoicesFromOptions(opts), [opts]);
+  const generationChoices = useMemo(() => userChoicesFromOptions(effectiveStoryOpts), [effectiveStoryOpts]);
   const generationContract = useMemo(
-    () => buildResolvedGenerationContract(opts, generationChoices, bridgePreassignedSongs, workspaceId),
-    [opts, generationChoices, bridgePreassignedSongs, workspaceId]
+    () => buildResolvedGenerationContract(effectiveStoryOpts, generationChoices, bridgePreassignedSongs, workspaceId),
+    [effectiveStoryOpts, generationChoices, bridgePreassignedSongs, workspaceId]
   );
   const [acknowledgedMismatchFields, setAcknowledgedMismatchFields] = useState<Set<string>>(new Set());
   const [acknowledgedPreflightWarnFields, setAcknowledgedPreflightWarnFields] = useState<Set<string>>(new Set());
@@ -1013,8 +1018,8 @@ export default function Step3Generate({
   // against the SAME preallocated slots the instruction/import actually use
   // (bridgePreassignedSongs), not a separate re-derivation.
   const designGateConstraints = useMemo(
-    () => resolveConstraintsFromOptions(opts, audienceProfileForChannelArchetype(opts.channel.archetype, opts.audience), currentWorkspaceId()),
-    [opts]
+    () => resolveConstraintsFromOptions(effectiveStoryOpts, audienceProfileForChannelArchetype(effectiveStoryOpts.channel.archetype, effectiveStoryOpts.audience), currentWorkspaceId()),
+    [effectiveStoryOpts]
   );
   // v4.4 (TASK F) — designGateConstraints (already computed above for 관문1)
   // was never actually passed into the instruction the agent receives, so
@@ -1025,7 +1030,7 @@ export default function Step3Generate({
   const claudeCodeInstruction = useMemo(
     () =>
       buildClaudeCodeInstruction(
-        opts,
+        effectiveStoryOpts,
         genres,
         moods,
         season,
@@ -1039,7 +1044,7 @@ export default function Step3Generate({
         bridgePolicyExplorationPlan
       ),
     [
-      opts,
+      effectiveStoryOpts,
       genres,
       moods,
       season,
@@ -1061,7 +1066,7 @@ export default function Step3Generate({
   const [designGateResult, setDesignGateResult] = useState<DesignGateResult | null>(null);
   useEffect(() => {
     let cancelled = false;
-    evaluateDesignGateResponsive(bridgePreassignedSongs, designGateConstraints, opts)
+    evaluateDesignGateResponsive(bridgePreassignedSongs, designGateConstraints, effectiveStoryOpts)
       .then(result => { if (!cancelled) setDesignGateResult(result); })
       .catch(error => {
         if (cancelled) return;
@@ -1079,7 +1084,7 @@ export default function Step3Generate({
         });
       });
     return () => { cancelled = true; };
-  }, [bridgePreassignedSongs, designGateConstraints, opts]);
+  }, [bridgePreassignedSongs, designGateConstraints, effectiveStoryOpts]);
   const [bridgeGateAcknowledged, setBridgeGateAcknowledged] = useState(false);
   // (The final gating boolean for the bridge-copy buttons is now
   // `preflight.allowed`, defined below — this used to be a separate local
@@ -1112,7 +1117,7 @@ export default function Step3Generate({
   const preflight = useMemo(
     () => resolveGenerationPreflight({
       workspaceId,
-      options: opts,
+      options: effectiveStoryOpts,
       slots: bridgePreassignedSongs,
       contract: generationContract,
       designGate: designGateResult ?? {
@@ -1131,7 +1136,7 @@ export default function Step3Generate({
       lyricThemeAvoid: { recentThemeIds: bridgeAvoid.recentLyricThemeIds, recentSituations: bridgeAvoid.recentSituations },
       conceptSceneContext: bridgeConceptSceneContext
     }),
-    [workspaceId, opts, bridgePreassignedSongs, generationContract, designGateResult, acknowledgedSignature, bridgeAvoid.recentLyricThemeIds, bridgeAvoid.recentSituations, bridgeConceptSceneContext]
+    [workspaceId, effectiveStoryOpts, bridgePreassignedSongs, generationContract, designGateResult, acknowledgedSignature, bridgeAvoid.recentLyricThemeIds, bridgeAvoid.recentSituations, bridgeConceptSceneContext]
   );
 
   const standalonePreflightWarnReasons = useMemo(() => {
@@ -1197,7 +1202,7 @@ export default function Step3Generate({
     let cancelled = false;
     void evaluateMultiSetGenerationRequest({
       workspaceId,
-      baseOptions: opts,
+      baseOptions: effectiveStoryOpts,
       setCount: multiSetClamped.setCount,
       songsPerSet: multiSetClamped.songsPerSet,
       genres
@@ -1207,7 +1212,7 @@ export default function Step3Generate({
     return () => {
       cancelled = true;
     };
-  }, [multiSet.mode, workspaceId, opts, multiSetClamped.setCount, multiSetClamped.songsPerSet, genres]);
+  }, [multiSet.mode, workspaceId, effectiveStoryOpts, multiSetClamped.setCount, multiSetClamped.songsPerSet, genres]);
 
   /**
    * TASK (multi-set preflight) — the ONE gating decision for the whole
@@ -1241,7 +1246,7 @@ export default function Step3Generate({
     // only ever patch diversityAllocations, none of the 13, so this is a
     // no-op in practice today but stays correct for a future autoFix that
     // does).
-    setOpts(prev => ({ ...prev, ...fix, choiceProvenance: { ...prev.choiceProvenance, ...provenanceForSystemFix(fix) } }));
+    setOpts(prev => applyChiliStoryGenerationContract({ ...prev, ...fix, choiceProvenance: { ...prev.choiceProvenance, ...provenanceForSystemFix(fix) } }));
   }
 
   // v3.78 (TASK B) — 관문 2 itself lives in Step4Result.tsx, not here: a real
@@ -1394,7 +1399,7 @@ export default function Step3Generate({
   const multiSetBridgeInstructions = useMemo<MultiSetBridgeInstruction[]>(
     () => multiSet.mode
       ? buildMultiSetClaudeCodeInstructions(
-        opts,
+        effectiveStoryOpts,
         multiSetClamped.setCount,
         multiSetClamped.songsPerSet,
         genres,
@@ -1405,12 +1410,12 @@ export default function Step3Generate({
         bridgeAxisSequence
       )
       : [],
-    [multiSet.mode, opts, multiSetClamped.setCount, multiSetClamped.songsPerSet, genres, moods, season, combinedBridgeAvoid, provider.generateThumbnailText, bridgeAxisSequence]
+    [multiSet.mode, effectiveStoryOpts, multiSetClamped.setCount, multiSetClamped.songsPerSet, genres, moods, season, combinedBridgeAvoid, provider.generateThumbnailText, bridgeAxisSequence]
   );
   const multiSetMasterInstruction = useMemo(
     () => multiSet.mode
       ? buildMultiSetClaudeCodeMasterInstruction(
-        opts,
+        effectiveStoryOpts,
         multiSetClamped.setCount,
         multiSetClamped.songsPerSet,
         genres,
@@ -1421,7 +1426,7 @@ export default function Step3Generate({
         bridgeAxisSequence
       ).instruction
       : '',
-    [multiSet.mode, opts, multiSetClamped.setCount, multiSetClamped.songsPerSet, genres, moods, season, combinedBridgeAvoid, provider.generateThumbnailText, bridgeAxisSequence]
+    [multiSet.mode, effectiveStoryOpts, multiSetClamped.setCount, multiSetClamped.songsPerSet, genres, moods, season, combinedBridgeAvoid, provider.generateThumbnailText, bridgeAxisSequence]
   );
 
   useEffect(() => {
@@ -1708,7 +1713,7 @@ export default function Step3Generate({
       )}
 
       {!basicMode && !multiSet.mode && (
-        <DiversityAssignmentPreview slots={bridgePreassignedSongs} opts={opts} />
+        <DiversityAssignmentPreview slots={bridgePreassignedSongs} opts={effectiveStoryOpts} />
       )}
 
       <div className="provider-summary">
@@ -1793,7 +1798,7 @@ export default function Step3Generate({
       {activeBatchJob && (
         <BatchJobPanel
           job={activeBatchJob}
-          currentOpts={opts}
+          currentOpts={effectiveStoryOpts}
           onCancel={onCancelBatchJob}
           onRetryFailed={onRetryFailedBatchJob}
           onRegenerateMissing={onRegenerateMissingBatchTracks}
@@ -2130,7 +2135,7 @@ export default function Step3Generate({
 
       <GenerationContractPanel
         contract={generationContract}
-        opts={opts}
+        opts={effectiveStoryOpts}
         multiSetPreviewOnly={multiSet.mode}
         acknowledgedFields={acknowledgedMismatchFields}
         onAcknowledge={handleAcknowledgeMismatch}

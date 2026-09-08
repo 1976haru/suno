@@ -30,6 +30,7 @@ const cafeChannel = channelPresets.find(preset => preset.id === 'jp-cafe-chili-l
 const season = seasonPacks.find(item => item.id === 'spring') ?? seasonPacks[0];
 
 const CAFE_SOURCE = {
+  storySourceLine: 'cafe-007. 雨の窓際ラテ — 吉祥寺の路地裏カフェで雨宿りの会話が距離を変える',
   storySourceEpisodeId: 'cafe-007',
   storySourceTitle: '雨の窓際ラテ',
   storySourceSummary: '吉祥寺の路地裏カフェで、雨宿りの短い会話からふたりの距離が少し変わる。',
@@ -180,6 +181,7 @@ function cafeBridgeSongs(slots: readonly PreassignedSongSlot[]): Partial<SongIde
     emotionArc: slot.storyArcRole ?? '',
     storyPov: slot.storyPov,
     cafeStoryMode: slot.cafeStoryMode,
+    storySourceLine: slot.storySourceLine,
     storySourceEpisodeId: slot.storySourceEpisodeId,
     storySourceTitle: slot.storySourceTitle,
     storySourceSummary: slot.storySourceSummary,
@@ -310,12 +312,15 @@ describe('[instruction 80] JP CHILI parity and Japan Cafe CHILI LAB', () => {
       expect(opts.scenePlanningMode).toBe('same-story-comparison');
       expect(opts.songCount).toBe(15);
       expect(opts.vocalQuota).toEqual(expectations[mode].quota);
+      expect(opts.vocalQuotaMode).toBeUndefined();
+      expect(opts.storyVocalQuotaSource).toBe('story-contract');
       expect(vocalQuotaForCafeStoryMode(mode, 15)).toEqual(expectations[mode].quota);
       expect(storyMetaFieldsFromOptions(opts)).toMatchObject({
         workspaceId: 'jp-cafe-chillhop',
         storyPov: mode,
         cafeStoryMode: mode,
         storySpeaker: expectations[mode].speaker,
+        storySourceLine: CAFE_SOURCE.storySourceLine,
         season: CAFE_SOURCE.cafeSeason,
         cafeLocation: CAFE_SOURCE.cafeLocation,
         cafeType: CAFE_SOURCE.cafeType
@@ -326,6 +331,7 @@ describe('[instruction 80] JP CHILI parity and Japan Cafe CHILI LAB', () => {
       expect(restored.cafeLocation).toBe(CAFE_SOURCE.cafeLocation);
       expect(restored.cafeWeather).toBe(CAFE_SOURCE.cafeWeather);
       expect(restored.vocalQuota).toEqual(expectations[mode].quota);
+      expect(restored.storyVocalQuotaSource).toBe('story-contract');
     }
 
     const broadJp = applyChiliStoryGenerationContract(optsForChannel(jpChannel, {
@@ -357,6 +363,7 @@ describe('[instruction 80] JP CHILI parity and Japan Cafe CHILI LAB', () => {
     expect(instruction).toContain('Cafe setting supplied by app: Tokyo Kichijoji cafe lane / quiet roaster cafe / spring rain / late afternoon / soft rain');
     expect(instruction).toContain('5-act cafe story album');
     expect(instruction).toContain('follow preassignedSongs vocalType exactly');
+    expect(instruction).toContain('male 6/15, female 6/15, mixed/duet 3/15');
     expect(instruction).toContain('Titles and hookPhrase values must not duplicate');
     expect(instruction).toContain('Cafe sound policy');
     expect(instruction).toContain('Do not imitate, name, evoke as soundalike, clone');
@@ -367,6 +374,7 @@ describe('[instruction 80] JP CHILI parity and Japan Cafe CHILI LAB', () => {
       workspaceId: 'jp-cafe-chillhop',
       storyPov: 'couple',
       cafeStoryMode: 'couple',
+      storySourceLine: CAFE_SOURCE.storySourceLine,
       storySourceTitle: CAFE_SOURCE.storySourceTitle,
       storySourceSummary: CAFE_SOURCE.storySourceSummary,
       cafeLocation: CAFE_SOURCE.cafeLocation,
@@ -381,6 +389,7 @@ describe('[instruction 80] JP CHILI parity and Japan Cafe CHILI LAB', () => {
       workspaceId: 'jp-cafe-chillhop',
       storyPov: 'couple',
       cafeStoryMode: 'couple',
+      storySourceLine: CAFE_SOURCE.storySourceLine,
       storySourceTitle: CAFE_SOURCE.storySourceTitle,
       storySourceSummary: CAFE_SOURCE.storySourceSummary,
       cafeLocation: CAFE_SOURCE.cafeLocation,
@@ -443,6 +452,7 @@ describe('[instruction 80] JP CHILI parity and Japan Cafe CHILI LAB', () => {
       expect(vocalCounts(slots)).toEqual(mode === 'male' ? { male: 15, female: 0, mixed: 0 } : { male: 0, female: 15, mixed: 0 });
       expect(instruction).toContain(`Cafe Story Mode is ${CAFE_STORY_MODE_LABEL_JA[mode]}`);
       expect(instruction).toContain(`every one of the 15 songs is ${mode} vocal only`);
+      expect(instruction).toContain(mode === 'male' ? 'male 15/15, female 0/15, mixed/duet 0/15' : 'male 0/15, female 15/15, mixed/duet 0/15');
       expect(report.importedCount).toBe(15);
       expect(vocalCounts(songs)).toEqual(mode === 'male' ? { male: 15, female: 0, mixed: 0 } : { male: 0, female: 15, mixed: 0 });
 

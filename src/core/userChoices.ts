@@ -53,6 +53,7 @@ import { DEFAULT_ADULT_VOCAL_QUOTA, DEFAULT_KIDS_VOCAL_QUOTA, leaningAdultVocalQ
 import { matchVocalPreset } from '../data/vocalPresets';
 import { povDistribution, resolvePerspectiveMode } from './lyricDiversityPlan';
 import { isKidsArchetype } from '../utils/channelArchetype';
+import { applyChiliStoryGenerationContract } from './chiliStoryPov';
 
 /** Every field a UI screen can genuinely let the user pick directly (not a default/concept-inferred value). Absent fields simply weren't offered/touched this session. */
 export interface UserExplicitChoices {
@@ -844,6 +845,7 @@ export function buildResolvedGenerationContract(
   activeWorkspaceId: WorkspaceId,
   extraWarnings: string[] = []
 ): ResolvedGenerationContract {
+  opts = applyChiliStoryGenerationContract(opts);
   const effectiveArchetype = resolveEffectiveArchetype(opts.channel);
   const selectedArchetype = opts.channel.archetype ?? effectiveArchetype;
   // TASK (gap 2) — the channel's own NATURAL home workspace (purely a

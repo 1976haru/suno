@@ -1,11 +1,22 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { buildClaudeCodeInstruction, importSongsJson } from '../src/core/claudeCodeBridge';
 import { preallocateSongSlots } from '../src/core/batchPreallocation';
+import { directSetLocal } from '../src/core/setDirector';
+import { evaluateGenerationRequest } from '../src/core/generationPreflight';
+import { buildResolvedGenerationContract, userChoicesFromOptions } from '../src/core/userChoices';
 import {
   applyChiliStoryGenerationContract,
   CHILI_STORY_DEFAULT_SONG_COUNT,
   CHILI_STORY_POV_LABEL_JA,
+  clearChiliStorySoloVocalLock,
+  isStoryVocalHardLocked,
   parseChiliStoryLine,
+  parseChiliStoryPlanLine,
+  parseChiliStorySourceLine,
+  resolveChiliStorySource,
+  resolveEffectiveStoryVocalQuota,
   storyMetaFieldsFromOptions
 } from '../src/core/chiliStoryPov';
 import { evaluateJapaneseChiliQuality } from '../src/core/japaneseChiliQuality';
@@ -13,12 +24,14 @@ import { resolveScenePlanningMode } from '../src/core/scenePlanningMode';
 import { CORE_GENRE_IDS_BY_ARCHETYPE } from '../src/data/genreLibrary';
 import { getWorkspace, workspaceDefinitions } from '../src/data/workspaces';
 import { channelPresets, genrePacks, makeOptions, moodPacks, seasonPacks } from './fixtures';
-import type { ChiliStoryPov, GenerationOptions, PreassignedSongSlot, SongIdea } from '../src/types';
+import type { AxisAllocation, ChiliStoryPov, GenerationOptions, PreassignedSongSlot, SongIdea } from '../src/types';
 
 const channel = channelPresets.find(preset => preset.id === 'jp-chili-lab-story')!;
 const season = seasonPacks.find(item => item.id === 'christmas') ?? seasonPacks[0];
+const projectRoot = resolve(__dirname, '..');
 
 const STORY_SOURCE = {
+  storySourceLine: '003. 雨のホーム — ひとつの傘で終電のホームまで歩いた夜',
   storySourceEpisodeId: '003',
   storySourceTitle: '雨のホーム',
   storySourceSummary: 'ひとつの傘で終電のホームまで歩いた夜。言えなかった言葉だけが雨音に残った。',
@@ -93,6 +106,18 @@ function moodsFor(opts: GenerationOptions) {
   return moodPacks.filter(mood => opts.moodIds.includes(mood.id));
 }
 
+function vocalCounts(slots: readonly Pick<PreassignedSongSlot, 'vocalType'>[]) {
+  return {
+    male: slots.filter(slot => slot.vocalType === 'male').length,
+    female: slots.filter(slot => slot.vocalType === 'female').length,
+    mixed: slots.filter(slot => slot.vocalType === 'mixed').length
+  };
+}
+
+function vocalAllocationCounts(allocations: AxisAllocation[] | undefined) {
+  return allocations?.find(allocation => allocation.axis === 'vocalType')?.counts;
+}
+
 function vocalTag(slot: PreassignedSongSlot): string {
   if (slot.vocalType === 'female') return '[female vocal]';
   if (slot.vocalType === 'mixed') return '[duet vocal]';
@@ -134,6 +159,7 @@ function bridgeSongs(slots: readonly PreassignedSongSlot[]): Partial<SongIdea>[]
     listenerSituation: `${STORY_SOURCE.storyLocation} / ${slot.storyActLabel}`,
     emotionArc: slot.storyArcRole ?? '',
     storyPov: slot.storyPov,
+    storySourceLine: slot.storySourceLine,
     storySourceEpisodeId: slot.storySourceEpisodeId,
     storySourceTitle: slot.storySourceTitle,
     storySourceSummary: slot.storySourceSummary,
@@ -179,6 +205,24 @@ describe('[instruction 79] jp-chillhop STORY POV workspace', () => {
     expect(CORE_GENRE_IDS_BY_ARCHETYPE['jp-chillhop']).toEqual(CORE_GENRE_IDS_BY_ARCHETYPE['en-chillhop']);
   });
 
+  it('wires the Story hard-lock helpers into the UI-facing Step2 and Step3 surfaces', () => {
+    const concept = readFileSync(resolve(projectRoot, 'src/components/steps/Step2Concept.tsx'), 'utf8');
+    const plan = readFileSync(resolve(projectRoot, 'src/components/steps/Step2Plan.tsx'), 'utf8');
+    const generate = readFileSync(resolve(projectRoot, 'src/components/steps/Step3Generate.tsx'), 'utf8');
+
+    expect(concept).toContain('storyInputUiModeForWorkspace');
+    expect(concept).toContain('원문 한 줄');
+    expect(concept).toContain('사건 요약');
+    expect(concept).toContain('hasChiliStoryVocalLock');
+    expect(concept).toContain('STORY POV를 지키기 위해 배정 방식을 선택할 수 없습니다.');
+    expect(plan).toContain('isStoryVocalHardLocked(gateOpts)');
+    expect(plan).toContain('STORY 고정');
+    expect(plan).toContain("!(storyVocalLock.locked && editingAxis === 'vocalType')");
+    expect(generate).toContain('const effectiveStoryOpts = useMemo(() => applyChiliStoryGenerationContract(opts), [opts]);');
+    expect(generate).toContain('STORY ${storyVocalLock.gender');
+    expect(generate).toContain('100% 고정');
+  });
+
   it('parses one-line story input and connects solo POV source summaries to same-story-comparison mode', () => {
     expect(parseChiliStoryLine('003. 雨のホーム — ひとつの傘で終電まで歩いた夜')).toEqual({
       storySourceEpisodeId: '003',
@@ -191,6 +235,211 @@ describe('[instruction 79] jp-chillhop STORY POV workspace', () => {
 
     const withoutSummary = applyChiliStoryGenerationContract({ ...opts, storySourceSummary: '', scenePlanningMode: 'same-story-comparison' });
     expect(withoutSummary.scenePlanningMode).toBeUndefined();
+  });
+
+  it('accepts short and numberless source lines and prefers a separately edited summary', () => {
+    expect(parseChiliStorySourceLine('002. 雨のホーム')).toEqual({
+      storySourceEpisodeId: '002',
+      storySourceTitle: '雨のホーム'
+    });
+    expect(parseChiliStorySourceLine('雨のホーム')).toEqual({ storySourceTitle: '雨のホーム' });
+    expect(resolveChiliStorySource({
+      rawLine: '002. 雨のホーム — inline summary',
+      separateSummary: 'edited event summary'
+    })).toEqual({
+      storySourceEpisodeId: '002',
+      storySourceTitle: '雨のホーム',
+      storySourceSummary: 'edited event summary'
+    });
+  });
+
+  it('splits the real one-line CHILI plan into POV title, source episode/title/event, and intent', () => {
+    const plan = parseChiliStoryPlanLine('001. 夜の改札 | EP.001 "駅前で初めて会う". 同じ傘を見つめた夜、ふたりの距離が少し縮まる。彼は言えなかった言葉を次の約束に託す。');
+    expect(plan).toEqual({
+      planEpisodeId: '001',
+      povTitle: '夜の改札',
+      sourceEpisodeId: '001',
+      sourceTitle: '駅前で初めて会う',
+      sourceEventSummary: '同じ傘を見つめた夜、ふたりの距離が少し縮まる。',
+      povIntentSummary: '彼は言えなかった言葉を次の約束に託す。'
+    });
+  });
+
+  it('keeps female Bridge slots free of a stale male tenor and honors manual genre counts exactly', () => {
+    const manualGenreIds = CORE_GENRE_IDS_BY_ARCHETYPE['jp-chillhop'].slice(0, 4);
+    const manualCounts = Object.fromEntries(manualGenreIds.map((id, index) => [id, index < 3 ? 4 : 3]));
+    const opts = optsFor('female', {
+      vocalTone: 'mature soulful male tenor, soft slightly husky close-mic delivery',
+      genreIds: [],
+      diversityAllocations: [{ axis: 'genre', mode: 'manual', counts: manualCounts }]
+    });
+    const slots = preallocateSongSlots(opts, []);
+    expect(vocalCounts(slots)).toEqual({ male: 0, female: 15, mixed: 0 });
+    expect(slots.every(slot => !/male tenor|male baritone|male voice/i.test(`${slot.vocalText} ${slot.vocalVariantText ?? ''}`))).toBe(true);
+    expect(Object.fromEntries(manualGenreIds.map(id => [id, slots.filter(slot => slot.genreId === id).length]))).toEqual(manualCounts);
+    expect(slots.every(slot => slot.title.includes('雨のホーム') && slot.hookPhrase.includes('彼女の視点'))).toBe(true);
+    const plan = directSetLocal(
+      opts.customConcept,
+      channel,
+      opts.songCount,
+      { recentGenreIds: [], recentHooks: [] },
+      [],
+      opts.vocalTone,
+      undefined,
+      undefined,
+      userChoicesFromOptions(opts),
+      opts
+    );
+    expect(plan.allocations.find(allocation => allocation.axis === 'genre')?.counts).toEqual(manualCounts);
+    expect(Object.fromEntries(manualGenreIds.map(id => [id, plan.slots.filter(slot => slot.genreId === id).length]))).toEqual(manualCounts);
+    const maleSlots = preallocateSongSlots(optsFor('male'), genresFor(optsFor('male')));
+    expect(maleSlots.filter((slot, index) => slots[index]?.title === slot.title).length).toBe(0);
+    expect(maleSlots.filter((slot, index) => slots[index]?.hookPhrase === slot.hookPhrase).length).toBe(0);
+    expect(slots.filter(slot => slot.title === slot.hookPhrase).length).toBe(0);
+    expect(maleSlots.filter(slot => slot.title === slot.hookPhrase).length).toBe(0);
+  });
+
+  it('keeps solo STORY vocal quota as one source of truth from UI options through plan, preflight, bridge, and import', async () => {
+    const staleBalancedAllocation: AxisAllocation = {
+      axis: 'vocalType',
+      mode: 'manual',
+      counts: { male: 5, female: 5, mixed: 5 }
+    };
+    const cases: Array<{ pov: 'male' | 'female'; quota: { male: number; female: number; mixed: number }; label: string }> = [
+      { pov: 'male', quota: { male: 15, female: 0, mixed: 0 }, label: '彼のSTORY' },
+      { pov: 'female', quota: { male: 0, female: 15, mixed: 0 }, label: '彼女のSTORY' }
+    ];
+
+    for (const fixture of cases) {
+      const opts = optsFor(fixture.pov, {
+        diversityAllocations: [staleBalancedAllocation],
+        vocalTone: fixture.pov === 'male' ? 'bright female lead vocal' : 'warm male baritone lead vocal'
+      });
+
+      expect(resolveEffectiveStoryVocalQuota(opts), fixture.label).toEqual(fixture.quota);
+      expect(isStoryVocalHardLocked(opts), fixture.label).toMatchObject({ locked: true, gender: fixture.pov, quota: fixture.quota });
+      expect(opts.vocalQuota, fixture.label).toEqual(fixture.quota);
+      expect(opts.vocalQuotaMode, fixture.label).toBeUndefined();
+      expect(opts.storyVocalQuotaSource, fixture.label).toBe('story-contract');
+      expect(vocalAllocationCounts(opts.diversityAllocations), fixture.label).toEqual(fixture.quota);
+      expect(vocalAllocationCounts(opts.diversityAllocations), fixture.label).not.toEqual({ male: 5, female: 5, mixed: 5 });
+
+      const plan = directSetLocal(
+        opts.customConcept,
+        opts.channel,
+        opts.songCount,
+        { recentGenreIds: [], recentHooks: [] },
+        [],
+        opts.vocalTone,
+        opts.breadthOverride,
+        opts.paletteFamilyOverride,
+        userChoicesFromOptions(opts),
+        opts
+      );
+      expect(vocalAllocationCounts(plan.allocations), fixture.label).toEqual(fixture.quota);
+      expect(vocalCounts(plan.slots), fixture.label).toEqual(fixture.quota);
+      expect(vocalAllocationCounts(plan.allocations), fixture.label).not.toEqual({ male: 5, female: 5, mixed: 5 });
+
+      const slots = preallocateSongSlots(opts, genresFor(opts));
+      expect(vocalCounts(slots), fixture.label).toEqual(fixture.quota);
+      const contract = buildResolvedGenerationContract(opts, userChoicesFromOptions(opts), slots, 'jp-chillhop');
+      expect(contract.vocal.effectiveQuota, fixture.label).toEqual(fixture.quota);
+
+      const preflight = await evaluateGenerationRequest({
+        workspaceId: 'jp-chillhop',
+        options: opts,
+        genres: genresFor(opts)
+      });
+      expect(preflight.reasons.filter(reason => reason.field.includes('vocal') || reason.messageKo.includes('보컬')), fixture.label).toEqual([]);
+
+      const { instruction, report } = runBridgeFixture(opts);
+      expect(instruction, fixture.label).toContain(`VOCAL HARD LOCK: every one of the 15 songs is ${fixture.pov} vocal only`);
+      expect(instruction, fixture.label).toContain(`male ${fixture.quota.male}/15, female ${fixture.quota.female}/15, mixed/duet ${fixture.quota.mixed}/15`);
+      expect(instruction, fixture.label).not.toContain('male 5/15, female 5/15, mixed/duet 5/15');
+      expect(report.importedCount, fixture.label).toBe(15);
+      expect(report.blueprint?.meta?.storyPov, fixture.label).toBe(fixture.pov);
+      expect(report.blueprint?.meta?.storySourceLine, fixture.label).toBe(STORY_SOURCE.storySourceLine);
+      expect(report.blueprint?.songs.every(song => song.storyPov === fixture.pov), fixture.label).toBe(true);
+      expect(report.blueprint?.songs.every(song => song.storySourceLine === STORY_SOURCE.storySourceLine), fixture.label).toBe(true);
+    }
+  });
+
+  it('clears stale male/female solo quota when switching to couple and reapplies the selected solo quota when switching back', () => {
+    for (const pov of ['male', 'female'] as const) {
+      const solo = optsFor(pov);
+      const soloQuota = resolveEffectiveStoryVocalQuota(solo)!;
+      expect(vocalAllocationCounts(solo.diversityAllocations)).toEqual(soloQuota);
+
+      const directCouple = applyChiliStoryGenerationContract({ ...solo, storyPov: 'couple' });
+      expect(resolveEffectiveStoryVocalQuota(directCouple)).toBeUndefined();
+      expect(directCouple.vocalQuota).toBeUndefined();
+      expect(directCouple.storyVocalQuotaSource).toBeUndefined();
+      expect(vocalAllocationCounts(directCouple.diversityAllocations)).toBeUndefined();
+      expect(vocalCounts(preallocateSongSlots(directCouple, genresFor(directCouple)))).not.toEqual(soloQuota);
+
+      const uiCouple = applyChiliStoryGenerationContract({ ...clearChiliStorySoloVocalLock(solo), storyPov: 'couple' });
+      expect(uiCouple.vocalQuota).toBeUndefined();
+      expect(uiCouple.storyVocalQuotaSource).toBeUndefined();
+      expect(vocalAllocationCounts(uiCouple.diversityAllocations)).toBeUndefined();
+
+      const switchedBack = applyChiliStoryGenerationContract({ ...uiCouple, storyPov: pov });
+      expect(resolveEffectiveStoryVocalQuota(switchedBack)).toEqual(soloQuota);
+      expect(switchedBack.vocalQuota).toEqual(soloQuota);
+      expect(switchedBack.storyVocalQuotaSource).toBe('story-contract');
+      expect(vocalAllocationCounts(switchedBack.diversityAllocations)).toEqual(soloQuota);
+      expect(vocalCounts(preallocateSongSlots(switchedBack, genresFor(switchedBack)))).toEqual(soloQuota);
+    }
+  });
+
+  it('does not delete a user-owned manual solo-shaped quota while already in couple Story mode', () => {
+    const manualQuota = { male: 15, female: 0, mixed: 0 };
+    const manualCouple = applyChiliStoryGenerationContract(makeOptions({
+      ...STORY_SOURCE,
+      channel,
+      songCount: 15,
+      lyricLanguage: 'japanese',
+      storyPov: 'couple',
+      vocalQuota: manualQuota,
+      diversityAllocations: [{ axis: 'vocalType', mode: 'manual', counts: manualQuota }]
+    }));
+
+    expect(manualCouple.storyPov).toBe('couple');
+    expect(manualCouple.storyVocalQuotaSource).toBeUndefined();
+    expect(manualCouple.vocalQuota).toEqual(manualQuota);
+    expect(vocalAllocationCounts(manualCouple.diversityAllocations)).toEqual(manualQuota);
+  });
+
+  it('restores old saved solo STORY options and rescales the hard lock to the saved song count', () => {
+    const cases: Array<{ pov: 'male' | 'female'; quota: { male: number; female: number; mixed: number } }> = [
+      { pov: 'male', quota: { male: 12, female: 0, mixed: 0 } },
+      { pov: 'female', quota: { male: 0, female: 12, mixed: 0 } }
+    ];
+
+    for (const fixture of cases) {
+      const saved = JSON.parse(JSON.stringify(optsFor(fixture.pov, {
+        songCount: 12,
+        lyricLanguage: 'english',
+        perspective: 'thirdPerson',
+        perspectiveMode: 'varied',
+        vocalTone: fixture.pov === 'male' ? 'airy female lead vocal' : 'warm male baritone lead vocal'
+      }))) as GenerationOptions;
+      delete saved.vocalQuota;
+      delete saved.vocalQuotaMode;
+      delete saved.diversityAllocations;
+
+      const restored = applyChiliStoryGenerationContract(saved);
+      expect(restored.storyPov).toBe(fixture.pov);
+      expect(restored.lyricLanguage).toBe('japanese');
+      expect(restored.perspective).toBe('firstPerson');
+      expect(restored.perspectiveMode).toBe('fixed');
+      expect(restored.storySourceLine).toBe(STORY_SOURCE.storySourceLine);
+      expect(restored.storySourceSummary).toBe(STORY_SOURCE.storySourceSummary);
+      expect(resolveEffectiveStoryVocalQuota(restored)).toEqual(fixture.quota);
+      expect(restored.vocalQuota).toEqual(fixture.quota);
+      expect(restored.storyVocalQuotaSource).toBe('story-contract');
+      expect(vocalAllocationCounts(restored.diversityAllocations)).toEqual(fixture.quota);
+      expect(vocalCounts(preallocateSongSlots(restored, genresFor(restored)))).toEqual(fixture.quota);
+    }
   });
 
   it('hard-locks 彼のSTORY to Japanese, first-person fixed mode, and male vocals for all 15 tracks', () => {

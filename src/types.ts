@@ -808,9 +808,14 @@ export interface GenerationOptions {
   scenePlanningMode?: ScenePlanningMode;
   storyPov?: ChiliStoryPov;
   cafeStoryMode?: ChiliStoryPov;
+  storySourceLine?: string;
+  storyPlanLine?: string;
+  storyPlanEpisodeId?: string;
+  storyPovTitle?: string;
   storySourceEpisodeId?: string;
   storySourceTitle?: string;
   storySourceSummary?: string;
+  storyPovIntentSummary?: string;
   storyPreviousContext?: string;
   storyNextHint?: string;
   storyLocation?: string;
@@ -951,6 +956,8 @@ export interface GenerationOptions {
    * applies its ratio at any song count.
    */
   vocalQuota?: { male: number; female: number; mixed: number };
+  /** Internal provenance for a vocalQuota synthesized by the JP CHILI Story contract. */
+  storyVocalQuotaSource?: 'story-contract';
   /**
    * 지시문 63 (TASK A) — opts.vocalQuota(직접 지정)와 channel.vocalQuotaOverride(채널
    * 고정)가 둘 다 없을 때, 남은 두 선택지("장르에 맞춰 배정" 기본 vs "고르게
@@ -1389,9 +1396,14 @@ export interface SongIdea {
   pov?: LyricPerspective;
   storyPov?: ChiliStoryPov;
   cafeStoryMode?: ChiliStoryPov;
+  storySourceLine?: string;
+  storyPlanLine?: string;
+  storyPlanEpisodeId?: string;
+  storyPovTitle?: string;
   storySourceEpisodeId?: string;
   storySourceTitle?: string;
   storySourceSummary?: string;
+  storyPovIntentSummary?: string;
   storyPreviousContext?: string;
   storyNextHint?: string;
   storyLocation?: string;
@@ -1778,9 +1790,14 @@ export interface PlaylistBlueprint {
     workspaceId?: WorkspaceId;
     storyPov?: ChiliStoryPov;
     cafeStoryMode?: ChiliStoryPov;
+    storySourceLine?: string;
+    storyPlanLine?: string;
+    storyPlanEpisodeId?: string;
+    storyPovTitle?: string;
     storySourceEpisodeId?: string;
     storySourceTitle?: string;
     storySourceSummary?: string;
+    storyPovIntentSummary?: string;
     storyPreviousContext?: string;
     storyNextHint?: string;
     storyLocation?: string;
@@ -2165,9 +2182,14 @@ export interface PreassignedSongSlot {
   pov?: LyricPerspective;
   storyPov?: ChiliStoryPov;
   cafeStoryMode?: ChiliStoryPov;
+  storySourceLine?: string;
+  storyPlanLine?: string;
+  storyPlanEpisodeId?: string;
+  storyPovTitle?: string;
   storySourceEpisodeId?: string;
   storySourceTitle?: string;
   storySourceSummary?: string;
+  storyPovIntentSummary?: string;
   storyPreviousContext?: string;
   storyNextHint?: string;
   storyLocation?: string;

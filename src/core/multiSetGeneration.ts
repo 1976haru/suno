@@ -11,6 +11,7 @@ import { evaluateGenerationRequest, stableHash, type DesignGateEvaluator, type P
 import { withGenerationSnapshot } from './generationSnapshot';
 import { preallocateSongSlots } from './batchPreallocation';
 import { applyConceptFitScore } from './promiseAudit';
+import { applyChiliStoryGenerationContract } from './chiliStoryPov';
 
 /**
  * TASK v3.33 — multi-set generation: N independent sets (e.g. 5 x 18 songs)
@@ -91,11 +92,11 @@ export function buildSetOptions(
   /** Genre ids actually assigned by prior sets in THIS run (caller's own rolling window — see runMultiSetGeneration's recentGenreIdsWindow). */
   recentGenreIdsThisRun: string[] = []
 ): GenerationOptions {
-  const setOpts: GenerationOptions = {
+  const setOpts: GenerationOptions = applyChiliStoryGenerationContract({
     ...baseOpts,
     songCount: songsPerSet,
     projectTitle: `${baseOpts.projectTitle} Set ${padSetIndex(setIndex + 1)}`
-  };
+  });
 
   // v5.7 (TASK C) — was mere floor presence; now matches setDirector.ts's
   // own `usesPaletteFamily` gate. Without this, kr-2030/jp-2030/kr-idol-*
@@ -125,7 +126,8 @@ export function buildSetOptions(
     // (genre-family rotation only, see this function's own doc comment)
     // consistent with baseOpts' real moneyChordMode instead of silently
     // reverting the plan's own preview to 'default'.
-    userChoicesFromOptions(baseOpts)
+    userChoicesFromOptions(baseOpts),
+    setOpts
   );
   const genreAllocation = plan.allocations.find(allocation => allocation.axis === 'genre');
   const genreIds = genreAllocation ? Object.keys(genreAllocation.counts) : undefined;
@@ -133,7 +135,7 @@ export function buildSetOptions(
 
   setOpts.genreIds = genreIds;
   setOpts.diversityAllocations = normalizeDiversityAllocations(plan.allocations);
-  return setOpts;
+  return applyChiliStoryGenerationContract(setOpts);
 }
 
 /**
