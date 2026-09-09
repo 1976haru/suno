@@ -24,6 +24,7 @@ import { channelSoundFloorForArchetype } from '../data/channelSoundFloor';
 import { audienceProfileForChannelArchetype } from '../data/audienceProfiles';
 import { resolveLyricRange } from './lyricMetrics';
 import { resolveTitleLocalizedLanguage } from './packagingLanguage';
+import { isJapaneseChillhopArchetype } from '../utils/channelArchetype';
 
 // TASK A1 (v3.5): Suno's style field truncates anything past 1,000 characters
 // — a real measurement of 12 generated songs found 12/12 over that limit
@@ -864,6 +865,7 @@ export function hookStyleDirectives(_hookPhrase: string, lyricDepth: GenerationO
  * every call can never be a stable cache prefix.
  */
 export function buildBatchSystemNote(opts: GenerationOptions, batch: BatchContext, generateThumbnailText = false): string {
+  const isJapaneseChiliStory = isJapaneseChillhopArchetype(opts.channel.archetype);
   const hasOpeningRoleSlot = batch.preassignedSongs?.some(slot => slot.songRole === 'cold-open' || slot.songRole === 'flagship');
   // TASK I1 (v3.11) — the preassigned songRole string alone ('cold-open',
   // 'flagship') doesn't tell a remote model what those roles mean; this is
@@ -897,9 +899,11 @@ export function buildBatchSystemNote(opts: GenerationOptions, batch: BatchContex
   // fact — see core/lyricEngine.ts's dedupeTitlesAcrossPack — since parallel
   // batches/chunks still can't see each other's real title pick.
   const titleMode = opts.titleMode ?? 'ai-creative';
-  const titleInstruction = titleMode === 'local'
-    ? 'Do NOT invent a different title — copy it verbatim into your output for the matching trackNo.'
-    : 'The "title" field there is only a fallback placeholder: write your OWN original title for each song instead, independent of the hookPhrase (see the Hook rules above — the title no longer needs to equal or contain the hook). Write real Billboard Hot 100-style titles: single striking words, unexpected concrete nouns, short metaphors, or evocative images — never a restatement of the hook, and never the same shape for every song in the pack. Keep the channel\'s tone (e.g. nostalgic, elegant) while varying the structure freely.';
+  const titleInstruction = isJapaneseChiliStory
+    ? 'For JP CHILI STORY, write "title" as a natural Japanese primary title tied to this track\'s own source-local scene. Prefer the preassigned Japanese title; if you change it, keep it Japanese, short, and distinct from that song\'s hookPhrase.'
+    : titleMode === 'local'
+      ? 'Do NOT invent a different title — copy it verbatim into your output for the matching trackNo.'
+      : 'The "title" field there is only a fallback placeholder: write your OWN original title for each song instead, independent of the hookPhrase (see the Hook rules above — the title no longer needs to equal or contain the hook). Write real Billboard Hot 100-style titles: single striking words, unexpected concrete nouns, short metaphors, or evocative images — never a restatement of the hook, and never the same shape for every song in the pack. Keep the channel\'s tone (e.g. nostalgic, elegant) while varying the structure freely.';
   // TASK v3.33 — hookMode's own axis, independent of titleMode (see
   // GenerationOptions.hookMode's comment for why: a hook pool of ~400
   // combinatorial phrases per channel can't sustain 90+ songs/week, so
@@ -909,9 +913,11 @@ export function buildBatchSystemNote(opts: GenerationOptions, batch: BatchContex
   // (core/hookDedup.ts) rather than pre-decided. 'pool' keeps the old
   // unconditional verbatim-copy behavior.
   const hookMode = opts.hookMode ?? 'ai-creative';
-  const hookInstruction = hookMode === 'pool'
-    ? 'Do NOT invent a different hookPhrase — copy it verbatim into your output for the matching trackNo.'
-    : 'The "hookPhrase" field there is only a fallback suggestion: write your OWN original hook for each song instead — 2-5 words, Title Case, singable (see the Hook rules above) — matching this channel\'s tone. Never reuse a hook already listed in "alreadyUsedHooks" in the user payload. The hook you write must bookend every chorus in the lyrics you write for that song.';
+  const hookInstruction = isJapaneseChiliStory
+    ? 'For JP CHILI STORY, keep hookPhrase as a short singable Japanese phrase, roughly 4-14 Japanese characters. Prefer the preassigned hook; if you change it, keep it source-local, never English Title Case, and never reuse a hook already listed in "alreadyUsedHooks". The hook you write must bookend every chorus in the lyrics you write for that song.'
+    : hookMode === 'pool'
+      ? 'Do NOT invent a different hookPhrase — copy it verbatim into your output for the matching trackNo.'
+      : 'The "hookPhrase" field there is only a fallback suggestion: write your OWN original hook for each song instead — 2-5 words, Title Case, singable (see the Hook rules above) — matching this channel\'s tone. Never reuse a hook already listed in "alreadyUsedHooks" in the user payload. The hook you write must bookend every chorus in the lyrics you write for that song.';
   // TASK v3.33 Part C — moneyChordText is per-trackNo (core/moneyChordPlan.ts
   // may assign a different progression to different tracks within the same
   // pack, pinning cold-open/flagship to the channel's signature — see
@@ -1147,6 +1153,7 @@ function earwormSystemNote(hasPreassignedEarworm: boolean): string {
  * the (correctly volatile) batch note a second time.
  */
 export function buildSystemInstruction(opts: GenerationOptions, batch?: BatchContext, totalSongCountOverride?: number, generateThumbnailText = false) {
+  const isJapaneseChiliStory = isJapaneseChillhopArchetype(opts.channel.archetype);
   const batchNote = batch ? buildBatchSystemNote(opts, batch, generateThumbnailText) : '';
   const earwormNote = opts.earwormMode ? earwormSystemNote(Boolean(batch?.preassignedSongs?.some(slot => slot.earwormText))) : '';
   const eraLyricGuidance = eraLyricGuidanceForArchetype(opts.channel.archetype);
@@ -1183,9 +1190,20 @@ export function buildSystemInstruction(opts: GenerationOptions, batch?: BatchCon
   // hook-binding constraint entirely: the hookPhrase still repeats verbatim
   // in the lyrics/chorus per the rule below, but the title is now free.
   const titleModeForHookRule = opts.titleMode ?? 'ai-creative';
-  const titleHookRuleLine = titleModeForHookRule === 'local'
-    ? '- The song\'s title must equal the hook phrase, or contain it verbatim (never a different phrase from the hook).'
-    : '- The song\'s title is INDEPENDENT from the hookPhrase — do not just reuse or lightly reword the hook as the title. Write a genuinely different, evocative title the way real Billboard Hot 100 song titles work: a single striking word, an unexpected concrete noun, a short metaphor, or an image, not a restatement of the hook.';
+  const titleHookRuleLine = isJapaneseChiliStory
+    ? '- For JP CHILI STORY, the song title is a natural Japanese primary title and can be independent from the hookPhrase. Across a 15-track pack, no more than 5 tracks may have title == hookPhrase; use source-local callbacks without turning every title into the chorus line.'
+    : titleModeForHookRule === 'local'
+      ? '- The song\'s title must equal the hook phrase, or contain it verbatim (never a different phrase from the hook).'
+      : '- The song\'s title is INDEPENDENT from the hookPhrase — do not just reuse or lightly reword the hook as the title. Write a genuinely different, evocative title the way real Billboard Hot 100 song titles work: a single striking word, an unexpected concrete noun, a short metaphor, or an image, not a restatement of the hook.';
+  const hookShapeRuleLine = isJapaneseChiliStory
+    ? '- The hook must be a short, singable natural Japanese phrase, roughly 4-14 Japanese characters. Do not romanize it and do not apply English Title Case rules.'
+    : '- The hook must be a short, singable phrase of 2-5 words, in Title Case, never starting with a lowercase letter.';
+  const hookExactRuleLine = isJapaneseChiliStory
+    ? '- CRITICAL: Every one of those hook occurrences inside "lyrics" must match "hookPhrase" EXACTLY, character for character. Do not translate, romanize, lowercase, or otherwise reword the hook when it is sung.'
+    : '- CRITICAL: Every one of those hook occurrences inside "lyrics" must match "hookPhrase" EXACTLY, character for character, including its Title Case — do not lowercase or otherwise reword the hook when it\'s sung. (Sentence-case display for pasting into Suno is handled separately by the app at copy time — the stored "lyrics" field must keep the verbatim match so the app\'s own quality checks can find it.)';
+  const effectiveSafeLyricRules = isJapaneseChiliStory
+    ? safeLyricRules.filter(rule => !/\bEnglish\b/i.test(rule))
+    : safeLyricRules;
 
   return `You are Haru Studio, a commercial playlist song planner. Generate original Suno-ready style prompts, lyrics, and YouTube metadata.
 
@@ -1213,14 +1231,14 @@ ${youtubeMetadataLine}
 - Do not include typography, logo, or thumbnail art-direction language (e.g. font style) in "stylePrompt" — that belongs only in visual/thumbnail fields, never in the music style prompt.
 
 Hook rules (each song's hookPhrase):
-- The hook must be a short, singable phrase of 2-5 words, in Title Case, never starting with a lowercase letter.
+${hookShapeRuleLine}
 ${titleHookRuleLine}
 - The hook line appears exactly ONCE in every earlier chorus-type section (not open-and-close both) — vary whether it's the first line, second line, or last line of that chorus block, from song to song. Only the FINAL chorus bookends: the hook opens AND closes it (2 occurrences there only). This gives roughly ${targetHookRepeats} hook occurrences total across the whole song (earlier choruses x1 each + final chorus x2) — do not exceed this by bookending every chorus like the final one; a real previous pack over-repeated the hook by doing exactly that (open, one line, hook again, three lines, hook again — every single chorus, every song), which read as repetitive on close listening.
-- CRITICAL: Every one of those hook occurrences inside "lyrics" must match "hookPhrase" EXACTLY, character for character, including its Title Case — do not lowercase or otherwise reword the hook when it's sung. (Sentence-case display for pasting into Suno is handled separately by the app at copy time — the stored "lyrics" field must keep the verbatim match so the app's own quality checks can find it.)
+${hookExactRuleLine}
 - Never address an inanimate object as if it were a person (e.g. "Hold on, coffee" or "Close your eyes, doorway") — vocative phrasing may only address a person or an abstract/personified noun (a friend, a season, "my love"), never a physical object.
 
 Safety rules:
-${safeLyricRules.map(rule => `- ${rule}`).join('\n')}${eraLyricGuidance ? `\n- ${eraLyricGuidance}\n- Record factual human lyric edits when provided; never claim that a song is eligible for collecting-society registration.` : ''}${earwormNote}${batchNote}`;
+${effectiveSafeLyricRules.map(rule => `- ${rule}`).join('\n')}${eraLyricGuidance ? `\n- ${eraLyricGuidance}\n- Record factual human lyric edits when provided; never claim that a song is eligible for collecting-society registration.` : ''}${earwormNote}${batchNote}`;
 }
 
 /**
@@ -1257,12 +1275,21 @@ function batchPlanningBullets(generateThumbnailText: boolean): string[] {
  * (bridgeInstruction.ts) for the actual creative instruction; this is just
  * the field-presence hint in the JSON shape shown to the agent.
  */
-export function songOutputShape(generateThumbnailText: boolean, packagingLanguage: 'english' | 'korean' | 'japanese' = 'english') {
+export function songOutputShape(
+  generateThumbnailText: boolean,
+  packagingLanguage: 'english' | 'korean' | 'japanese' = 'english',
+  primaryTitleLanguage: 'english' | 'japanese' = 'english'
+) {
+  const titleShape = primaryTitleLanguage === 'japanese'
+    ? 'string — natural Japanese primary song title for this track, not English'
+    : 'string — English';
   return {
     trackNo: 1,
-    title: 'string — English',
+    title: titleShape,
     ...(packagingLanguage !== 'english' ? {
-      titleLocalized: `string — a natural, idiomatic ${packagingLanguage === 'korean' ? 'Korean' : 'Japanese'} song title reinterpreting this song's scene/emotion, NOT a translation of "title"'s words. See the [제목] guidance below.`
+      titleLocalized: primaryTitleLanguage === 'japanese'
+        ? 'string — same Japanese title or a short Japanese alias for this track scene; do not create an English-primary title'
+        : `string — a natural, idiomatic ${packagingLanguage === 'korean' ? 'Korean' : 'Japanese'} song title reinterpreting this song's scene/emotion, NOT a translation of "title"'s words. See the [제목] guidance below.`
     } : {}),
     seasonMoment: 'string',
     listenerSituation: 'string',
@@ -1362,12 +1389,22 @@ export function songOutputShape(generateThumbnailText: boolean, packagingLanguag
   };
 }
 
-export function buildUserInstruction(opts: GenerationOptions, genres: GenrePack[], moods: MoodPack[], season: SeasonPack, batch?: BatchContext, generateThumbnailText = false) {
+function generationPackForOptions(opts: GenerationOptions): (typeof generationPacks)[number] | undefined {
   const generationPack = generationPacks.find(pack => pack.id === opts.audience);
+  if (!generationPack || !isJapaneseChillhopArchetype(opts.channel.archetype)) return generationPack;
+  return {
+    ...generationPack,
+    lyricGuidance: generationPack.lyricGuidance.filter(rule => !/\bEnglish\b/i.test(rule))
+  };
+}
+
+export function buildUserInstruction(opts: GenerationOptions, genres: GenrePack[], moods: MoodPack[], season: SeasonPack, batch?: BatchContext, generateThumbnailText = false) {
+  const generationPack = generationPackForOptions(opts);
   // 지시문 12 (TASK C-2) — resolveTitleLocalizedLanguage: 시니어/쇼와 계열
   // 아키타입은 packagingLanguage 오버라이드가 english여도 titleLocalized
   // 필드가 출력 스키마에서 사라지지 않는다.
   const packagingLanguage = resolveTitleLocalizedLanguage(opts);
+  const primaryTitleLanguage = isJapaneseChillhopArchetype(opts.channel.archetype) ? 'japanese' : 'english';
 
   return {
     channel: opts.channel,
@@ -1408,7 +1445,7 @@ export function buildUserInstruction(opts: GenerationOptions, genres: GenrePack[
       lyricRules: ['string'],
       harmonyRules: ['string'],
       visualRules: ['string'],
-      songs: [songOutputShape(generateThumbnailText, packagingLanguage)]
+      songs: [songOutputShape(generateThumbnailText, packagingLanguage, primaryTitleLanguage)]
     }
   };
 }
@@ -1423,9 +1460,10 @@ export function buildUserInstruction(opts: GenerationOptions, genres: GenrePack[
  * typical request, and it never changes within a run.
  */
 export function buildChannelSystemBlock(opts: GenerationOptions, genres: GenrePack[], moods: MoodPack[], season: SeasonPack, generateThumbnailText = false): string {
-  const generationPack = generationPacks.find(pack => pack.id === opts.audience);
+  const generationPack = generationPackForOptions(opts);
   // 지시문 12 (TASK C-2) — 위 buildUserInstruction과 동일한 이유.
   const packagingLanguage = resolveTitleLocalizedLanguage(opts);
+  const primaryTitleLanguage = isJapaneseChillhopArchetype(opts.channel.archetype) ? 'japanese' : 'english';
   const block = {
     channel: opts.channel,
     generationPack,
@@ -1443,7 +1481,7 @@ export function buildChannelSystemBlock(opts: GenerationOptions, genres: GenrePa
       lyricRules: ['string'],
       harmonyRules: ['string'],
       visualRules: ['string'],
-      songs: [songOutputShape(generateThumbnailText, packagingLanguage)]
+      songs: [songOutputShape(generateThumbnailText, packagingLanguage, primaryTitleLanguage)]
     }
   };
   return `Channel profile and output schema for this generation run (stable across every batch):\n${JSON.stringify(block, null, 2)}`;

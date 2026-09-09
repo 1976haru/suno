@@ -94,7 +94,8 @@ import { getGenreById, isGenreEligibleForArchetype } from '../data/genreLibrary'
 import { genreSanitizationWarningKo, sanitizeGenreIdsForArchetype } from './genreSelection';
 import { conceptChannelFitWarningKo, evaluateConceptChannelFit } from './conceptChannelFit';
 import { applyEnChillhopBandLock } from './enChillhopBand';
-import { applyChiliStoryGenerationContract, chiliStorySlotFields, storyFieldsFromSlot } from './chiliStoryPov';
+import { applyChiliStoryGenerationContract, chiliStorySlotFields, isJapaneseChiliStoryOptions, storyFieldsFromSlot } from './chiliStoryPov';
+import { planChiliStoryScenes } from './chiliStoryScenePlanner';
 
 export type { PreassignedSongSlot };
 
@@ -111,23 +112,6 @@ function appendGenreAutoRemainder(manualPlan: string[], autoPlan: string[], song
   return plan.length < songCount
     ? [...plan, ...autoPlan.slice(0, songCount - plan.length)]
     : plan;
-}
-
-function storyAwareIdentity(
-  opts: Pick<GenerationOptions, 'storyPov' | 'storySourceTitle' | 'lyricLanguage'>,
-  trackNo: number,
-  title: string,
-  hook: string
-): { title: string; hook: string } {
-  const sourceTitle = opts.storySourceTitle?.trim();
-  if (!sourceTitle || opts.lyricLanguage !== 'japanese' || (opts.storyPov !== 'male' && opts.storyPov !== 'female')) {
-    return { title, hook };
-  }
-  const perspective = opts.storyPov === 'male' ? '彼の視点' : '彼女の視点';
-  return {
-    title: `${sourceTitle} · ${title} · ${perspective} ${trackNo}`,
-    hook: `${hook} · ${sourceTitle} ${perspective} ${trackNo}`
-  };
 }
 
 /**
@@ -959,6 +943,11 @@ export function preallocateSongSlots(
   });
   const povPlan = buildPovPlan(opts, seed);
   const sectionStylePlan = buildSectionStylePlan(opts.songCount, seed, structureTemplatePlan);
+  const workspaceId = workspaceForArchetype(opts.channel.archetype)?.id;
+  const storyScenePlan = isJapaneseChiliStoryOptions(opts)
+    ? planChiliStoryScenes({ ...opts, isCafe: workspaceId === 'jp-cafe-chillhop' })
+    : [];
+  const storySceneByTrackNo = new Map(storyScenePlan.map(scene => [scene.trackNo, scene]));
 
   // 지시문 46 (TASK D, 지시문 45 TASK C 미반영분) — GenerationOptions.
   // vocalPresetPlan의 자기 doc comment 참고. vocalType(quota로 이미 확정된
@@ -1076,11 +1065,13 @@ export function preallocateSongSlots(
 
   const slots = Array.from({ length: opts.songCount }, (_, idx) => {
     const trackNo = idx + 1;
+    const plannedStoryScene = storySceneByTrackNo.get(trackNo);
     const songRole = songRoles[idx];
     const generatedIdentity = trackNo <= 3
       ? nextContestedTitle(nextTitle, opts.lyricLanguage, opts.channel.archetype, songRole, songRole === 'cold-open' ? 'cold-open' : 'flagship', packContext, 3, false, constraints)
       : nextTitle(songRole);
-    const { title, hook } = storyAwareIdentity(opts, trackNo, generatedIdentity.title, generatedIdentity.hook);
+    const title = plannedStoryScene?.title ?? generatedIdentity.title;
+    const hook = plannedStoryScene?.hookPhrase ?? generatedIdentity.hook;
     const vocalType = vocalPlan ? vocalPlan[idx] : undefined;
     const vocalPresetOverride = resolveVocalPresetOverride(idx, vocalType);
     // 지시문 49 (TASK A) — SongIdea.vocalPresetSource/PreassignedSongSlot.
@@ -1164,6 +1155,13 @@ export function preallocateSongSlots(
     const introTextureText = introTextureTagForId(introTextureId);
     const lyricThemeId = lyricThemePlan[idx];
     const lyricTheme = lyricThemeForSlot(lyricThemeId, opts);
+    const effectiveLyricThemeId = plannedStoryScene?.lyricTheme ?? lyricThemeId;
+    const effectiveLyricThemeText = plannedStoryScene?.lyricThemeText ?? lyricTheme?.scene;
+    const effectiveLyricThemeArc = plannedStoryScene?.lyricThemeArc ?? lyricTheme?.emotionalArc;
+    const effectiveLyricFrameId = plannedStoryScene?.lyricFrameId ?? lyricTheme?.frameId;
+    const effectiveLyricMotionKo = plannedStoryScene?.lyricThemeMotionKo ?? lyricTheme?.motionKo;
+    const effectiveLyricCastKo = plannedStoryScene?.lyricThemeCastKo ?? lyricTheme?.castKo;
+    const effectiveLyricEraSettingKo = plannedStoryScene?.lyricThemeEraSettingKo ?? lyricTheme?.eraSettingKo;
     const sectionStyle = sectionStylePlan[idx];
     const genreId = genrePlan[idx];
     const trackGenres = genresForTrack(genres, genreId, opts.genreBlendWeights, opts.genreBlendMode);
@@ -1180,7 +1178,8 @@ export function preallocateSongSlots(
     // reach negativeStyleText/excludePrompt just below, for kids channels —
     // see data/vocabularyBanks.ts's own v5.10 doc comment for why kr-kids/
     // jp-kids previously resolved to an unscoped senior/adult bank here.
-    const sceneVocabularyBank = vocabularyBankForScene(lyricTheme?.frameId, lyricTheme?.motionKo, workspaceForArchetype(opts.channel.archetype)?.id);
+    const sceneVocabularyBank = vocabularyBankForScene(effectiveLyricFrameId, effectiveLyricMotionKo, workspaceId);
+    const effectiveVocabularyBankId = plannedStoryScene?.vocabularyBankId ?? sceneVocabularyBank.id;
     // TASK v3.67 (TASK B) — this track's own killing point may relax
     // specific audience exclusions for this one song only (see
     // data/killingPoints.ts / promptComposer.ts's buildExcludePrompt, which
@@ -1374,13 +1373,13 @@ export function preallocateSongSlots(
       arrangementDensity: arrangementDensityPlan[idx],
       structureTemplate: structureTemplatePlan[idx],
       introMode: reconciledIntroModePlan[idx],
-      lyricTheme: lyricThemeId,
-      ...(lyricTheme?.scene ? { lyricThemeText: lyricTheme.scene } : {}),
-      ...(lyricTheme?.emotionalArc ? { lyricThemeArc: lyricTheme.emotionalArc } : {}),
-      ...(lyricThemeId ? { lyricFrameId: lyricTheme?.frameId ?? 'solitary-object' } : {}),
-      ...(lyricTheme?.motionKo ? { lyricThemeMotionKo: lyricTheme.motionKo } : {}),
-      ...(lyricTheme?.castKo ? { lyricThemeCastKo: lyricTheme.castKo } : {}),
-      ...(lyricTheme?.eraSettingKo ? { lyricThemeEraSettingKo: lyricTheme.eraSettingKo } : {}),
+      lyricTheme: effectiveLyricThemeId,
+      ...(effectiveLyricThemeText ? { lyricThemeText: effectiveLyricThemeText } : {}),
+      ...(effectiveLyricThemeArc ? { lyricThemeArc: effectiveLyricThemeArc } : {}),
+      ...(effectiveLyricThemeId ? { lyricFrameId: effectiveLyricFrameId ?? 'solitary-object' } : {}),
+      ...(effectiveLyricMotionKo ? { lyricThemeMotionKo: effectiveLyricMotionKo } : {}),
+      ...(effectiveLyricCastKo ? { lyricThemeCastKo: effectiveLyricCastKo } : {}),
+      ...(effectiveLyricEraSettingKo ? { lyricThemeEraSettingKo: effectiveLyricEraSettingKo } : {}),
       // v4.5 (TASK C) — matched once, from this track's own theme frame/
       // motion (already resolved above) — see data/vocabularyBanks.ts's
       // own vocabularyBankForScene doc comment. v5.7 (TASK G) — now passes
@@ -1388,9 +1387,14 @@ export function preallocateSongSlots(
       // own fix). v5.10 (TASK H) — reuses sceneVocabularyBank (computed once
       // above, near negativeStyleText) instead of calling
       // vocabularyBankForScene a second time with the same arguments.
-      vocabularyBankId: sceneVocabularyBank.id,
+      vocabularyBankId: effectiveVocabularyBankId,
       pov: povPlan[idx],
       ...chiliStorySlotFields(opts, trackNo, vocalType),
+      ...(plannedStoryScene ? {
+        storyAct: plannedStoryScene.storyAct,
+        storyActLabel: plannedStoryScene.storyActLabel,
+        storyArcRole: plannedStoryScene.storyArcRole
+      } : {}),
       ...(sectionStyle ? sectionStyle : {}),
       vocalText,
       vocalVariantText: resolvedVocalVariantText,

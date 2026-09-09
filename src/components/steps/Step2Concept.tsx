@@ -281,8 +281,11 @@ export default function Step2Concept({
   const storySourceLineValue = storyPlanLineValue;
   const storyPlanParsePreview = storyPlanLineValue.trim() ? parseChiliStoryPlanLine(storyPlanLineValue) : null;
   const storyLineParsePreview = storySourceLineValue.trim() ? resolveChiliStorySource({ rawLine: storySourceLineValue, separateSummary: opts.storySourceSummary }) : null;
-  const recognizedStoryEpisodeId = storyPlanParsePreview?.sourceEpisodeId ?? storyLineParsePreview?.storySourceEpisodeId ?? opts.storySourceEpisodeId;
-  const recognizedStoryTitle = storyPlanParsePreview?.sourceTitle ?? storyLineParsePreview?.storySourceTitle ?? opts.storySourceTitle;
+  const recognizedStoryEpisodeId = storyPlanParsePreview?.storySourceEpisodeId ?? storyLineParsePreview?.storySourceEpisodeId ?? opts.storySourceEpisodeId;
+  const recognizedStoryTitle = storyPlanParsePreview?.storySourceTitle ?? storyLineParsePreview?.storySourceTitle ?? opts.storySourceTitle;
+  const recognizedStoryPovTitle = storyPlanParsePreview?.storyPovTitle ?? opts.storyPovTitle;
+  const recognizedStorySummary = storyPlanParsePreview?.storySourceSummary ?? opts.storySourceSummary;
+  const recognizedStoryIntent = storyPlanParsePreview?.storyPovIntentSummary ?? opts.storyPovIntentSummary;
   const lyricLanguageChoices = isJapaneseChili
     ? languageOptions.filter(option => option.value === 'japanese')
     : isKidsArchetype(channelArchetype) ? languageOptions.filter(option => option.value !== 'bilingual') : languageOptions;
@@ -367,17 +370,17 @@ export default function Step2Concept({
 
   function applyStoryLineDraft() {
     const plan = parseChiliStoryPlanLine(storyPlanLineValue);
-    if (plan) {
+    if (plan && (plan.storySourceEpisodeId || plan.storySourceTitle || plan.storySourceSummary)) {
       setOpts(prev => applyChiliStoryGenerationContract({
         ...prev,
         storyPlanLine: storyPlanLineValue.trim(),
         storySourceLine: storyPlanLineValue.trim(),
-        ...(plan.planEpisodeId ? { storyPlanEpisodeId: plan.planEpisodeId } : {}),
-        ...(plan.povTitle ? { storyPovTitle: plan.povTitle } : {}),
-        ...(plan.sourceEpisodeId ? { storySourceEpisodeId: plan.sourceEpisodeId } : {}),
-        ...(plan.sourceTitle ? { storySourceTitle: plan.sourceTitle } : {}),
-        ...(plan.sourceEventSummary ? { storySourceSummary: plan.sourceEventSummary, customConcept: plan.sourceEventSummary } : {}),
-        ...(plan.povIntentSummary ? { storyPovIntentSummary: plan.povIntentSummary } : {})
+        ...(plan.storyPlanEpisodeId ? { storyPlanEpisodeId: plan.storyPlanEpisodeId } : {}),
+        ...(plan.storyPovTitle ? { storyPovTitle: plan.storyPovTitle } : {}),
+        ...(plan.storySourceEpisodeId ? { storySourceEpisodeId: plan.storySourceEpisodeId } : {}),
+        ...(plan.storySourceTitle ? { storySourceTitle: plan.storySourceTitle } : {}),
+        ...(plan.storySourceSummary ? { storySourceSummary: plan.storySourceSummary, customConcept: plan.storySourceSummary } : {}),
+        ...(plan.storyPovIntentSummary ? { storyPovIntentSummary: plan.storyPovIntentSummary } : {})
       }));
       return;
     }
@@ -1077,30 +1080,31 @@ export default function Step2Concept({
             columns={3}
           />
           <label>
-            원문 한 줄
+            STORY 기획안 한 줄
             <input
               value={storySourceLineValue}
               onChange={event => setOpts(prev => applyChiliStoryGenerationContract({ ...prev, storyPlanLine: clampToLimit('customConcept', event.target.value), storySourceLine: clampToLimit('customConcept', event.target.value) }))}
-              placeholder="003. 비 오는 날 — 우산 하나를 같이 쓰고 역까지 걸어간 밤"
+              placeholder="001. 目が合っただけなのに — 본편 EP.001 「기차에서 처음 만남」. 같은 칸, 같은 창가를 바라보다 우연히 눈이 마주친다. 그 뒤 그녀는..."
             />
           </label>
           <div className="button-row" style={{ marginTop: 8 }}>
-            <button type="button" className="chip" disabled={!storyLineParsePreview} onClick={applyStoryLineDraft}>원문 적용</button>
-            {storySourceLineValue.trim() && !storyLineParsePreview && <span className="supporting">형식: 003. 제목 — 사건 요약</span>}
+            <button type="button" className="chip" disabled={!storyPlanParsePreview && !storyLineParsePreview} onClick={applyStoryLineDraft}>기획안 적용</button>
+            {storySourceLineValue.trim() && !storyPlanParsePreview && !storyLineParsePreview && <span className="supporting">형식: 001. POV 제목 — 본편 EP.001 「원작 사건」. 사건 요약. 시점 의도.</span>}
             {(recognizedStoryEpisodeId || recognizedStoryTitle) && (
               <span className="supporting">
                 자동 인식: {recognizedStoryEpisodeId ? `EP.${recognizedStoryEpisodeId}` : 'EP.-'}{recognizedStoryTitle ? ` · ${recognizedStoryTitle}` : ''}
               </span>
             )}
           </div>
-          <label>
-            사건 요약
-            <textarea
-              value={opts.storySourceSummary || ''}
-              onChange={event => setOpts(prev => applyChiliStoryGenerationContract({ ...prev, storySourceSummary: clampToLimit('customConcept', event.target.value) }))}
-              placeholder="ひとつの傘で駅まで歩いた夜。言えなかった言葉だけが雨音に残る。"
-            />
-          </label>
+          {storyPlanParsePreview && (
+            <div className="supporting" aria-live="polite">
+              <strong>기획안 해석</strong>
+              <div>POV 제목: {recognizedStoryPovTitle || '-'}</div>
+              <div>원작: {recognizedStoryEpisodeId ? `EP.${recognizedStoryEpisodeId}` : 'EP.-'}{recognizedStoryTitle ? ` · ${recognizedStoryTitle}` : ''}</div>
+              <div>원작 사건: {recognizedStorySummary || '-'}</div>
+              <div>시점 의도: {recognizedStoryIntent || '-'}</div>
+            </div>
+          )}
           {usesCafeStoryInputUi && (
             <div className="two-col-grid">
               <label>
@@ -1127,6 +1131,14 @@ export default function Step2Concept({
           )}
           <details className="option-block compact">
             <summary>고급 스토리 설정</summary>
+            <label>
+              사건 요약
+              <textarea
+                value={opts.storySourceSummary || ''}
+                onChange={event => setOpts(prev => applyChiliStoryGenerationContract({ ...prev, storySourceSummary: clampToLimit('customConcept', event.target.value) }))}
+                placeholder="ひとつの傘で駅まで歩いた夜。言えなかった言葉だけが雨音に残る。"
+              />
+            </label>
             <div className="two-col-grid">
               <label>
                 이전 맥락

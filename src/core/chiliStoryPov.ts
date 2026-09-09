@@ -38,11 +38,11 @@ export const CAFE_STORY_MODE_LABEL_JA: Record<ChiliStoryPov, string> = {
 };
 
 export const CHILI_STORY_ACTS = [
-  { act: 1, label: 'Act 1 / setup', focus: 'source event setup, first signal, emotional baseline' },
-  { act: 2, label: 'Act 2 / warmth', focus: 'small choices, attraction, warmer details' },
-  { act: 3, label: 'Act 3 / misread', focus: 'misread message, hesitation, conflict without melodrama' },
-  { act: 4, label: 'Act 4 / decision', focus: 'decision, honest confession, changed self-understanding' },
-  { act: 5, label: 'Act 5 / afterglow', focus: 'afterglow, callback, forward-looking unresolved tenderness' }
+  { act: 1, label: 'Act 1 / source event', focus: 'source event, first signal, emotional baseline' },
+  { act: 2, label: 'Act 2 / memory replay', focus: 'the same event replayed through small actions and private meaning' },
+  { act: 3, label: 'Act 3 / self-awareness', focus: 'hidden feeling recognized without jumping to a later relationship stage' },
+  { act: 4, label: 'Act 4 / hesitation choice', focus: 'the unchosen word or action inside the same source event' },
+  { act: 5, label: 'Act 5 / next small scene', focus: 'a small changed attitude or callback, not a new future-stage scene' }
 ] as const;
 
 export const CAFE_CHILI_STORY_ACTS = [
@@ -101,6 +101,14 @@ export interface ResolvedChiliStorySource {
 }
 
 export interface ParsedChiliStoryPlanLine {
+  storyPlanEpisodeId?: string;
+  storyPovTitle: string;
+  storySourceEpisodeId?: string;
+  storySourceTitle?: string;
+  storySourceSummary?: string;
+  storyPovIntentSummary?: string;
+  rawLine: string;
+  confidence: 'source-plan' | 'source-summary' | 'title-only';
   planEpisodeId?: string;
   povTitle: string;
   sourceEpisodeId?: string;
@@ -351,7 +359,59 @@ export function parseChiliStoryLine(input: string): ParsedChiliStoryLine | null 
 }
 
 function splitStorySentences(input: string): string[] {
-  return input.split(/(?<=[.!?。！？])\s*/u).map(value => value.trim()).filter(Boolean);
+  const protectedInput = input.replace(/\bEP\.(\d{1,4})\b/giu, 'EP§$1');
+  return protectedInput
+    .split(/(?<=[.!?。！？])\s*/u)
+    .map(value => value.replace(/\bEP§(\d{1,4})\b/giu, 'EP.$1').trim())
+    .filter(Boolean);
+}
+
+function splitPlanSourceTail(body: string): { povTitleSource: string; sourceTail?: string } {
+  const ep = body.match(/\bEP\.?\s*\d{1,4}\b/iu);
+  if (!ep || ep.index === undefined) return { povTitleSource: body.trim() };
+  const beforeEp = body.slice(0, ep.index);
+  const separators = [...beforeEp.matchAll(/\s*(?:\||[-–—])\s*/gu)];
+  if (!separators.length) return { povTitleSource: beforeEp.trim(), sourceTail: body.slice(ep.index).trim() };
+  const last = separators[separators.length - 1];
+  return {
+    povTitleSource: beforeEp.slice(0, last.index).trim(),
+    sourceTail: body.slice((last.index ?? 0) + last[0].length).trim()
+  };
+}
+
+function cleanPlanTitle(value: string): string {
+  return value
+    .replace(/\s*(?:\||[-–—]|:|：|,|，)+\s*$/u, '')
+    .replace(/^["“「『](.+?)["”」』]$/u, '$1')
+    .trim();
+}
+
+function parseSourceTail(sourceTail: string | undefined): {
+  sourceEpisodeId?: string;
+  sourceTitle?: string;
+  sourceEventSummary?: string;
+  povIntentSummary?: string;
+} {
+  const tail = sourceTail?.replace(/^본편\s*/u, '').trim();
+  if (!tail) return {};
+  const ep = tail.match(/\bEP\.?\s*(\d{1,4})\b/iu);
+  const sourceEpisodeId = ep?.[1]?.padStart(3, '0');
+  const afterEpisode = ep ? tail.slice((ep.index ?? 0) + ep[0].length).trim() : tail;
+  const quoted = afterEpisode.match(/^["“「『](.+?)["”」』]\s*(.*)$/u);
+  const sourceTitle = quoted?.[1]?.trim();
+  const titleRemainder = quoted
+    ? quoted[2]?.trim() ?? ''
+    : afterEpisode.replace(/^[.。:：\-–—]\s*/u, '').trim();
+  const remainder = titleRemainder.replace(/^[.。:：\-–—]\s*/u, '').trim();
+  const sentences = splitStorySentences(remainder);
+  const sourceEventSummary = sentences[0];
+  const povIntentSummary = sentences.slice(1).join(' ').trim();
+  return {
+    ...(sourceEpisodeId ? { sourceEpisodeId } : {}),
+    ...(sourceTitle ? { sourceTitle } : {}),
+    ...(sourceEventSummary ? { sourceEventSummary } : {}),
+    ...(povIntentSummary ? { povIntentSummary } : {})
+  };
 }
 
 export function parseChiliStoryPlanLine(input: string): ParsedChiliStoryPlanLine | null {
@@ -360,23 +420,25 @@ export function parseChiliStoryPlanLine(input: string): ParsedChiliStoryPlanLine
   const numbered = value.match(/^(\d{1,4})\s*[.)]\s*(.+)$/u);
   const planEpisodeId = numbered?.[1]?.padStart(3, '0');
   const body = numbered?.[2]?.trim() ?? value;
-  const ep = body.match(/\bEP\.?\s*(\d{1,4})\b/iu);
-  const sourceEpisodeId = ep?.[1]?.padStart(3, '0');
-  const beforeSource = ep ? body.slice(0, ep.index).trim() : '';
-  const povTitle = beforeSource.replace(/[|:：,，]+\s*$/u, '').trim() || body.split(/[.!?。！？]/u)[0].trim();
-  const afterEpisode = ep ? body.slice((ep.index ?? 0) + ep[0].length).trim() : '';
-  const quoted = afterEpisode.match(/^["“「『](.+?)["”」』]\s*(.*)$/u);
-  const sourceTitle = quoted?.[1]?.trim() || (afterEpisode ? afterEpisode.split(/[.!?。！？]/u)[0].trim() : undefined);
-  const remainder = (quoted?.[2]?.trim() || (sourceTitle ? afterEpisode.slice(sourceTitle.length).trim() : ''))
-    .replace(/^[.。:：\-–—]\s*/u, '');
-  const sentences = splitStorySentences(remainder);
+  const { povTitleSource, sourceTail } = splitPlanSourceTail(body);
+  const povTitle = cleanPlanTitle(povTitleSource) || cleanPlanTitle(body.split(/[.!?。！？]/u)[0] ?? body);
+  if (!povTitle) return null;
+  const parsedSource = parseSourceTail(sourceTail);
+  const confidence: ParsedChiliStoryPlanLine['confidence'] = parsedSource.sourceEpisodeId || parsedSource.sourceTitle
+    ? 'source-plan'
+    : parsedSource.sourceEventSummary
+      ? 'source-summary'
+      : 'title-only';
   return {
-    ...(planEpisodeId ? { planEpisodeId } : {}),
+    ...(planEpisodeId ? { storyPlanEpisodeId: planEpisodeId, planEpisodeId } : {}),
+    storyPovTitle: povTitle,
     povTitle,
-    ...(sourceEpisodeId ? { sourceEpisodeId } : {}),
-    ...(sourceTitle ? { sourceTitle } : {}),
-    ...(sentences[0] ? { sourceEventSummary: sentences[0] } : {}),
-    ...(sentences.slice(1).join(' ') ? { povIntentSummary: sentences.slice(1).join(' ') } : {})
+    ...(parsedSource.sourceEpisodeId ? { storySourceEpisodeId: parsedSource.sourceEpisodeId, sourceEpisodeId: parsedSource.sourceEpisodeId } : {}),
+    ...(parsedSource.sourceTitle ? { storySourceTitle: parsedSource.sourceTitle, sourceTitle: parsedSource.sourceTitle } : {}),
+    ...(parsedSource.sourceEventSummary ? { storySourceSummary: parsedSource.sourceEventSummary, sourceEventSummary: parsedSource.sourceEventSummary } : {}),
+    ...(parsedSource.povIntentSummary ? { storyPovIntentSummary: parsedSource.povIntentSummary, povIntentSummary: parsedSource.povIntentSummary } : {}),
+    rawLine: value,
+    confidence
   };
 }
 
@@ -609,31 +671,54 @@ export function buildJpChillhopStoryInstructionLines(
   const storyPov = storyPovFromOptions(opts);
   const povLabel = (isCafe ? CAFE_STORY_MODE_LABEL_JA : CHILI_STORY_POV_LABEL_JA)[storyPov];
   const source = storySourceFields(opts);
-  const sourcePrefix = source.storySourceLine ? `raw line "${source.storySourceLine}" / ` : '';
-  const sourceLine = source.storySourceSummary
-    ? `- Source event: ${sourcePrefix}episode ${source.storySourceEpisodeId ?? '(unlisted)'} "${source.storySourceTitle ?? 'untitled'}" - ${source.storySourceSummary}`
-    : source.storySourceLine
-      ? `- Source event: raw line "${source.storySourceLine}". Parse it as the event seed, then keep one coherent original Japanese relationship episode consistent across all tracks.`
-      : '- Source event: no user episode summary was supplied; create one coherent original Japanese relationship episode and keep it consistent across all tracks.';
-  const planBrief = [
-    ...(source.storyPovTitle ? [`- POV TITLE: ${source.storyPovTitle}`] : []),
-    ...(source.storyPlanEpisodeId ? [`- POV PLAN EPISODE: EP.${source.storyPlanEpisodeId}`] : []),
-    ...(source.storySourceTitle ? [`- SOURCE STORY TITLE: ${source.storySourceTitle}`] : []),
-    ...(source.storyPovIntentSummary ? [`- POV INTENT: ${source.storyPovIntentSummary}`] : [])
-  ];
+  const sourceDisplay = source.storySourceEpisodeId && source.storySourceTitle
+    ? `EP.${source.storySourceEpisodeId} 「${source.storySourceTitle}」`
+    : source.storySourceTitle
+      ? source.storySourceTitle
+      : source.storySourceLine
+        ? source.storySourceLine
+        : 'not supplied';
+  const sourceEventDisplay = source.storySourceSummary || source.storySourceLine || 'not supplied';
+  const storyArcLines = buildChiliStoryArc(opts.songCount, isCafe).acts.map(act => (
+    `  - Act ${act.act}: ${act.label}; tracks ${act.trackNos.map(trackNo => `T${trackNo}`).join(', ')}; focus ${act.focus}`
+  ));
   const quota = resolveEffectiveStoryVocalQuota(opts);
   const quotaText = quota ? `male ${quota.male}/${opts.songCount}, female ${quota.female}/${opts.songCount}, mixed/duet ${quota.mixed}/${opts.songCount}` : '';
-  const vocalLine = storyPov === 'male'
-    ? `- VOCAL HARD LOCK: every one of the ${opts.songCount} songs is male vocal only (${quotaText}). Do not write female lead, duet, mixed, group, or gender-ambiguous lead vocal.`
+  const vocalHardLockText = storyPov === 'male'
+    ? `every one of the ${opts.songCount} songs is male vocal only (${quotaText}). Do not write female lead, duet, mixed, group, or gender-ambiguous lead vocal.`
     : storyPov === 'female'
-      ? `- VOCAL HARD LOCK: every one of the ${opts.songCount} songs is female vocal only (${quotaText}). Do not write male lead, duet, mixed, group, or gender-ambiguous lead vocal.`
+      ? `every one of the ${opts.songCount} songs is female vocal only (${quotaText}). Do not write male lead, duet, mixed, group, or gender-ambiguous lead vocal.`
       : isCafe
-        ? `- Couple Cafe Story Mode: follow preassignedSongs vocalType exactly (${quotaText}); mixed couple tracks stay below half the pack.`
-        : '- Couple POV: do not hard-lock vocal gender here; keep the two-person relationship continuous without reducing it to a pronoun swap.';
+        ? `Couple Cafe Story Mode: follow preassignedSongs vocalType exactly (${quotaText}); mixed couple tracks stay below half the pack.`
+        : 'Couple POV: do not hard-lock vocal gender here; keep the two-person relationship continuous without reducing it to a pronoun swap.';
+  const vocalLine = storyPov === 'male' || storyPov === 'female'
+    ? `- VOCAL HARD LOCK: ${vocalHardLockText}`
+    : `- ${vocalHardLockText}`;
+  const planBlock = [
+    '',
+    '[JP CHILI LAB STORY PLAN]',
+    'POV MODE:',
+    `${povLabel} (storyPov="${storyPov}"${isCafe ? `, cafeStoryMode="${storyPov}"` : ''})`,
+    'POV TITLE:',
+    source.storyPovTitle || 'not supplied',
+    'POV PLAN EPISODE:',
+    source.storyPlanEpisodeId ? `EP.${source.storyPlanEpisodeId}` : 'not supplied',
+    'SOURCE:',
+    sourceDisplay,
+    'SOURCE EVENT:',
+    sourceEventDisplay,
+    'POV INTENT:',
+    source.storyPovIntentSummary || 'Use the selected POV to reinterpret the same source event without adding unrelated later-stage scenes.',
+    'STORY ARC:',
+    ...storyArcLines,
+    'VOCAL HARD LOCK:',
+    vocalHardLockText
+  ];
 
   const sharedLines = [
     vocalLine,
-    '- Titles and hookPhrase values must not duplicate within the pack. A hook may connect semantically to the title, but do not reuse one formula or one refrain across multiple tracks.',
+    '- Titles and hookPhrase values must be source-local, natural Japanese, and mostly different from each other. Across a 15-track pack, exact title==hookPhrase is allowed for at most 5 tracks.',
+    '- For male/female versions of the same source episode, do not reuse more than 2 exact titles or hooks across the two packs.',
     '- Lyrics must sound like fluent sung Japanese: conversational, specific, emotionally restrained, and free of translationese. Avoid Korean fallback, romanized filler, and stiff textbook constructions.',
     '- Keep Suno "stylePrompt" and "lyrics" separate. Put visual identity, typography, thumbnail, and layout language only in thumbnail/YouTube fields, never in stylePrompt.',
     '- Do not imitate, name, evoke as soundalike, clone, or request the vocal style of any famous artist, band, song, melody, cover, or copyrighted recording.'
@@ -662,10 +747,9 @@ export function buildJpChillhopStoryInstructionLines(
       '[JP CAFE CHILI LAB STORY CONTRACT]',
       `- Workspace is "jp-cafe-chillhop"; Cafe Story Mode is ${povLabel} (cafeStoryMode="${storyPov}", storyPov="${storyPov}"). Write natively in natural contemporary Japanese. Do not draft in English or Korean and translate afterward.`,
       ...(cafeSettingParts.length ? [`- Cafe setting supplied by app: ${cafeSettingParts.join(' / ')}.`] : []),
-      ...planBrief,
-      sourceLine,
+      ...planBlock,
       '- Treat the pack as a 5-act cafe story album. For a 15-track run, keep exactly 3 tracks per act: Act 1 arrival/first expression/place/season; Act 2 conversation/tea/coffee/small actions; Act 3 realization/central hook; Act 4 hesitation/resentment/unsaid words; Act 5 leaving cafe/message/station/umbrella/seaside/next promise.',
-      '- Keep the cafe as the event center. Short before/after movement is allowed, but do not let the pack drift into airport, moving-day, office, commute, or generic travel stories. Do not repeat the same table scene across all 15 songs.',
+      '- Keep the cafe as the event center. Short before/after movement is allowed, but do not let the pack drift into unrelated settings or later relationship milestones. Do not repeat the same table scene across all 15 songs.',
       '- Cafe sound policy: Chill Rap, Melodic Chill Rap, Emotional Chill House, Chill Deep House, Lounge House, Lo-fi House, light Jazz Rap accents, organic warm cafe groove, and subtle city-pop color.',
       '- Avoid festival EDM, big-room drop, aggressive club build, hard trap/drill, overdone hi-hat, shouting, theatrical belting, senior crooner, and enka vibrato.',
       ...sharedLines,
@@ -678,9 +762,9 @@ export function buildJpChillhopStoryInstructionLines(
     '[JP CHILI LAB STORY POV CONTRACT]',
     `- Workspace is "jp-chillhop"; POV selector is ${povLabel} (storyPov="${storyPov}"). Write natively in natural contemporary Japanese. Do not draft in English or Korean and translate afterward.`,
     '- For 彼のSTORY / 彼女のSTORY, every lyric must stay first-person from that POV. This is not a pronoun swap: change memories, details, guilt, hesitation, and emotional logic for that side.',
-    sourceLine,
-    ...planBrief,
+    ...planBlock,
     '- Treat the pack as one 5-act story album. For a 15-track run, keep exactly 3 tracks per act; for any other songCount, keep all 5 acts represented in order.',
+    '- Each track must stay inside the source episode supplied above. Do not invent unrelated settings or later relationship milestones unless they are explicit in the source event.',
     '- Preserve each track\'s storyAct, storyActLabel, and storyArcRole from preassignedSongs. Use those fields as narrative structure, not as literal lyric text.',
     ...sharedLines,
     ...trackMap

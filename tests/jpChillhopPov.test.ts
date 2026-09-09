@@ -19,6 +19,13 @@ import {
   resolveEffectiveStoryVocalQuota,
   storyMetaFieldsFromOptions
 } from '../src/core/chiliStoryPov';
+import {
+  containsChiliStoryFutureStageViolation,
+  inferChiliStoryRelationshipStage,
+  isSourceLocalChiliStoryScene,
+  planChiliStoryScenes,
+  planChiliStoryTitlesAndHooks
+} from '../src/core/chiliStoryScenePlanner';
 import { evaluateJapaneseChiliQuality } from '../src/core/japaneseChiliQuality';
 import { resolveScenePlanningMode } from '../src/core/scenePlanningMode';
 import { CORE_GENRE_IDS_BY_ARCHETYPE } from '../src/data/genreLibrary';
@@ -40,6 +47,10 @@ const STORY_SOURCE = {
   storyLocation: '下北沢の駅前',
   storySeason: 'late autumn rain'
 };
+
+const TRAIN_PLAN_FEMALE = '001. 目が合っただけなのに — 본편 EP.001 「기차에서 처음 만남」. 같은 칸, 같은 창가를 바라보다 우연히 눈이 마주친다. 그 뒤 그녀는 작은 행동의 의미를 혼자 오래 되짚다가, 그때 말하지 못한 기대와 자신이 정말 원했던 다음 행동을 돌아본다.';
+const TRAIN_PLAN_MALE = '001. 窓ぎわの君が気になった — 본편 EP.001 「기차에서 처음 만남」. 같은 칸, 같은 창가를 바라보다 우연히 눈이 마주친다. 그 뒤 그는 설렘을 인정하지 않으려 했지만, 겉으로 숨겼던 이유와 말하지 못한 마음을 자기 시점에서 되짚는다.';
+const JAPANESE_TITLE_RE = /[ぁ-んァ-ヶ一-龯]/u;
 
 const JAPANESE_TITLES = [
   '雨のホーム',
@@ -94,6 +105,35 @@ function optsFor(storyPov: ChiliStoryPov, overrides: Partial<GenerationOptions> 
     customConcept: STORY_SOURCE.storySourceSummary,
     storyPov,
     ...STORY_SOURCE,
+    ...overrides
+  }));
+}
+
+function optsForPlanLine(storyPov: ChiliStoryPov, planLine: string, overrides: Partial<GenerationOptions> = {}): GenerationOptions {
+  const parsed = parseChiliStoryPlanLine(planLine);
+  return applyChiliStoryGenerationContract(makeOptions({
+    channel,
+    projectTitle: `${CHILI_STORY_POV_LABEL_JA[storyPov]} plan-line fixture`,
+    songCount: CHILI_STORY_DEFAULT_SONG_COUNT,
+    lyricLanguage: 'japanese',
+    market: channel.market,
+    audience: channel.audience,
+    genreIds: CORE_GENRE_IDS_BY_ARCHETYPE['jp-chillhop'].slice(0, 6),
+    moodIds: channel.preferredMoods,
+    seasonId: season.id,
+    vocalTone: channel.defaultVocal,
+    perspective: 'firstPerson',
+    perspectiveMode: 'fixed',
+    customConcept: parsed?.storySourceSummary ?? planLine,
+    storyPov,
+    storyPlanLine: planLine,
+    storySourceLine: planLine,
+    ...(parsed?.storyPlanEpisodeId ? { storyPlanEpisodeId: parsed.storyPlanEpisodeId } : {}),
+    ...(parsed?.storyPovTitle ? { storyPovTitle: parsed.storyPovTitle } : {}),
+    ...(parsed?.storySourceEpisodeId ? { storySourceEpisodeId: parsed.storySourceEpisodeId } : {}),
+    ...(parsed?.storySourceTitle ? { storySourceTitle: parsed.storySourceTitle } : {}),
+    ...(parsed?.storySourceSummary ? { storySourceSummary: parsed.storySourceSummary } : {}),
+    ...(parsed?.storyPovIntentSummary ? { storyPovIntentSummary: parsed.storyPovIntentSummary } : {}),
     ...overrides
   }));
 }
@@ -211,7 +251,8 @@ describe('[instruction 79] jp-chillhop STORY POV workspace', () => {
     const generate = readFileSync(resolve(projectRoot, 'src/components/steps/Step3Generate.tsx'), 'utf8');
 
     expect(concept).toContain('storyInputUiModeForWorkspace');
-    expect(concept).toContain('원문 한 줄');
+    expect(concept).toContain('STORY 기획안 한 줄');
+    expect(concept).toContain('기획안 해석');
     expect(concept).toContain('사건 요약');
     expect(concept).toContain('hasChiliStoryVocalLock');
     expect(concept).toContain('STORY POV를 지키기 위해 배정 방식을 선택할 수 없습니다.');
@@ -254,8 +295,17 @@ describe('[instruction 79] jp-chillhop STORY POV workspace', () => {
   });
 
   it('splits the real one-line CHILI plan into POV title, source episode/title/event, and intent', () => {
-    const plan = parseChiliStoryPlanLine('001. 夜の改札 | EP.001 "駅前で初めて会う". 同じ傘を見つめた夜、ふたりの距離が少し縮まる。彼は言えなかった言葉を次の約束に託す。');
-    expect(plan).toEqual({
+    const line = '001. 夜の改札 | EP.001 "駅前で初めて会う". 同じ傘を見つめた夜、ふたりの距離が少し縮まる。彼は言えなかった言葉を次の約束に託す。';
+    const plan = parseChiliStoryPlanLine(line);
+    expect(plan).toMatchObject({
+      storyPlanEpisodeId: '001',
+      storyPovTitle: '夜の改札',
+      storySourceEpisodeId: '001',
+      storySourceTitle: '駅前で初めて会う',
+      storySourceSummary: '同じ傘を見つめた夜、ふたりの距離が少し縮まる。',
+      storyPovIntentSummary: '彼は言えなかった言葉を次の約束に託す。',
+      rawLine: line,
+      confidence: 'source-plan',
       planEpisodeId: '001',
       povTitle: '夜の改札',
       sourceEpisodeId: '001',
@@ -263,6 +313,92 @@ describe('[instruction 79] jp-chillhop STORY POV workspace', () => {
       sourceEventSummary: '同じ傘を見つめた夜、ふたりの距離が少し縮まる。',
       povIntentSummary: '彼は言えなかった言葉を次の約束に託す。'
     });
+  });
+
+  it('plans the real EP.001 train first-meeting source locally for 15 bridge slots without future-stage drift', () => {
+    const parsedFemale = parseChiliStoryPlanLine(TRAIN_PLAN_FEMALE);
+    const parsedMale = parseChiliStoryPlanLine(TRAIN_PLAN_MALE);
+    expect(parsedFemale).toMatchObject({
+      storyPlanEpisodeId: '001',
+      storyPovTitle: '目が合っただけなのに',
+      storySourceEpisodeId: '001',
+      storySourceTitle: '기차에서 처음 만남',
+      storySourceSummary: '같은 칸, 같은 창가를 바라보다 우연히 눈이 마주친다.',
+      storyPovIntentSummary: '그 뒤 그녀는 작은 행동의 의미를 혼자 오래 되짚다가, 그때 말하지 못한 기대와 자신이 정말 원했던 다음 행동을 돌아본다.',
+      confidence: 'source-plan'
+    });
+    expect(parsedMale).toMatchObject({
+      storyPlanEpisodeId: '001',
+      storyPovTitle: '窓ぎわの君が気になった',
+      storySourceEpisodeId: '001',
+      storySourceTitle: '기차에서 처음 만남',
+      storySourceSummary: '같은 칸, 같은 창가를 바라보다 우연히 눈이 마주친다.',
+      storyPovIntentSummary: '그 뒤 그는 설렘을 인정하지 않으려 했지만, 겉으로 숨겼던 이유와 말하지 못한 마음을 자기 시점에서 되짚는다.',
+      confidence: 'source-plan'
+    });
+    expect(inferChiliStoryRelationshipStage({
+      storySourceTitle: parsedFemale?.storySourceTitle,
+      storySourceSummary: parsedFemale?.storySourceSummary,
+      storyPlanLine: TRAIN_PLAN_FEMALE,
+      storySourceLine: TRAIN_PLAN_FEMALE
+    })).toBe('first-meeting');
+
+    const femaleOpts = optsForPlanLine('female', TRAIN_PLAN_FEMALE);
+    const maleOpts = optsForPlanLine('male', TRAIN_PLAN_MALE);
+    const femaleScenes = planChiliStoryScenes({ ...femaleOpts, isCafe: false });
+    const maleScenes = planChiliStoryScenes({ ...maleOpts, isCafe: false });
+    expect(femaleScenes).toHaveLength(15);
+    expect(maleScenes).toHaveLength(15);
+    expect(femaleScenes.filter(isSourceLocalChiliStoryScene)).toHaveLength(15);
+    expect(maleScenes.filter(isSourceLocalChiliStoryScene)).toHaveLength(15);
+    expect(planChiliStoryTitlesAndHooks({ ...femaleOpts, isCafe: false, storyScenes: femaleScenes }).map(item => item.title)).toEqual(femaleScenes.map(scene => scene.title));
+
+    const femaleSlots = preallocateSongSlots(femaleOpts, genresFor(femaleOpts));
+    const maleSlots = preallocateSongSlots(maleOpts, genresFor(maleOpts));
+    expect(femaleSlots).toHaveLength(15);
+    expect(maleSlots).toHaveLength(15);
+    expect(vocalCounts(femaleSlots)).toEqual({ male: 0, female: 15, mixed: 0 });
+    expect(vocalCounts(maleSlots)).toEqual({ male: 15, female: 0, mixed: 0 });
+    expect(femaleSlots.map(slot => slot.storyAct)).toEqual([1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5]);
+    expect(maleSlots.map(slot => slot.storyAct)).toEqual([1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5]);
+    expect(femaleSlots.every(slot => slot.lyricTheme?.startsWith('jpstory-train-first-meeting-'))).toBe(true);
+    expect(maleSlots.every(slot => slot.lyricTheme?.startsWith('jpstory-train-first-meeting-'))).toBe(true);
+    expect(new Set(femaleSlots.map(slot => slot.vocabularyBankId)).size).toBe(5);
+    expect(new Set(maleSlots.map(slot => slot.vocabularyBankId)).size).toBe(5);
+    expect(femaleSlots.every(slot => JAPANESE_TITLE_RE.test(slot.title) && JAPANESE_TITLE_RE.test(slot.hookPhrase))).toBe(true);
+    expect(maleSlots.every(slot => JAPANESE_TITLE_RE.test(slot.title) && JAPANESE_TITLE_RE.test(slot.hookPhrase))).toBe(true);
+    expect(new Set(femaleSlots.map(slot => slot.title)).size).toBe(15);
+    expect(new Set(femaleSlots.map(slot => slot.hookPhrase)).size).toBe(15);
+    expect(new Set(maleSlots.map(slot => slot.title)).size).toBe(15);
+    expect(new Set(maleSlots.map(slot => slot.hookPhrase)).size).toBe(15);
+    expect(femaleSlots.filter(slot => slot.title === slot.hookPhrase).length).toBeLessThanOrEqual(5);
+    expect(maleSlots.filter(slot => slot.title === slot.hookPhrase).length).toBeLessThanOrEqual(5);
+
+    const femaleTitles = new Set(femaleSlots.map(slot => slot.title));
+    const femaleHooks = new Set(femaleSlots.map(slot => slot.hookPhrase));
+    expect(maleSlots.filter(slot => femaleTitles.has(slot.title)).length).toBeLessThanOrEqual(2);
+    expect(maleSlots.filter(slot => femaleHooks.has(slot.hookPhrase)).length).toBeLessThanOrEqual(2);
+
+    for (const slot of [...femaleSlots, ...maleSlots]) {
+      expect(containsChiliStoryFutureStageViolation(`${slot.title} ${slot.hookPhrase} ${slot.lyricThemeText} ${slot.storyArcRole}`), `T${slot.trackNo}`).toBe(false);
+      expect(`${slot.lyricThemeText} ${slot.storyArcRole}`).toMatch(/기차|칸|창가|눈|이어폰|안내|손잡이|문|창문|표|시선|정거장|역/u);
+    }
+
+    const { instruction } = runBridgeFixture(femaleOpts);
+    expect(instruction).toContain('[JP CHILI LAB STORY PLAN]');
+    expect(instruction).toContain('POV TITLE:\n目が合っただけなのに');
+    expect(instruction).toContain('SOURCE:\nEP.001 「기차에서 처음 만남」');
+    expect(instruction).toContain('SOURCE EVENT:\n같은 칸, 같은 창가를 바라보다 우연히 눈이 마주친다.');
+    expect(instruction).toContain('VOCAL HARD LOCK:\nevery one of the 15 songs is female vocal only');
+    expect(instruction).toContain('"title": "string — natural Japanese primary song title for this track, not English"');
+    expect(instruction).not.toContain('episode (unlisted)');
+    expect(instruction).not.toContain('untitled');
+    expect(instruction).not.toContain('male tenor');
+    expect(instruction).not.toContain('playlist-friendly English works well');
+    expect(instruction).not.toContain('2-5 words, Title Case');
+    const storyPlanInstruction = instruction.split('[JP CHILI LAB STORY PLAN]')[1]?.split('[세트 전체의 완성도')[0] ?? '';
+    const lyricSceneInstruction = instruction.split('[Lyric scenes]')[1]?.split('[Vocabulary per track]')[0] ?? '';
+    expect(containsChiliStoryFutureStageViolation(`${storyPlanInstruction}\n${lyricSceneInstruction}`)).toBe(false);
   });
 
   it('keeps female Bridge slots free of a stale male tenor and honors manual genre counts exactly', () => {
@@ -277,7 +413,10 @@ describe('[instruction 79] jp-chillhop STORY POV workspace', () => {
     expect(vocalCounts(slots)).toEqual({ male: 0, female: 15, mixed: 0 });
     expect(slots.every(slot => !/male tenor|male baritone|male voice/i.test(`${slot.vocalText} ${slot.vocalVariantText ?? ''}`))).toBe(true);
     expect(Object.fromEntries(manualGenreIds.map(id => [id, slots.filter(slot => slot.genreId === id).length]))).toEqual(manualCounts);
-    expect(slots.every(slot => slot.title.includes('雨のホーム') && slot.hookPhrase.includes('彼女の視点'))).toBe(true);
+    expect(slots.every(slot => JAPANESE_TITLE_RE.test(slot.title) && JAPANESE_TITLE_RE.test(slot.hookPhrase))).toBe(true);
+    expect(slots.every(slot => !slot.title.includes('彼女の視点') && !slot.hookPhrase.includes('彼女の視点'))).toBe(true);
+    expect(new Set(slots.map(slot => slot.title)).size).toBe(15);
+    expect(new Set(slots.map(slot => slot.hookPhrase)).size).toBe(15);
     const plan = directSetLocal(
       opts.customConcept,
       channel,

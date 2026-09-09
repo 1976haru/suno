@@ -36,7 +36,7 @@ import { buildPolicyExplorationInstructionLines, type PolicyExplorationSlotPlan 
 import { vocabularyBankById } from '../data/vocabularyBanks';
 import { isGenreEligibleForArchetype } from '../data/genreLibrary';
 import { resolveScenePlanningMode as resolveSharedScenePlanningMode } from './scenePlanningMode';
-import { applyChiliStoryGenerationContract, buildJpChillhopStoryInstructionLines, storyMetaFieldsFromOptions } from './chiliStoryPov';
+import { applyChiliStoryGenerationContract, buildJpChillhopStoryInstructionLines, isJapaneseChiliStoryOptions, storyMetaFieldsFromOptions } from './chiliStoryPov';
 
 /**
  * v3.66 (TASK C) — split out of claudeCodeBridge.ts (was 1,207 lines, one of
@@ -338,7 +338,7 @@ function buildBridgePayload(
     payload: {
       ...basePayload,
       preassignedSongs,
-      outputShape: { songs: [songOutputShape(generateThumbnailText, titleLocalizedLanguage)] },
+      outputShape: { songs: [songOutputShape(generateThumbnailText, titleLocalizedLanguage, isJapaneseChiliStoryOptions(opts) ? 'japanese' : 'english')] },
       // v5.22 (AXIS 1) — always present (even empty) so the agent's own
       // payload shape never silently varies between a channel's first-ever
       // pack (no history yet) and its 30th.
@@ -419,6 +419,9 @@ function conceptSceneInstructionLines(opts: GenerationOptions, conceptSceneConte
  * search widened past the single already-consolidated section.
  */
 function titleInstructionLineFor(opts: GenerationOptions): string {
+  if (isJapaneseChiliStoryOptions(opts)) {
+    return '- "preassignedSongs" gives source-aware Japanese title and hook candidates for JP CHILI STORY. Write "title" as a natural Japanese primary title, not an English title. Use the slot title unless a stronger source-local Japanese title fits that same track scene. Keep titles and hookPhrase values mostly independent: no more than 5 tracks may have title == hookPhrase, and male/female versions of the same source episode should not reuse more than 2 exact titles or hooks.';
+  }
   const titleMode = opts.titleMode ?? 'ai-creative';
   return titleMode === 'local'
     ? '- "preassignedSongs" gives local planning slots. Copy the preassigned title in local title mode, but the final "hookPhrase" you write must exactly match the hook line repeated in that song\'s lyrics; never let the JSON hook and chorus hook diverge.'
@@ -435,6 +438,14 @@ function titleInstructionLineFor(opts: GenerationOptions): string {
  * packaging — nothing to ask for.
  */
 function titleLocalizedInstructionLineFor(opts: GenerationOptions): string {
+  if (isJapaneseChiliStoryOptions(opts)) {
+    return [
+      '[제목] JP CHILI STORY primary title:',
+      '  - The "title" field itself is the Japanese display/Suno title. Do not write an English primary title for this workspace.',
+      '  - If "titleLocalized" is present in the requested output shape, set it to the same Japanese title or a short Japanese alias for the same track scene.',
+      '  - Do not romanize, translate from English, or add parenthesized bilingual titles.'
+    ].join('\n');
+  }
   // 지시문 12 (TASK C-2) — resolvePackagingLanguage(opts) 단독이 아니라
   // resolveTitleLocalizedLanguage(opts)를 쓴다: 시니어/쇼와 계열 아키타입은
   // packagingLanguage 오버라이드가 english여도 channel.market이 한/일본을

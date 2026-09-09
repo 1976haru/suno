@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildClaudeCodeInstruction, extractBridgeImportMeta, importSongsJson } from '../src/core/claudeCodeBridge';
 import { preallocateSongSlots } from '../src/core/batchPreallocation';
+import { containsChiliStoryFutureStageViolation } from '../src/core/chiliStoryScenePlanner';
 import {
   applyChiliStoryGenerationContract,
   CAFE_STORY_MODE_LABEL_JA,
@@ -355,6 +356,9 @@ describe('[instruction 80] JP CHILI parity and Japan Cafe CHILI LAB', () => {
     expect(slots.filter(slot => slot.vocalType === 'mixed').length).toBeLessThan(slots.length / 2);
     expect(new Set(slots.map(slot => slot.storySpeaker))).toEqual(new Set(['male', 'female', 'couple']));
     expect(actCounts(slots)).toEqual([3, 3, 3, 3, 3]);
+    expect(slots.every(slot => slot.lyricTheme?.startsWith('jpcafe-source-local-act'))).toBe(true);
+    expect(new Set(slots.map(slot => slot.vocabularyBankId)).size).toBeGreaterThanOrEqual(5);
+    expect(slots.every(slot => !containsChiliStoryFutureStageViolation(`${slot.lyricThemeText} ${slot.storyArcRole}`))).toBe(true);
 
     expect(instruction).toContain('[JP CAFE CHILI LAB STORY CONTRACT]');
     expect(instruction).toContain('Workspace is "jp-cafe-chillhop"');
@@ -364,7 +368,7 @@ describe('[instruction 80] JP CHILI parity and Japan Cafe CHILI LAB', () => {
     expect(instruction).toContain('5-act cafe story album');
     expect(instruction).toContain('follow preassignedSongs vocalType exactly');
     expect(instruction).toContain('male 6/15, female 6/15, mixed/duet 3/15');
-    expect(instruction).toContain('Titles and hookPhrase values must not duplicate');
+    expect(instruction).toContain('Titles and hookPhrase values must be source-local');
     expect(instruction).toContain('Cafe sound policy');
     expect(instruction).toContain('Do not imitate, name, evoke as soundalike, clone');
 

@@ -413,6 +413,194 @@ const KR_IDOL_FEMALE_VOCABULARY_BANKS: VocabularyBank[] = [
   }
 ];
 
+export const JP_CHILI_STORY_VOCABULARY_BANKS: VocabularyBank[] = [
+  {
+    id: 'jpchili-train-act1-glance',
+    labelKo: 'JP CHILI STORY — 기차 첫 만남 Act 1',
+    fitsWorkspaces: ['jp-chillhop', 'jp-cafe-chillhop'],
+    fitsFrames: [
+      'jpstory-train-first-meeting-act1-gaze',
+      'jpstory-train-first-meeting-act1-window',
+      'jpstory-train-first-meeting-act1-earbud'
+    ],
+    nouns: ['same carriage', 'train window', 'brief gaze', 'earbud', 'seat edge', 'window reflection', 'announcement'],
+    nounsJa: ['同じ車両', '車窓', '短い視線', 'イヤホン', '座席の端', '窓の反射', 'アナウンス'],
+    verbs: ['glance', 'look away', 'notice', 'hold breath', 'pretend not to see'],
+    adjectives: ['small', 'accidental', 'quiet', 'close'],
+    avoid: []
+  },
+  {
+    id: 'jpchili-train-act2-replay',
+    labelKo: 'JP CHILI STORY — 기차 첫 만남 Act 2',
+    fitsWorkspaces: ['jp-chillhop', 'jp-cafe-chillhop'],
+    fitsFrames: [
+      'jpstory-train-first-meeting-act2-strap',
+      'jpstory-train-first-meeting-act2-announcement',
+      'jpstory-train-first-meeting-act2-door'
+    ],
+    nouns: ['strap handle', 'sliding door', 'station announcement', 'standing space', 'small step', 'ticket gate beep'],
+    nounsJa: ['吊革', '開くドア', '駅のアナウンス', '立ち位置', '小さな一歩', '改札の音'],
+    verbs: ['replay', 'hesitate', 'shift closer', 'wait', 'miss the moment'],
+    adjectives: ['near', 'unspoken', 'shy', 'restless'],
+    avoid: []
+  },
+  {
+    id: 'jpchili-train-act3-realization',
+    labelKo: 'JP CHILI STORY — 기차 첫 만남 Act 3',
+    fitsWorkspaces: ['jp-chillhop', 'jp-cafe-chillhop'],
+    fitsFrames: [
+      'jpstory-train-first-meeting-act3-reflection',
+      'jpstory-train-first-meeting-act3-ticket',
+      'jpstory-train-first-meeting-act3-gaze'
+    ],
+    nouns: ['ticket', 'window reflection', 'hidden smile', 'held breath', 'same minute', 'quiet realization'],
+    nounsJa: ['切符', '窓の反射', '隠した笑み', '止めた息', '同じ一分', '静かな気づき'],
+    verbs: ['realize', 'admit', 'hide', 'read again', 'name the feeling'],
+    adjectives: ['honest', 'tender', 'late', 'careful'],
+    avoid: []
+  },
+  {
+    id: 'jpchili-train-act4-hesitation',
+    labelKo: 'JP CHILI STORY — 기차 첫 만남 Act 4',
+    fitsWorkspaces: ['jp-chillhop', 'jp-cafe-chillhop'],
+    fitsFrames: [
+      'jpstory-train-first-meeting-act4-door',
+      'jpstory-train-first-meeting-act4-strap',
+      'jpstory-train-first-meeting-act4-announcement'
+    ],
+    nouns: ['door chime', 'strap handle', 'next stop', 'ticket corner', 'almost-word', 'quiet courage'],
+    nounsJa: ['ドアチャイム', '吊革', '次の駅', '切符の角', '言いかけた言葉', '小さな勇気'],
+    verbs: ['choose', 'almost speak', 'steady', 'turn back', 'keep the moment'],
+    adjectives: ['hesitant', 'soft', 'new', 'fragile'],
+    avoid: []
+  },
+  {
+    id: 'jpchili-train-act5-next',
+    labelKo: 'JP CHILI STORY — 기차 첫 만남 Act 5',
+    fitsWorkspaces: ['jp-chillhop', 'jp-cafe-chillhop'],
+    fitsFrames: [
+      'jpstory-train-first-meeting-act5-window',
+      'jpstory-train-first-meeting-act5-time',
+      'jpstory-train-first-meeting-act5-gaze'
+    ],
+    nouns: ['same time', 'same carriage', 'window light', 'small smile', 'next glance', 'quiet signal'],
+    nounsJa: ['同じ時刻', '同じ車両', '窓の光', '小さな笑み', '次の視線', '静かな合図'],
+    verbs: ['return to memory', 'smile', 'carry forward', 'look again', 'begin quietly'],
+    adjectives: ['open', 'gentle', 'unresolved', 'warm'],
+    avoid: []
+  },
+  {
+    id: 'jpchili-story-act1',
+    labelKo: 'JP CHILI STORY — 원문 사건 Act 1',
+    fitsWorkspaces: ['jp-chillhop'],
+    fitsFrames: ['jpstory-source-local-act1'],
+    nouns: ['source scene', 'first expression', 'short distance', 'small signal', 'quiet place'],
+    nounsJa: ['原作の場面', '最初の表情', '短い距離', '小さな合図', '静かな場所'],
+    verbs: ['notice', 'remember', 'hold back', 'look again'],
+    adjectives: ['specific', 'quiet', 'delicate'],
+    avoid: []
+  },
+  {
+    id: 'jpchili-story-act2',
+    labelKo: 'JP CHILI STORY — 원문 사건 Act 2',
+    fitsWorkspaces: ['jp-chillhop'],
+    fitsFrames: ['jpstory-source-local-act2'],
+    nouns: ['remembered gesture', 'unsaid line', 'near silence', 'replayed detail'],
+    nounsJa: ['思い出す仕草', '言えないひと言', '近い沈黙', '繰り返す細部'],
+    verbs: ['replay', 'misread', 'wait', 'listen'],
+    adjectives: ['warm', 'shy', 'small'],
+    avoid: []
+  },
+  {
+    id: 'jpchili-story-act3',
+    labelKo: 'JP CHILI STORY — 원문 사건 Act 3',
+    fitsWorkspaces: ['jp-chillhop'],
+    fitsFrames: ['jpstory-source-local-act3'],
+    nouns: ['inner answer', 'hidden reason', 'quiet truth', 'late realization'],
+    nounsJa: ['内側の答え', '隠した理由', '静かな本音', '遅い気づき'],
+    verbs: ['realize', 'admit', 'untangle', 'name'],
+    adjectives: ['honest', 'careful', 'bittersweet'],
+    avoid: []
+  },
+  {
+    id: 'jpchili-story-act4',
+    labelKo: 'JP CHILI STORY — 원문 사건 Act 4',
+    fitsWorkspaces: ['jp-chillhop'],
+    fitsFrames: ['jpstory-source-local-act4'],
+    nouns: ['small choice', 'almost confession', 'held breath', 'turning point'],
+    nounsJa: ['小さな選択', '言いかけた本音', '止めた息', '変わる瞬間'],
+    verbs: ['choose', 'steady', 'almost say', 'turn inward'],
+    adjectives: ['hesitant', 'gentle', 'new'],
+    avoid: []
+  },
+  {
+    id: 'jpchili-story-act5',
+    labelKo: 'JP CHILI STORY — 원문 사건 Act 5',
+    fitsWorkspaces: ['jp-chillhop'],
+    fitsFrames: ['jpstory-source-local-act5'],
+    nouns: ['after-feeling', 'small resolve', 'same scene', 'quiet continuation'],
+    nounsJa: ['余韻', '小さな決意', '同じ場面', '静かな続き'],
+    verbs: ['keep', 'smile', 'carry', 'begin'],
+    adjectives: ['open', 'warm', 'unresolved'],
+    avoid: []
+  },
+  {
+    id: 'jpcafe-story-act1',
+    labelKo: 'JP CAFE STORY — 카페 원문 Act 1',
+    fitsWorkspaces: ['jp-cafe-chillhop'],
+    fitsFrames: ['jpcafe-source-local-act1'],
+    nouns: ['cafe window', 'wooden chair', 'first expression', 'cup steam', 'rain glass'],
+    nounsJa: ['カフェの窓', '木の椅子', '最初の表情', 'カップの湯気', '雨のガラス'],
+    verbs: ['arrive', 'notice', 'sit', 'look up'],
+    adjectives: ['warm', 'small', 'rainy'],
+    avoid: []
+  },
+  {
+    id: 'jpcafe-story-act2',
+    labelKo: 'JP CAFE STORY — 카페 원문 Act 2',
+    fitsWorkspaces: ['jp-cafe-chillhop'],
+    fitsFrames: ['jpcafe-source-local-act2'],
+    nouns: ['second cup', 'table edge', 'receipt', 'soft laugh', 'quiet question'],
+    nounsJa: ['二杯目', 'テーブルの端', 'レシート', '小さな笑い', '静かな質問'],
+    verbs: ['talk', 'wait', 'stir', 'smile'],
+    adjectives: ['near', 'soft', 'ordinary'],
+    avoid: []
+  },
+  {
+    id: 'jpcafe-story-act3',
+    labelKo: 'JP CAFE STORY — 카페 원문 Act 3',
+    fitsWorkspaces: ['jp-cafe-chillhop'],
+    fitsFrames: ['jpcafe-source-local-act3'],
+    nouns: ['cup rim', 'window light', 'true feeling', 'short silence', 'shared table'],
+    nounsJa: ['カップの縁', '窓の光', '本当の気持ち', '短い沈黙', '同じテーブル'],
+    verbs: ['realize', 'soften', 'answer', 'look back'],
+    adjectives: ['honest', 'quiet', 'tender'],
+    avoid: []
+  },
+  {
+    id: 'jpcafe-story-act4',
+    labelKo: 'JP CAFE STORY — 카페 원문 Act 4',
+    fitsWorkspaces: ['jp-cafe-chillhop'],
+    fitsFrames: ['jpcafe-source-local-act4'],
+    nouns: ['cooling cup', 'unsaid line', 'closing bell', 'corner seat', 'held breath'],
+    nounsJa: ['冷めるカップ', '言えないひと言', '閉店のベル', '角席', '止めた息'],
+    verbs: ['hesitate', 'hold back', 'choose', 'listen'],
+    adjectives: ['fragile', 'late', 'careful'],
+    avoid: []
+  },
+  {
+    id: 'jpcafe-story-act5',
+    labelKo: 'JP CAFE STORY — 카페 원문 Act 5',
+    fitsWorkspaces: ['jp-cafe-chillhop'],
+    fitsFrames: ['jpcafe-source-local-act5'],
+    nouns: ['last sip', 'door light', 'sleeve scent', 'next seat', 'small promise'],
+    nounsJa: ['最後の一口', 'ドアの灯り', '袖の香り', '次の席', '小さな約束'],
+    verbs: ['leave softly', 'turn back', 'keep', 'begin'],
+    adjectives: ['warm', 'open', 'gentle'],
+    avoid: []
+  }
+];
+
 /**
  * v5.10 (TASK H) — real audit finding (this task's own brief): kr-kids/
  * jp-kids had ZERO entries in VOCABULARY_BANKS at all, so
@@ -546,6 +734,7 @@ export const VOCABULARY_BANKS: VocabularyBank[] = [
   ...JP_2030_VOCABULARY_BANKS,
   ...KR_IDOL_MALE_VOCABULARY_BANKS,
   ...KR_IDOL_FEMALE_VOCABULARY_BANKS,
+  ...JP_CHILI_STORY_VOCABULARY_BANKS,
   ...KR_KIDS_VOCABULARY_BANKS,
   ...JP_KIDS_VOCABULARY_BANKS
 ];
