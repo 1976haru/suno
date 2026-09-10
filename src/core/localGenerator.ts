@@ -24,6 +24,7 @@ import { applyVocalOnsetPhrasing, articulationFamilyForPreset, buildConceptVocal
 import { eraBucketForGenreId, ERA_FORBIDDEN_DESCRIPTORS } from '../data/eraExclusions';
 import { PROXIMITY_POOL } from '../data/vocalTraits';
 import { buildHookDevicePlan, hookDeviceIdsForNarrative } from './hookDevicePlan';
+import { applyChiliStoryGenerationContract, deriveChiliStorySeasonPack, resolveChiliStoryProjectTitle, chiliStoryDisplayChannelName } from './chiliStoryPov';
 import { getHookDeviceById } from '../data/hookDevices';
 import { buildChorusContrastPlan } from './chorusContrastPlan';
 import { chorusContrastPlanById } from '../data/chorusContrast';
@@ -803,15 +804,17 @@ export function buildSignatureBlueprint(
    */
   generatedAt: string = new Date().toISOString()
 ): PlaylistBlueprint {
+  opts = applyChiliStoryGenerationContract(opts);
+  const effectiveSeason = deriveChiliStorySeasonPack(opts, season);
   return {
-    projectTitle: opts.projectTitle,
-    channelName: opts.channel.name,
+    projectTitle: resolveChiliStoryProjectTitle(opts),
+    channelName: chiliStoryDisplayChannelName(opts),
     oneLineConcept: concept,
     sonicSignature: `${genres.map(g => g.label).join(' + ')} / ${moods.map(m => m.label).join(' + ')}`,
     vocalSignature: opts.vocalTone || opts.channel.defaultVocal,
     lyricRules: [],
     harmonyRules: [],
-    visualRules: [season.visualDirection, opts.channel.visualIdentity],
+    visualRules: [effectiveSeason.visualDirection, opts.channel.visualIdentity],
     songs,
     generatedAt
   };

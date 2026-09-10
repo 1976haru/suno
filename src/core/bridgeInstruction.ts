@@ -36,7 +36,7 @@ import { buildPolicyExplorationInstructionLines, type PolicyExplorationSlotPlan 
 import { vocabularyBankById } from '../data/vocabularyBanks';
 import { isGenreEligibleForArchetype } from '../data/genreLibrary';
 import { resolveScenePlanningMode as resolveSharedScenePlanningMode } from './scenePlanningMode';
-import { applyChiliStoryGenerationContract, buildJpChillhopStoryInstructionLines, isJapaneseChiliStoryOptions, storyMetaFieldsFromOptions } from './chiliStoryPov';
+import { applyChiliStoryGenerationContract, buildJpChillhopStoryInstructionLines, chiliStoryDisplayChannelName, isJapaneseChiliStoryOptions, resolveChiliStoryProjectTitle, storyMetaFieldsFromOptions } from './chiliStoryPov';
 
 /**
  * v3.66 (TASK C) — split out of claudeCodeBridge.ts (was 1,207 lines, one of
@@ -64,8 +64,9 @@ export const CLAUDE_CODE_BRIDGE_OUTPUT_FILENAME = 'songs-output.json';
  * filename, so it's untouched).
  */
 export function defaultBridgeOutputPath(opts: Pick<GenerationOptions, 'channel' | 'customConcept' | 'projectTitle'>): string {
-  const conceptLabel = opts.customConcept?.trim() || opts.projectTitle;
-  return `lyrics/${buildSetName({ date: new Date(), channelLabel: opts.channel.name, conceptLabel })}.json`;
+  const storyOpts = opts as GenerationOptions;
+  const conceptLabel = opts.customConcept?.trim() || resolveChiliStoryProjectTitle(storyOpts);
+  return `lyrics/${buildSetName({ date: new Date(), channelLabel: chiliStoryDisplayChannelName(storyOpts), conceptLabel })}.json`;
 }
 
 /**
@@ -86,8 +87,8 @@ function buildBridgeMeta(
     setName,
     generatedAt: new Date().toISOString(),
     channelId: opts.channel.id,
-    channelLabel: opts.channel.name,
-    conceptLabel: opts.customConcept?.trim() || opts.projectTitle,
+    channelLabel: chiliStoryDisplayChannelName(opts),
+    conceptLabel: opts.customConcept?.trim() || resolveChiliStoryProjectTitle(opts),
     songCount: opts.songCount,
     lyricLanguage: opts.lyricLanguage,
     // 지시문 18 (TASK C-2) — 앱이 이 요청을 만든 시점의 자기 버전. 지시문
@@ -368,6 +369,15 @@ function conceptSceneInstructionLines(opts: GenerationOptions, conceptSceneConte
   const concept = opts.customConcept?.trim();
   if (!concept) return [];
   const { recentSituations, recentLyricLines, recentOpenings = [] } = conceptSceneContext;
+  if (isJapaneseChiliStoryOptions(opts)) {
+    return [
+      '',
+      '[JP CHILI STORY SOURCE-LOCAL MICRO-SCENE PLAN]',
+      `Keep all ${opts.songCount} scenes inside the supplied source episode and POV.`,
+      'Vary micro-actions, timing, sensory details, inner interpretation, and the unchosen word within that same source context. Do not force every track into a different place, person, or future relationship stage.',
+      recentSituations.length ? `Avoid these recent scene frames:\n${recentSituations.map(s => `  - ${s}`).join('\n')}` : ''
+    ].filter(Boolean);
+  }
   return [
     '',
     `[이 세트의 장면 ${opts.songCount}개를 먼저 만드십시오]`,

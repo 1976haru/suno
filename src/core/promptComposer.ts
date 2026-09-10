@@ -25,6 +25,7 @@ import { audienceProfileForChannelArchetype } from '../data/audienceProfiles';
 import { resolveLyricRange } from './lyricMetrics';
 import { resolveTitleLocalizedLanguage } from './packagingLanguage';
 import { isJapaneseChillhopArchetype } from '../utils/channelArchetype';
+import { applyChiliStoryGenerationContract, deriveChiliStorySeasonPack, isJapaneseChiliStoryOptions, resolveChiliStoryProjectTitle } from './chiliStoryPov';
 
 // TASK A1 (v3.5): Suno's style field truncates anything past 1,000 characters
 // — a real measurement of 12 generated songs found 12/12 over that limit
@@ -1250,12 +1251,14 @@ ${effectiveSafeLyricRules.map(rule => `- ${rule}`).join('\n')}${eraLyricGuidance
  * kind of drift caused once before (a schema value that silently varied
  * between what should have been byte-identical cached blocks).
  */
-function batchPlanningBullets(generateThumbnailText: boolean): string[] {
+function batchPlanningBullets(generateThumbnailText: boolean, sourceLocalStory = false): string[] {
   return [
     'Use one recurring visual motif across the pack, but do not repeat the same lyric line.',
     'Track 1 should introduce the playlist identity clearly.',
     'Tracks 2-5 should establish variety without breaking the channel promise.',
-    'Middle tracks should add emotional depth and different listener situations.',
+    sourceLocalStory
+      ? 'Middle tracks should add emotional depth through source-local micro-scenes, changed inner meaning, and small actions within the same episode/context.'
+      : 'Middle tracks should add emotional depth and different listener situations.',
     'Final tracks should resolve warmly and feel like a natural closer.',
     generateThumbnailText
       ? 'Avoid repeating the same opening image, chorus first line, or thumbnail phrase.'
@@ -1399,6 +1402,8 @@ function generationPackForOptions(opts: GenerationOptions): (typeof generationPa
 }
 
 export function buildUserInstruction(opts: GenerationOptions, genres: GenrePack[], moods: MoodPack[], season: SeasonPack, batch?: BatchContext, generateThumbnailText = false) {
+  opts = applyChiliStoryGenerationContract(opts);
+  const effectiveSeason = deriveChiliStorySeasonPack(opts, season);
   const generationPack = generationPackForOptions(opts);
   // 지시문 12 (TASK C-2) — resolveTitleLocalizedLanguage: 시니어/쇼와 계열
   // 아키타입은 packagingLanguage 오버라이드가 english여도 titleLocalized
@@ -1408,7 +1413,7 @@ export function buildUserInstruction(opts: GenerationOptions, genres: GenrePack[
 
   return {
     channel: opts.channel,
-    projectTitle: opts.projectTitle,
+    projectTitle: resolveChiliStoryProjectTitle(opts),
     songCount: opts.songCount,
     lyricLanguage: opts.lyricLanguage,
     market: opts.market,
@@ -1416,7 +1421,7 @@ export function buildUserInstruction(opts: GenerationOptions, genres: GenrePack[
     generationPack,
     genrePacks: genres,
     moodPacks: moods,
-    season,
+    season: effectiveSeason,
     vocalTone: opts.vocalTone || opts.channel.defaultVocal,
     perspective: opts.perspective,
     lyricDepth: opts.lyricDepth,
@@ -1435,7 +1440,7 @@ export function buildUserInstruction(opts: GenerationOptions, genres: GenrePack[
     alreadyUsedTitles: batch?.usedTitles ?? [],
     alreadyUsedHooks: batch?.usedHooks ?? [],
     lockedIdentity: batch?.lockedIdentity ?? null,
-    batchPlanning: batchPlanningBullets(generateThumbnailText),
+    batchPlanning: batchPlanningBullets(generateThumbnailText, isJapaneseChiliStoryOptions(opts)),
     outputShape: {
       projectTitle: 'string',
       channelName: 'string',
@@ -1460,6 +1465,8 @@ export function buildUserInstruction(opts: GenerationOptions, genres: GenrePack[
  * typical request, and it never changes within a run.
  */
 export function buildChannelSystemBlock(opts: GenerationOptions, genres: GenrePack[], moods: MoodPack[], season: SeasonPack, generateThumbnailText = false): string {
+  opts = applyChiliStoryGenerationContract(opts);
+  const effectiveSeason = deriveChiliStorySeasonPack(opts, season);
   const generationPack = generationPackForOptions(opts);
   // 지시문 12 (TASK C-2) — 위 buildUserInstruction과 동일한 이유.
   const packagingLanguage = resolveTitleLocalizedLanguage(opts);
@@ -1469,9 +1476,9 @@ export function buildChannelSystemBlock(opts: GenerationOptions, genres: GenrePa
     generationPack,
     genrePacks: genres,
     moodPacks: moods,
-    season,
+    season: effectiveSeason,
     japaneseEraLyricGuidance: eraLyricGuidanceForArchetype(opts.channel.archetype),
-    batchPlanning: batchPlanningBullets(generateThumbnailText),
+    batchPlanning: batchPlanningBullets(generateThumbnailText, isJapaneseChiliStoryOptions(opts)),
     outputShape: {
       projectTitle: 'string',
       channelName: 'string',

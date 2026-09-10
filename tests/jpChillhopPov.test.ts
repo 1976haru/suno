@@ -9,6 +9,7 @@ import { buildResolvedGenerationContract, userChoicesFromOptions } from '../src/
 import {
   applyChiliStoryGenerationContract,
   CHILI_STORY_DEFAULT_SONG_COUNT,
+  CHILI_STORY_LEGACY_PROJECT_TITLE,
   CHILI_STORY_POV_LABEL_JA,
   clearChiliStorySoloVocalLock,
   isStoryVocalHardLocked,
@@ -17,6 +18,7 @@ import {
   parseChiliStorySourceLine,
   resolveChiliStorySource,
   resolveEffectiveStoryVocalQuota,
+  resolveChiliStoryProjectTitle,
   storyMetaFieldsFromOptions
 } from '../src/core/chiliStoryPov';
 import {
@@ -436,6 +438,69 @@ describe('[instruction 79] jp-chillhop STORY POV workspace', () => {
     expect(maleSlots.filter((slot, index) => slots[index]?.hookPhrase === slot.hookPhrase).length).toBe(0);
     expect(slots.filter(slot => slot.title === slot.hookPhrase).length).toBe(0);
     expect(maleSlots.filter(slot => slot.title === slot.hookPhrase).length).toBe(0);
+  });
+
+  it('keeps instruction 85 metadata source-local and removes the legacy season/title leak', () => {
+    const opts = applyChiliStoryGenerationContract(makeOptions({
+      channel,
+      projectTitle: CHILI_STORY_LEGACY_PROJECT_TITLE,
+      songCount: 15,
+      storyPov: 'female',
+      storyPlanLine: TRAIN_PLAN_FEMALE,
+      storySourceLine: TRAIN_PLAN_FEMALE,
+      seasonId: 'christmas',
+      choiceProvenance: { seasonId: 'default' }
+    }));
+    const meta = storyMetaFieldsFromOptions(opts);
+    expect(resolveChiliStoryProjectTitle(opts)).toContain('Tokyo Chill Love Story');
+    expect(resolveChiliStoryProjectTitle(opts)).toContain('EP.001');
+    expect(resolveChiliStoryProjectTitle(opts)).not.toBe(CHILI_STORY_LEGACY_PROJECT_TITLE);
+    expect(meta.season).toBe('Story Neutral');
+    expect(meta.storySourceEpisodeId).toBe('001');
+    expect(meta.storySourceTitle).toBe(parseChiliStoryPlanLine(TRAIN_PLAN_FEMALE)?.storySourceTitle);
+    expect(meta.storyPovTitle).toBe(parseChiliStoryPlanLine(TRAIN_PLAN_FEMALE)?.storyPovTitle);
+  });
+
+  it('does not turn train window language into a Cafe genre warning, but preserves explicit unsupported-genre warnings', () => {
+    const train = optsForPlanLine('female', TRAIN_PLAN_FEMALE, { genreIds: CORE_GENRE_IDS_BY_ARCHETYPE['jp-chillhop'].slice(0, 6) });
+    expect(preallocateSongSlots(train, genresFor(train))[0].genreWarning).toBeUndefined();
+
+    const explicitCafeGenre = optsForPlanLine('female', TRAIN_PLAN_FEMALE, { genreIds: ['lofi-cafe'] });
+    expect(preallocateSongSlots(explicitCafeGenre, genrePacks.filter(genre => genre.id === 'lofi-cafe'))[0].genreWarning).toBeTruthy();
+  });
+
+  it('keeps the instruction 82 manual genre exact-count wiring for both solo Story POV packs', () => {
+    const cases = [
+      {
+        pov: 'male' as const,
+        counts: { 'chill-rap': 4, 'jazz-rap': 4, 'en-deep-house-vocal-anthem': 4, 'boom-bap-mellow': 3 }
+      },
+      {
+        pov: 'female' as const,
+        counts: { 'chill-rap': 4, 'en-deep-house-melodic': 4, 'en-chill-deep-house': 4, 'en-lounge-house': 3 }
+      }
+    ];
+    for (const fixture of cases) {
+      const opts = optsFor(fixture.pov, {
+        genreIds: [],
+        diversityAllocations: [{ axis: 'genre', mode: 'manual', counts: fixture.counts }]
+      });
+      const genres = genrePacks.filter(genre => Object.hasOwn(fixture.counts, genre.id));
+      const slots = preallocateSongSlots(opts, genres);
+      const slotCounts = Object.fromEntries(Object.keys(fixture.counts).map(id => [id, slots.filter(slot => slot.genreId === id).length]));
+      expect(slotCounts, fixture.pov).toEqual(fixture.counts);
+      const plan = directSetLocal(opts.customConcept, channel, 15, { recentGenreIds: [], recentHooks: [] }, [], opts.vocalTone, undefined, undefined, userChoicesFromOptions(opts), opts);
+      expect(plan.allocations.find(allocation => allocation.axis === 'genre')?.counts, fixture.pov).toEqual(fixture.counts);
+      expect(Object.fromEntries(Object.keys(fixture.counts).map(id => [id, plan.slots.filter(slot => slot.genreId === id).length])), fixture.pov).toEqual(fixture.counts);
+      const instruction = buildClaudeCodeInstruction(opts, genres, moodsFor(opts), season, { usedTitles: [], usedHooks: [] }, slots);
+      const setPlanText = instruction.split('[SetPlan handoff]')[1]?.split('[Diversity groups]')[0] ?? instruction;
+      for (const [id, count] of Object.entries(fixture.counts)) {
+        const label = genres.find(genre => genre.id === id)?.label;
+        expect(label, `${fixture.pov}/${id} genre fixture`).toBeTruthy();
+        expect(setPlanText.split(`| ${label} |`).length - 1, `${fixture.pov}/${id} bridge SetPlan count`).toBe(count);
+        expect(slots.filter(slot => slot.genreId === id)).toHaveLength(count);
+      }
+    }
   });
 
   it('keeps solo STORY vocal quota as one source of truth from UI options through plan, preflight, bridge, and import', async () => {

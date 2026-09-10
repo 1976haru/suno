@@ -94,7 +94,7 @@ import { getGenreById, isGenreEligibleForArchetype } from '../data/genreLibrary'
 import { genreSanitizationWarningKo, sanitizeGenreIdsForArchetype } from './genreSelection';
 import { conceptChannelFitWarningKo, evaluateConceptChannelFit } from './conceptChannelFit';
 import { applyEnChillhopBandLock } from './enChillhopBand';
-import { applyChiliStoryGenerationContract, chiliStorySlotFields, isJapaneseChiliStoryOptions, storyFieldsFromSlot } from './chiliStoryPov';
+import { applyChiliStoryGenerationContract, chiliStorySlotFields, isJapaneseChiliStoryOptions, isJpCafeChillhopOptions, storyFieldsFromSlot } from './chiliStoryPov';
 import { planChiliStoryScenes } from './chiliStoryScenePlanner';
 
 export type { PreassignedSongSlot };
@@ -193,9 +193,11 @@ export function preallocateSongSlots(
   // 지시문 79 (TASK A-2) — 컨셉↔채널 부적합 경고. genreWarningKo와 **같은
   // 전달 통로**(슬롯 0번의 genreWarning)를 쓴다 — 세트 단위 사실이므로
   // 트랙마다 반복하지 않는다. 감점은 없다(경고만).
-  const conceptFitWarningKo = conceptChannelFitWarningKo(
-    evaluateConceptChannelFit(opts.customConcept, archetype, opts.genreIds ?? [])
-  );
+  const conceptFitWarningKo = isJapaneseChiliStoryOptions(opts) && !isJpCafeChillhopOptions(opts)
+    ? undefined
+    : conceptChannelFitWarningKo(
+      evaluateConceptChannelFit(opts.customConcept, archetype, opts.genreIds ?? [])
+    );
   const genreWarningKo = [genreSanitizationWarningKo(genreSanitization.removed, archetype), conceptFitWarningKo]
     .filter(Boolean)
     .join(' ') || undefined;

@@ -9,6 +9,7 @@ import type {
   PlaylistBlueprint,
   PreassignedSongSlot,
   ScenePlanningMode,
+  SeasonPack,
   WorkspaceId
 } from '../types';
 import {
@@ -24,6 +25,8 @@ export const JP_CAFE_CHILLHOP_WORKSPACE_ID: WorkspaceId = 'jp-cafe-chillhop';
 export const JP_CHILLHOP_CHANNEL_PROFILE_ID = 'jp-chili-lab-story';
 export const JP_CAFE_CHILLHOP_CHANNEL_PROFILE_ID = 'jp-cafe-chili-lab';
 export const CHILI_STORY_DEFAULT_SONG_COUNT = 15;
+export const CHILI_STORY_DISPLAY_CHANNEL_NAME = 'Tokyo Chill Love Story';
+export const CHILI_STORY_LEGACY_PROJECT_TITLE = 'Autumn to Christmas Playlist Pack';
 
 export const CHILI_STORY_POV_LABEL_JA: Record<ChiliStoryPov, string> = {
   couple: 'ふたりのSTORY',
@@ -54,8 +57,11 @@ export const CAFE_CHILI_STORY_ACTS = [
 ] as const;
 
 type ChiliStoryOptionsLike = {
-  channel?: Pick<ChannelProfile, 'archetype' | 'id' | 'name'>;
+  channel?: Pick<ChannelProfile, 'archetype' | 'id' | 'name'> & { englishName?: string };
   songCount: number;
+  projectTitle?: string;
+  seasonId?: string;
+  choiceProvenance?: { seasonId?: string };
   lyricLanguage?: LyricLanguage;
   perspective?: LyricPerspective;
   perspectiveMode?: GenerationOptions['perspectiveMode'];
@@ -276,6 +282,36 @@ function speakerFor(storyPov: ChiliStoryPov, vocalType?: PreassignedSongSlot['vo
   return 'couple';
 }
 
+export function chiliStoryDisplayChannelName(opts: ChiliStoryOptionsLike): string {
+  return isJapaneseChiliStoryOptions(opts) && !isJpCafeChillhopOptions(opts)
+    ? CHILI_STORY_DISPLAY_CHANNEL_NAME
+    : opts.channel?.name ?? '';
+}
+
+export function resolveChiliStoryProjectTitle(opts: ChiliStoryOptionsLike): string {
+  const current = opts.projectTitle?.trim();
+  if (!isJapaneseChiliStoryOptions(opts)) return current ?? '';
+  if (current && current !== CHILI_STORY_LEGACY_PROJECT_TITLE) return current;
+  const source = storySourceFields(opts);
+  const episode = source.storySourceEpisodeId || source.storyPlanEpisodeId;
+  const pov = storyPovFromOptions(opts);
+  return [
+    chiliStoryDisplayChannelName(opts),
+    episode ? `EP.${episode}` : undefined,
+    (isJpCafeChillhopOptions(opts) ? CAFE_STORY_MODE_LABEL_JA : CHILI_STORY_POV_LABEL_JA)[pov]
+  ].filter(Boolean).join(' · ');
+}
+
+export function deriveChiliStorySeasonPack(opts: ChiliStoryOptionsLike, season: SeasonPack): SeasonPack {
+  if (!isJapaneseChiliStoryOptions(opts)) return season;
+  const sourceSeason = nonEmptyField(opts.cafeSeason) ?? nonEmptyField(opts.storySeason);
+  if (sourceSeason) {
+    return { id: 'story-source', label: sourceSeason, period: 'source episode', keywords: [sourceSeason], visualDirection: '' };
+  }
+  if (opts.choiceProvenance?.seasonId === 'user') return season;
+  return { id: 'story-neutral', label: 'Story Neutral', period: 'source episode', keywords: ['source episode'], visualDirection: '' };
+}
+
 export function applyChiliStoryGenerationContract<T extends ChiliStoryOptionsLike>(opts: T): T {
   if (!isJapaneseChiliStoryOptions(opts)) return opts;
 
@@ -283,6 +319,11 @@ export function applyChiliStoryGenerationContract<T extends ChiliStoryOptionsLik
   const storyPov = storyPovFromOptions(opts);
   const base = {
     ...opts,
+    projectTitle: resolveChiliStoryProjectTitle(opts),
+    channel: {
+      ...opts.channel,
+      ...(isCafe ? {} : { name: CHILI_STORY_DISPLAY_CHANNEL_NAME, englishName: CHILI_STORY_DISPLAY_CHANNEL_NAME })
+    },
     lyricLanguage: 'japanese',
     storyPov,
     ...(isCafe ? { cafeStoryMode: storyPov } : {})
@@ -447,15 +488,22 @@ function nonEmptyField<T extends string>(value: T | undefined): T | undefined {
 }
 
 function storySourceFields(opts: ChiliStoryOptionsLike) {
+  const parsed = parseChiliStoryPlanLine(opts.storyPlanLine ?? '') ?? undefined;
+  const planEpisodeId = nonEmptyField(opts.storyPlanEpisodeId) ?? parsed?.storyPlanEpisodeId;
+  const povTitle = nonEmptyField(opts.storyPovTitle) ?? parsed?.storyPovTitle;
+  const sourceEpisodeId = nonEmptyField(opts.storySourceEpisodeId) ?? parsed?.storySourceEpisodeId;
+  const sourceTitle = nonEmptyField(opts.storySourceTitle) ?? parsed?.storySourceTitle;
+  const sourceSummary = nonEmptyField(opts.storySourceSummary) ?? parsed?.storySourceSummary;
+  const povIntentSummary = nonEmptyField(opts.storyPovIntentSummary) ?? parsed?.storyPovIntentSummary;
   return {
     ...(nonEmptyField(opts.storySourceLine) ? { storySourceLine: nonEmptyField(opts.storySourceLine) } : {}),
     ...(nonEmptyField(opts.storyPlanLine) ? { storyPlanLine: nonEmptyField(opts.storyPlanLine) } : {}),
-    ...(nonEmptyField(opts.storyPlanEpisodeId) ? { storyPlanEpisodeId: nonEmptyField(opts.storyPlanEpisodeId) } : {}),
-    ...(nonEmptyField(opts.storyPovTitle) ? { storyPovTitle: nonEmptyField(opts.storyPovTitle) } : {}),
-    ...(nonEmptyField(opts.storySourceEpisodeId) ? { storySourceEpisodeId: nonEmptyField(opts.storySourceEpisodeId) } : {}),
-    ...(nonEmptyField(opts.storySourceTitle) ? { storySourceTitle: nonEmptyField(opts.storySourceTitle) } : {}),
-    ...(nonEmptyField(opts.storySourceSummary) ? { storySourceSummary: nonEmptyField(opts.storySourceSummary) } : {}),
-    ...(nonEmptyField(opts.storyPovIntentSummary) ? { storyPovIntentSummary: nonEmptyField(opts.storyPovIntentSummary) } : {}),
+    ...(planEpisodeId ? { storyPlanEpisodeId: planEpisodeId } : {}),
+    ...(povTitle ? { storyPovTitle: povTitle } : {}),
+    ...(sourceEpisodeId ? { storySourceEpisodeId: sourceEpisodeId } : {}),
+    ...(sourceTitle ? { storySourceTitle: sourceTitle } : {}),
+    ...(sourceSummary ? { storySourceSummary: sourceSummary } : {}),
+    ...(povIntentSummary ? { storyPovIntentSummary: povIntentSummary } : {}),
     ...(nonEmptyField(opts.storyPreviousContext) ? { storyPreviousContext: nonEmptyField(opts.storyPreviousContext) } : {}),
     ...(nonEmptyField(opts.storyNextHint) ? { storyNextHint: nonEmptyField(opts.storyNextHint) } : {}),
     ...(nonEmptyField(opts.storyLocation) ? { storyLocation: nonEmptyField(opts.storyLocation) } : {}),
@@ -542,12 +590,11 @@ export function storyMetaFieldsFromOptions(opts: ChiliStoryOptionsLike): Partial
   if (!isJapaneseChiliStoryOptions(opts)) return {};
   const isCafe = isJpCafeChillhopOptions(opts);
   const storyPov = storyPovFromOptions(opts);
-  const cafeSeason = nonEmptyField(opts.cafeSeason) ?? nonEmptyField(opts.storySeason);
   return {
     workspaceId: isCafe ? JP_CAFE_CHILLHOP_WORKSPACE_ID : JP_CHILLHOP_WORKSPACE_ID,
     storyPov,
     ...(isCafe ? { cafeStoryMode: storyPov, storySpeaker: speakerFor(storyPov) } : {}),
-    ...(isCafe && cafeSeason ? { season: cafeSeason } : {}),
+    season: deriveChiliStorySeasonPack(opts, { id: 'story-neutral', label: 'Story Neutral', period: 'source episode', keywords: ['source episode'], visualDirection: '' }).label,
     ...storySourceFields(opts),
     storyArc: buildChiliStoryArc(opts.songCount, isCafe)
   };
@@ -765,6 +812,7 @@ export function buildJpChillhopStoryInstructionLines(
     ...planBlock,
     '- Treat the pack as one 5-act story album. For a 15-track run, keep exactly 3 tracks per act; for any other songCount, keep all 5 acts represented in order.',
     '- Each track must stay inside the source episode supplied above. Do not invent unrelated settings or later relationship milestones unless they are explicit in the source event.',
+    '- Source-local micro-scene rule: vary small actions, timing, sensory details, inner interpretation, and the unchosen word within the same source episode. Do not force every track into a different place, person, or future relationship stage.',
     '- Preserve each track\'s storyAct, storyActLabel, and storyArcRole from preassignedSongs. Use those fields as narrative structure, not as literal lyric text.',
     ...sharedLines,
     ...trackMap
