@@ -22,6 +22,7 @@ import { channelVocalFloorForArchetype } from '../src/data/channelVocalFloor';
 import { audienceProfileForChannelArchetype } from '../src/data/audienceProfiles';
 import { getWorkspace, workspaceDefinitions, workspaceForArchetype } from '../src/data/workspaces';
 import { computeWorkspaceReadiness } from '../src/core/workspaceReadiness';
+import { SUNO_V6_ENGINE_PROFILES } from '../src/core/sunoV6';
 import { channelPresets, genrePacks, makeOptions, moodPacks, seasonPacks } from './fixtures';
 import type { ChiliStoryPov, GenerationOptions, PreassignedSongSlot, SongIdea } from '../src/types';
 
@@ -468,6 +469,33 @@ describe('[instruction 80] JP CHILI parity and Japan Cafe CHILI LAB', () => {
       });
       expect(quality.languageFailureTrackNos).toEqual([]);
       expect(quality.packWarnings.filter(warning => /vocal hard lock|5-act|duplicate/.test(warning))).toEqual([]);
+    }
+  });
+
+  it('keeps Cafe male, female, and couple contracts stable across every v6 engine profile', () => {
+    const expected = {
+      male: { male: 15, female: 0, mixed: 0 },
+      female: { male: 0, female: 15, mixed: 0 },
+      couple: { male: 6, female: 6, mixed: 3 }
+    } as const;
+
+    for (const model of ['v6', 'v6-wild', 'v6-mini'] as const) {
+      for (const mode of ['male', 'female', 'couple'] as const) {
+        const opts = optsForCafe(mode, { sunoEngine: { ...SUNO_V6_ENGINE_PROFILES[model] } });
+        const genres = genresFor(opts);
+        const slots = preallocateSongSlots(opts, genres);
+        const instruction = buildClaudeCodeInstruction(opts, genres, moodsFor(opts), season, { usedTitles: [], usedHooks: [] }, slots, false);
+        expect(opts.lyricLanguage, `${model}/${mode} language`).toBe('japanese');
+        expect(opts.perspective, `${model}/${mode} POV`).toBe('firstPerson');
+        expect(vocalCounts(slots), `${model}/${mode} quota`).toEqual(expected[mode]);
+        expect(actCounts(slots), `${model}/${mode} acts`).toEqual([3, 3, 3, 3, 3]);
+        expect(slots.every(slot => slot.cafeStoryMode === mode), `${model}/${mode} cafe mode`).toBe(true);
+        expect(slots.every(slot => slot.cafeLocation && slot.cafeType && slot.cafeSeason && slot.cafeTimeOfDay && slot.cafeWeather), `${model}/${mode} cafe source fields`).toBe(true);
+        expect(instruction, `${model}/${mode} engine`).toContain(`Model: ${model}`);
+        expect(instruction, `${model}/${mode} contract`).toContain('[JP CAFE CHILI LAB STORY CONTRACT]');
+        expect(instruction, `${model}/${mode} lock`).toContain(`Cafe Story Mode is ${CAFE_STORY_MODE_LABEL_JA[mode]}`);
+        expect(instruction, `${model}/${mode} Japanese`).toContain('Write natively in natural contemporary Japanese');
+      }
     }
   });
 });

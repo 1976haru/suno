@@ -30,6 +30,7 @@ import {
 } from '../src/core/chiliStoryScenePlanner';
 import { evaluateJapaneseChiliQuality } from '../src/core/japaneseChiliQuality';
 import { resolveScenePlanningMode } from '../src/core/scenePlanningMode';
+import { SUNO_V6_ENGINE_PROFILES } from '../src/core/sunoV6';
 import { CORE_GENRE_IDS_BY_ARCHETYPE } from '../src/data/genreLibrary';
 import { getWorkspace, workspaceDefinitions } from '../src/data/workspaces';
 import { channelPresets, genrePacks, makeOptions, moodPacks, seasonPacks } from './fixtures';
@@ -501,6 +502,103 @@ describe('[instruction 79] jp-chillhop STORY POV workspace', () => {
         expect(slots.filter(slot => slot.genreId === id)).toHaveLength(count);
       }
     }
+  });
+
+  it('keeps the real EP.001 plan parser, source-local scenes, POV locks, and manual genres identical across all v6 engines', () => {
+    const engines = ['v6', 'v6-wild', 'v6-mini'] as const;
+    const parserBaseline = {
+      male: parseChiliStoryPlanLine(TRAIN_PLAN_MALE),
+      female: parseChiliStoryPlanLine(TRAIN_PLAN_FEMALE)
+    };
+    const manualCounts = { 'chill-rap': 4, 'jazz-rap': 4, 'en-deep-house-vocal-anthem': 4, 'boom-bap-mellow': 3 };
+
+    for (const model of engines) {
+      for (const [pov, line] of [['male', TRAIN_PLAN_MALE], ['female', TRAIN_PLAN_FEMALE]] as const) {
+        const opts = optsForPlanLine(pov, line, { sunoEngine: { ...SUNO_V6_ENGINE_PROFILES[model] } });
+        expect(parseChiliStoryPlanLine(line), `${model}/${pov} parser`).toEqual(parserBaseline[pov]);
+        expect(opts.lyricLanguage, `${model}/${pov} language`).toBe('japanese');
+        expect(opts.perspective, `${model}/${pov} POV`).toBe('firstPerson');
+        expect(opts.storyPlanEpisodeId, `${model}/${pov} plan episode`).toBe('001');
+        expect(opts.storySourceEpisodeId, `${model}/${pov} source episode`).toBe('001');
+        expect(opts.storySeason, `${model}/${pov} season`).toBeUndefined();
+        expect(resolveEffectiveStoryVocalQuota(opts), `${model}/${pov} quota`).toEqual(
+          pov === 'male' ? { male: 15, female: 0, mixed: 0 } : { male: 0, female: 15, mixed: 0 }
+        );
+
+        const scenes = planChiliStoryScenes({ ...opts, isCafe: false });
+        expect(scenes.filter(isSourceLocalChiliStoryScene), `${model}/${pov} source-local`).toHaveLength(15);
+        expect(scenes.map(scene => scene.storyAct), `${model}/${pov} acts`).toEqual([1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5]);
+        expect(scenes.some(scene => containsChiliStoryFutureStageViolation(`${scene.title} ${scene.hookPhrase} ${scene.lyricThemeText} ${scene.storyArcRole}`)), `${model}/${pov} future stage`).toBe(false);
+
+        const { slots, instruction } = runBridgeFixture(opts);
+        expect(vocalCounts(slots), `${model}/${pov} slots`).toEqual(
+          pov === 'male' ? { male: 15, female: 0, mixed: 0 } : { male: 0, female: 15, mixed: 0 }
+        );
+        expect(instruction, `${model}/${pov} engine`).toContain(`Model: ${model}`);
+        expect(instruction, `${model}/${pov} story plan`).toContain('[JP CHILI LAB STORY PLAN]');
+        expect(instruction, `${model}/${pov} Japanese title`).toContain('natural Japanese primary song title');
+        expect(instruction, `${model}/${pov} source-local`).toContain('source-local');
+      }
+
+      const manualOpts = optsFor('male', {
+        genreIds: [],
+        diversityAllocations: [{ axis: 'genre', mode: 'manual', counts: manualCounts }],
+        sunoEngine: { ...SUNO_V6_ENGINE_PROFILES[model] }
+      });
+      const genres = genrePacks.filter(genre => Object.hasOwn(manualCounts, genre.id));
+      const slots = preallocateSongSlots(manualOpts, genres);
+      const slotCounts = Object.fromEntries(Object.keys(manualCounts).map(id => [id, slots.filter(slot => slot.genreId === id).length]));
+      const plan = directSetLocal(manualOpts.customConcept, channel, 15, { recentGenreIds: [], recentHooks: [] }, [], manualOpts.vocalTone, undefined, undefined, userChoicesFromOptions(manualOpts), manualOpts);
+      const bridge = buildClaudeCodeInstruction(manualOpts, genres, moodsFor(manualOpts), season, { usedTitles: [], usedHooks: [] }, slots);
+      const setPlanText = bridge.split('[SetPlan handoff]')[1]?.split('[Diversity groups]')[0] ?? bridge;
+      const bridgeCounts = Object.fromEntries(genres.map(genre => [genre.id, setPlanText.split(`| ${genre.label} |`).length - 1]));
+      expect(slotCounts, `${model} preassigned`).toEqual(manualCounts);
+      expect(plan.allocations.find(allocation => allocation.axis === 'genre')?.counts, `${model} SetPlan`).toEqual(manualCounts);
+      expect(Object.fromEntries(Object.keys(manualCounts).map(id => [id, plan.slots.filter(slot => slot.genreId === id).length])), `${model} SetPlan slots`).toEqual(manualCounts);
+      expect(bridgeCounts, `${model} Bridge`).toEqual(manualCounts);
+    }
+  });
+
+  it('preserves the Story contract through v6 engine switching and keeps English CHILI unpolluted', () => {
+    const base = optsForPlanLine('female', TRAIN_PLAN_FEMALE);
+    const contractSnapshot = {
+      channelId: base.channel.id,
+      storyPov: base.storyPov,
+      storyPlanEpisodeId: base.storyPlanEpisodeId,
+      storySourceEpisodeId: base.storySourceEpisodeId,
+      storySourceTitle: base.storySourceTitle,
+      storySourceSummary: base.storySourceSummary,
+      lyricLanguage: base.lyricLanguage,
+      perspective: base.perspective,
+      songCount: base.songCount,
+      diversityAllocations: base.diversityAllocations
+    };
+    for (const model of ['v6', 'v6-wild', 'v6-mini'] as const) {
+      const switched = applyChiliStoryGenerationContract({ ...base, sunoEngine: { ...SUNO_V6_ENGINE_PROFILES[model] } });
+      expect({
+        channelId: switched.channel.id,
+        storyPov: switched.storyPov,
+        storyPlanEpisodeId: switched.storyPlanEpisodeId,
+        storySourceEpisodeId: switched.storySourceEpisodeId,
+        storySourceTitle: switched.storySourceTitle,
+        storySourceSummary: switched.storySourceSummary,
+        lyricLanguage: switched.lyricLanguage,
+        perspective: switched.perspective,
+        songCount: switched.songCount,
+        diversityAllocations: switched.diversityAllocations
+      }, model).toEqual(contractSnapshot);
+      expect(resolveEffectiveStoryVocalQuota(switched), model).toEqual({ male: 0, female: 15, mixed: 0 });
+    }
+
+    const enChannel = channelPresets.find(preset => preset.archetype === 'en-chillhop')!;
+    const enOpts = applyChiliStoryGenerationContract(makeOptions({ channel: enChannel, lyricLanguage: 'english', songCount: 15, sunoEngine: { ...SUNO_V6_ENGINE_PROFILES.v6 } }));
+    const enGenres = genresFor(enOpts);
+    const enSlots = preallocateSongSlots(enOpts, enGenres);
+    const enInstruction = buildClaudeCodeInstruction(enOpts, enGenres, moodsFor(enOpts), season, { usedTitles: [], usedHooks: [] }, enSlots);
+    expect(enOpts.lyricLanguage).toBe('english');
+    expect(enOpts.storyPov).toBeUndefined();
+    expect(enInstruction).not.toContain('[JP CHILI LAB STORY CONTRACT]');
+    expect(enInstruction).not.toContain('[JP CAFE CHILI LAB STORY CONTRACT]');
   });
 
   it('keeps solo STORY vocal quota as one source of truth from UI options through plan, preflight, bridge, and import', async () => {
