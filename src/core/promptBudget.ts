@@ -3,21 +3,19 @@
 // constraint data to a remote LLM, which writes the stylePrompt itself and
 // never calls anything in this file. See docs/v366-report.md.
 //
-// TASK F1 (v3.7) — verified against Suno's own v5.5 documentation and
-// multiple independent 2026 prompt guides: the Style field is ~1,000
-// characters on v4.5/v5/v5.5; ~200 characters only applied to v4 and older.
-// Kept configurable (see SUNO_STYLE_LIMIT_PRESETS + SettingsModal) since a
-// user on an older account/plan may still be capped at 200, but the default
-// intentionally stays at the verified-correct 1,000 rather than degrading
-// every v5.5 user's output to a stale v4 number.
+// The app keeps a configurable copy ceiling for compatibility with saved
+// settings. This is an app-side safety budget, not a claim about an official
+// Suno limit. The v6 compatibility layer uses 900 as its default safe budget.
+// The remaining 200-character preset is retained only for older saved user
+// settings; it is not an official model-limit assertion.
 export const SUNO_STYLE_LIMIT = 1000;
 export const SAFE_TARGET = 900;
 export const SUNO_COPY_LIMIT = SUNO_STYLE_LIMIT;
-export const STYLE_PROMPT_OVER_LIMIT_WARNING = '스타일 프롬프트가 1000자를 초과합니다 - 수동 확인 필요';
+export const STYLE_PROMPT_OVER_LIMIT_WARNING = '스타일 프롬프트가 앱-side safe budget을 초과합니다 - 수동 확인 필요';
 
 /** TASK F1 (v3.7) — selectable in Settings; see SettingsModal.tsx. */
 export const SUNO_STYLE_LIMIT_PRESETS = [
-  { id: 'v5-standard', label: 'Suno v4.5 / v5 / v5.5 (표준, 1000자)', value: SUNO_STYLE_LIMIT },
+  { id: 'current-safe', label: 'Current app safe ceiling (표준, 1000자)', value: SUNO_STYLE_LIMIT },
   { id: 'v4-legacy', label: 'Suno v4 이하 (레거시, 200자)', value: 200 }
 ] as const;
 

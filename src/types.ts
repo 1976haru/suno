@@ -649,6 +649,31 @@ export interface GenerationPack {
   youtubeAngle: string;
 }
 
+export type SunoModelFamily = 'v6' | 'v6-wild' | 'v6-mini';
+export type SunoExecutionMode = 'standard' | 'max';
+export type SunoEngineProfile = {
+  model: SunoModelFamily;
+  recommendedVariety: number;
+  executionMode: SunoExecutionMode;
+  recommendedMaxMode?: boolean;
+  promptCompiler: 'v6';
+  stylePromptBudget: number;
+  purpose: 'production' | 'exploration' | 'draft';
+  notes?: string[];
+};
+
+export type SunoV6ListeningResult = {
+  model: SunoModelFamily;
+  promptBudget: number;
+  varietyUsed?: number;
+  maxModeUsed?: boolean;
+  vocalConsistency?: number;
+  promptAdherence?: number;
+  hookQuality?: number;
+  audioQuality?: number;
+  notes?: string;
+};
+
 /**
  * TASK (provenance) — where a given field's CURRENT value on GenerationOptions
  * actually came from, recorded at the moment it was set rather than
@@ -1108,6 +1133,8 @@ export interface GenerationOptions {
   generatedBy?: PackGeneratedBy;
   /** generatedBy가 'other'일 때만 쓰는 자유 입력 — 그 외 값일 때는 무시된다. */
   generatedByNote?: string;
+  /** Optional additive Suno compatibility selection; old saved packs resolve to v6 Production. */
+  sunoEngine?: SunoEngineProfile;
 }
 
 /** 지시문 18 (TASK C) — SavedPack.generatedBy/GenerationOptions.generatedBy가 공유하는 값 집합. */
@@ -1810,6 +1837,7 @@ export interface PlaylistBlueprint {
     cafeWeather?: string;
     storySpeaker?: ChiliStorySpeaker;
     storyArc?: unknown;
+    sunoEngine?: SunoEngineProfile;
   };
   /**
    * TASK (post-generation operation snapshot) — see GenerationSnapshot's own

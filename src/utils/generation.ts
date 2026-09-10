@@ -5,6 +5,7 @@ import { applyChiliStoryGenerationContract } from '../core/chiliStoryPov';
 import { normalizeGenreSelection } from '../core/genreSelection';
 import { defaultPackagingLanguageForChannel } from '../core/packagingLanguage';
 import { isKidsArchetype } from './channelArchetype';
+import { SUNO_V6_DEFAULT_PROFILE } from '../core/sunoV6';
 
 export function clampSongCount(value: number) {
   if (!Number.isFinite(value)) return 12;
@@ -155,6 +156,7 @@ export function createInitialOptions(channel: ChannelProfile): GenerationOptions
     diversityAllocations: [],
     personaMode: false,
     packagingLanguage: defaultPackagingLanguageForChannel(channel),
-    earwormMode: false
+    earwormMode: false,
+    sunoEngine: { ...SUNO_V6_DEFAULT_PROFILE }
   });
 }

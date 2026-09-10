@@ -26,6 +26,7 @@ import { resolveLyricRange } from './lyricMetrics';
 import { resolveTitleLocalizedLanguage } from './packagingLanguage';
 import { isJapaneseChillhopArchetype } from '../utils/channelArchetype';
 import { applyChiliStoryGenerationContract, deriveChiliStorySeasonPack, isJapaneseChiliStoryOptions, resolveChiliStoryProjectTitle } from './chiliStoryPov';
+import { effectiveSunoEngineForOptions } from './sunoV6';
 
 // TASK A1 (v3.5): Suno's style field truncates anything past 1,000 characters
 // — a real measurement of 12 generated songs found 12/12 over that limit
@@ -1416,6 +1417,7 @@ export function buildUserInstruction(opts: GenerationOptions, genres: GenrePack[
     projectTitle: resolveChiliStoryProjectTitle(opts),
     songCount: opts.songCount,
     lyricLanguage: opts.lyricLanguage,
+    sunoEngine: effectiveSunoEngineForOptions(opts),
     market: opts.market,
     audience: opts.audience,
     generationPack,
@@ -1474,6 +1476,7 @@ export function buildChannelSystemBlock(opts: GenerationOptions, genres: GenrePa
   const block = {
     channel: opts.channel,
     generationPack,
+    sunoEngine: effectiveSunoEngineForOptions(opts),
     genrePacks: genres,
     moodPacks: moods,
     season: effectiveSeason,

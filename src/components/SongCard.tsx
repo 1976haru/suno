@@ -313,7 +313,7 @@ export default function SongCard({ song, moneyChordLabel, evaluation, isRetrying
               />
               {isOverPromptLimit && isSeedSong && (
                 <p className="error">
-                  ⚠️ 시드 곡 프롬프트가 상한({promptLimit}자)을 초과합니다 (현재 {styleDraft.length}자). 보컬/훅/머니코드는 시드 곡에 필수라 제거할 수 없습니다. Suno에서 붙여넣을 때 잘릴 수 있으니 설정에서 Style 필드 상한을 1000자로 바꾸거나 Step1에서 보컬 설명을 줄이세요.
+                  ⚠️ 시드 곡 프롬프트가 상한({promptLimit}자)을 초과합니다 (현재 {styleDraft.length}자). 보컬/훅/머니코드는 시드 곡에 필수라 제거할 수 없습니다. 앱의 safe budget에 맞게 보컬 설명을 줄이세요.
                 </p>
               )}
               {isOverPromptLimit && !isSeedSong && (

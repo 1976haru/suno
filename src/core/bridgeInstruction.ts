@@ -37,6 +37,7 @@ import { vocabularyBankById } from '../data/vocabularyBanks';
 import { isGenreEligibleForArchetype } from '../data/genreLibrary';
 import { resolveScenePlanningMode as resolveSharedScenePlanningMode } from './scenePlanningMode';
 import { applyChiliStoryGenerationContract, buildJpChillhopStoryInstructionLines, chiliStoryDisplayChannelName, isJapaneseChiliStoryOptions, resolveChiliStoryProjectTitle, storyMetaFieldsFromOptions } from './chiliStoryPov';
+import { effectiveSunoEngineForOptions, recommendedMaxModeForSong } from './sunoV6';
 
 /**
  * v3.66 (TASK C) — split out of claudeCodeBridge.ts (was 1,207 lines, one of
@@ -80,9 +81,15 @@ export function defaultBridgeOutputPath(opts: Pick<GenerationOptions, 'channel' 
  */
 function buildBridgeMeta(
   opts: GenerationOptions,
-  outputFilename: string
+  outputFilename: string,
+  preassignedSongs: readonly PreassignedSongSlot[] = []
 ) {
   const setName = outputFilename.replace(/^lyrics\//, '').replace(/\.json$/, '');
+  const engine = effectiveSunoEngineForOptions(opts);
+  const recommendedMaxMode = engine.purpose !== 'draft' && preassignedSongs.some(slot => recommendedMaxModeForSong({
+    songRole: slot.songRole,
+    durationSec: opts.durationTarget === 'playlistShort' ? 120 : 190
+  }));
   return {
     setName,
     generatedAt: new Date().toISOString(),
@@ -91,6 +98,7 @@ function buildBridgeMeta(
     conceptLabel: opts.customConcept?.trim() || resolveChiliStoryProjectTitle(opts),
     songCount: opts.songCount,
     lyricLanguage: opts.lyricLanguage,
+    sunoEngine: { ...engine, recommendedMaxMode },
     // 지시문 18 (TASK C-2) — 앱이 이 요청을 만든 시점의 자기 버전. 지시문
     // 스스로 "meta를 verbatim으로 복사하라"고 이미 요구하므로(위 doc comment),
     // 이 필드도 별도 지시문 없이 자동으로 응답에 실려 돌아온다.
@@ -346,7 +354,7 @@ function buildBridgePayload(
       alreadyUsedScenes: conceptSceneContext?.recentSituations ?? [],
       alreadyUsedLyricLines: conceptSceneContext?.recentLyricLines ?? [],
       alreadyUsedOpenings: conceptSceneContext?.recentOpenings ?? [],
-      ...(outputFilename ? { meta: buildBridgeMeta(opts, outputFilename) } : {})
+      ...(outputFilename ? { meta: buildBridgeMeta(opts, outputFilename, preassignedSongs) } : {})
     }
   };
 }
@@ -1973,6 +1981,21 @@ export function buildClaudeCodeInstruction(
   const lyricThemeInstructionLine = lyricThemeInstructionLineFor(preassignedSongs, scenePlanningMode);
   const povInstructionLine = povInstructionLineFor(preassignedSongs);
   const sectionStyleInstructionLine = sectionStyleInstructionLineFor(preassignedSongs);
+  const engine = effectiveSunoEngineForOptions(opts);
+  const recommendedMaxMode = engine.purpose !== 'draft' && preassignedSongs.some(slot => recommendedMaxModeForSong({
+    songRole: slot.songRole,
+    durationSec: opts.durationTarget === 'playlistShort' ? 120 : 190
+  }));
+  const sunoEngineHeader = [
+    '[SUNO ENGINE]',
+    `Model: ${engine.model}`,
+    `Purpose: ${engine.purpose}`,
+    `Recommended Variety: ${engine.recommendedVariety}`,
+    `Max Recommendation: ${recommendedMaxMode ? 'Recommended' : 'Standard'}`,
+    `Execution: ${engine.executionMode === 'max' ? 'Max' : 'Standard'}`,
+    'Prompt Compiler: v6',
+    `App Style Prompt Budget: ${engine.stylePromptBudget} chars`
+  ];
 
   return [
     instructionBuildMarkerLine(),
@@ -1990,6 +2013,8 @@ export function buildClaudeCodeInstruction(
     // buildSetIntentSection's own doc comment for the real problem this
     // reordering fixes.
     buildSetIntentSection(opts, instructionOptions.conceptLine ?? opts.customConcept),
+    '',
+    ...sunoEngineHeader,
     // 지시문 55 (TASK B) — buildSetIntentSection 바로 다음, "이 세트가
     // 하려는 것" 바로 옆에 둔다. 예전엔 titleInstructionLine 근처(거의 끝,
     // 15곡 JSON payload 이후)에 있어 128,353자 지시문의 113,567번째

@@ -11,6 +11,7 @@ import type {
   PreassignedSongSlot,
   SeasonPack,
   SongIdea,
+  SunoEngineProfile,
   WorkspaceId,
   YoutubeMetadata
 } from '../types';
@@ -28,6 +29,7 @@ import { checkLyricLineOverlap, checkSceneOverlap, checkTitleHistoryCollision } 
 import { lyricLanguageMismatchWarning } from './lyricMetrics';
 import { checkDistinctChoices } from './distinctChoiceCheck';
 import { coerceDistinctChoice } from './distinctChoiceTypes';
+import { resolveSunoEngineProfile } from './sunoV6';
 import { APP_VERSION } from './buildInfo';
 import { findGarbledLyricLines } from './lyricGarbleLint';
 import { applyChiliStoryGenerationContract, rawStoryFieldsFromObject, storyMetaFieldsFromOptions } from './chiliStoryPov';
@@ -150,6 +152,7 @@ export interface BridgeImportMeta {
   cafeWeather?: string;
   storyArc?: unknown;
   storySpeaker?: ChiliStorySpeaker;
+  sunoEngine?: SunoEngineProfile;
 }
 
 /**
@@ -182,6 +185,7 @@ export function extractBridgeImportMeta(rawText: string): BridgeImportMeta | nul
     ...(isNonEmptyString(obj.conceptLabel) ? { conceptLabel: obj.conceptLabel } : {}),
     ...(typeof obj.songCount === 'number' ? { songCount: obj.songCount } : {}),
     ...(isNonEmptyString(obj.lyricLanguage) ? { lyricLanguage: obj.lyricLanguage } : {}),
+    ...(obj.sunoEngine && typeof obj.sunoEngine === 'object' ? { sunoEngine: resolveSunoEngineProfile(obj.sunoEngine) } : {}),
     ...(isNonEmptyString(obj.bridgeVersion) ? { bridgeVersion: obj.bridgeVersion } : {}),
     ...(isNonEmptyString(obj.videoTitle) ? { videoTitle: obj.videoTitle } : {}),
     ...(isNonEmptyString(obj.workspaceId) ? { workspaceId: obj.workspaceId as WorkspaceId } : {}),
@@ -731,7 +735,8 @@ export function importSongsJson(
         ...(meta.cafeTimeOfDay ? { cafeTimeOfDay: meta.cafeTimeOfDay } : {}),
         ...(meta.cafeWeather ? { cafeWeather: meta.cafeWeather } : {}),
         ...(meta.storyArc ? { storyArc: meta.storyArc } : {}),
-        ...(meta.storySpeaker ? { storySpeaker: meta.storySpeaker } : {})
+        ...(meta.storySpeaker ? { storySpeaker: meta.storySpeaker } : {}),
+        ...(meta.sunoEngine ? { sunoEngine: meta.sunoEngine } : {})
       }
     : {};
   const blueprint: PlaylistBlueprint = {

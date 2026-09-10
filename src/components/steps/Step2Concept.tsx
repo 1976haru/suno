@@ -36,6 +36,7 @@ import { QUALITY_THRESHOLDS, thresholdsByBasis } from '../../data/qualityThresho
 import { workspaceForArchetype } from '../../data/workspaces';
 import { LISTENING_INTENT_POLICY, DEFAULT_LISTENING_INTENT } from '../../data/listeningIntentPolicy';
 import { PERCEIVED_ENERGY_POLICY } from '../../data/perceivedEnergyPolicy';
+import { resolveSunoEngineProfile, SUNO_V6_ENGINE_PROFILES } from '../../core/sunoV6';
 import { applyListeningIntentToOptions, listeningIntentApplicationStatus } from '../../core/listeningIntent';
 import {
   applyChiliStoryGenerationContract,
@@ -277,6 +278,7 @@ export default function Step2Concept({
   const storyInputUiMode = storyInputUiModeForWorkspace(workspaceForArchetype(channelArchetype)?.id);
   const usesCafeStoryInputUi = storyInputUiMode === 'jp-cafe-story';
   const chiliStorySummaryKo = chiliStoryContractSummaryKo(opts);
+  const sunoEngine = resolveSunoEngineProfile(opts.sunoEngine);
   const storyPlanLineValue = opts.storyPlanLine || opts.storySourceLine || '';
   const storySourceLineValue = storyPlanLineValue;
   const storyPlanParsePreview = storyPlanLineValue.trim() ? parseChiliStoryPlanLine(storyPlanLineValue) : null;
@@ -1068,6 +1070,25 @@ export default function Step2Concept({
 
       <label>Project title (프로젝트 제목)</label>
       <input value={opts.projectTitle} onChange={event => setOpts(prev => ({ ...prev, projectTitle: event.target.value }))} />
+
+      <div className="option-block suno-engine-card">
+        <h3>Suno engine</h3>
+        <label htmlFor="suno-engine-model">Model</label>
+        <select
+          id="suno-engine-model"
+          value={sunoEngine.model}
+          onChange={event => setOpts(prev => ({
+            ...prev,
+            sunoEngine: { ...SUNO_V6_ENGINE_PROFILES[event.target.value as keyof typeof SUNO_V6_ENGINE_PROFILES] }
+          }))}
+        >
+          <option value="v6">v6 · Production</option>
+          <option value="v6-wild">v6-wild · Explore</option>
+          <option value="v6-mini">v6-mini · Draft</option>
+        </select>
+        <p className="supporting">Recommended Variety: {sunoEngine.recommendedVariety} · Max: {sunoEngine.recommendedMaxMode ? 'Recommended' : 'Standard'}</p>
+        <p className="supporting">App-side recommendation only. Suno controls are not connected.</p>
+      </div>
 
       {isJapaneseChili && (
         <div className="option-block">
