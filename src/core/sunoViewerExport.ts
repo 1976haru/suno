@@ -349,7 +349,7 @@ export const REVIEW_ENGINE_JS = `
 
     var lastPastedAt = progress.pastedAt[song.trackNo];
     var titleBlock = el('div', { class: 'title-block' }, [
-      el('h2', { text: song.titleDisplay || song.title }),
+      el('h2', { text: String(song.trackNo).padStart(2, '0') + '. ' + stripSetTitlePrefix(song.title) }),
       lastPastedAt ? el('p', { text: '\\uB9C8\\uC9C0\\uB9C9 \\uBD99\\uC5EC\\uB123\\uAE30: ' + new Date(lastPastedAt).toLocaleString() }) : null
     ]);
     var navRow = el('div', { class: 'nav-row' }, [

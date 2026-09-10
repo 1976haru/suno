@@ -9,6 +9,7 @@ import { renderLyricsForDisplay } from '../core/lyricEngine';
 import { copyText } from '../utils/exporters';
 import { SUNO_COPY_LIMIT } from '../core/promptBudget';
 import { currentWorkspaceId } from '../core/workspaceScope';
+import { stripSetTitlePrefix } from '../utils/generation';
 
 type CopyField = 'title' | 'style' | 'lyrics' | 'exclude';
 
@@ -25,6 +26,10 @@ function buildTitleCopyText(song: Pick<SongIdea, 'trackNo' | 'title' | 'titleLoc
   const trackNoPadded = String(song.trackNo).padStart(2, '0');
   const localized = song.titleLocalized?.trim();
   return localized ? `${trackNoPadded}. ${song.title} (${localized})` : `${trackNoPadded}. ${song.title}`;
+}
+
+function buildSunoInputTitle(song: Pick<SongIdea, 'trackNo' | 'title'>): string {
+  return `${String(song.trackNo).padStart(2, '0')}. ${stripSetTitlePrefix(song.title)}`;
 }
 
 /**
@@ -196,7 +201,7 @@ export default function SunoModeReadOnlyViewer({ archetype, channelId, lyricLang
                 <ChevronLeft size={28} />
               </button>
               <div className="suno-progress-title">
-                <h3>{song.titleDisplay ?? song.title}</h3>
+                <h3>{buildSunoInputTitle(song)}</h3>
                 <p className="supporting">{index + 1} / {result.songs.length}</p>
               </div>
               <button type="button" className="focus-nav-button" disabled={index === result.songs.length - 1} onClick={goNext}>
