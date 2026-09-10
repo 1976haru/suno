@@ -7,6 +7,8 @@ import { checkJp2030Translationese, findKatakanaOveruse } from '../src/core/jp20
 import { effectiveSunoEngineForOptions, auditSunoV6Prompt, compileSunoStylePromptV6, recommendedMaxModeForSong, resolveSunoEngineProfile, SUNO_V6_ENGINE_PROFILES } from '../src/core/sunoV6';
 import { getWorkspace, workspaceDefinitions } from '../src/data/workspaces';
 import { overrideForArchetype } from '../src/data/hookBanks';
+import { audienceProfileById, audienceProfileForChannelArchetype } from '../src/data/audienceProfiles';
+import { DEFAULT_KIDS_AGE_TIER_ID, KIDS_AGE_TIERS, kidsAgeTierFor } from '../src/data/kidsAgeTiers';
 import { buildKpopSectionStyleShiftPlan } from '../src/core/kpopSectionStyleShiftPlan';
 import { buildResolvedGenerationContract, userChoicesFromOptions } from '../src/core/userChoices';
 import { channelPresets, genrePacks, makeOptions, moodPacks, seasonPacks } from './fixtures';
@@ -170,5 +172,106 @@ describe('Suno v6 compatibility layer', () => {
     expect(restored.lyricLanguage).toBe('japanese');
     expect(restored.genreIds).toEqual(saved.genreIds);
     expect(restored.vocalQuota).toEqual(saved.vocalQuota);
+  });
+
+  it('uses the real senior, oldpop, and children registry structure without cross-audience aliases', () => {
+    expect(getWorkspace('senior-oldpop').archetypeIds).toContain('senior-morning');
+    expect(getWorkspace('senior-oldpop').archetypeIds).toContain('oldpop-lounge');
+    expect(getWorkspace('kr-kids').archetypeIds).toEqual(['kr-kids-song']);
+    expect(getWorkspace('jp-kids').archetypeIds).toEqual(['jp-kids-song']);
+    expect(channelPresets.filter(channel => channel.archetype === 'senior-morning').map(channel => channel.id)).toEqual(['good-morning-memory-radio']);
+    expect(channelPresets.filter(channel => channel.archetype === 'oldpop-lounge').map(channel => channel.id)).toEqual(['oldpop-lounge-main']);
+    expect(channelPresets.filter(channel => channel.archetype === 'kids').map(channel => channel.id)).toEqual(['little-singalong-radio']);
+    expect(channelPresets.filter(channel => channel.archetype === 'kr-kids-song').map(channel => channel.id)).toEqual(['follow-along-action-song', 'daily-habit-learning-song', 'bedtime-lullaby-radio']);
+    expect(channelPresets.filter(channel => channel.archetype === 'jp-kids-song').map(channel => channel.id)).toEqual(['teasobi-hiroba', 'minna-de-taiso', 'oyasumi-mae-no-uta']);
+    expect(getWorkspace('senior-oldpop').defaultAudienceProfileId).toBe('senior');
+    expect(getWorkspace('kr-kids').defaultAudienceProfileId).toBe('kr-kids');
+    expect(getWorkspace('jp-kids').defaultAudienceProfileId).toBe('jp-kids');
+    expect(DEFAULT_KIDS_AGE_TIER_ID).toBe('kids-t2');
+    expect(Object.keys(KIDS_AGE_TIERS)).toEqual(['kids-t1', 'kids-t2', 'kids-t3']);
+    expect(audienceProfileById('senior')?.id).toBe('senior');
+    expect(audienceProfileById('kr-kids')?.id).toBe('kr-kids');
+    expect(audienceProfileById('jp-kids')?.id).toBe('jp-kids');
+  });
+
+  it('keeps senior vocal comfort, familiar sound, scene breadth, and non-uniform production across v6 engines', () => {
+    const channels = ['good-morning-memory-radio', 'oldpop-lounge-main'].map(id => channelPresets.find(channel => channel.id === id)!);
+    const seniorProfile = audienceProfileById('senior')!;
+    expect(seniorProfile.constraints.join(' ')).toMatch(/clear|audible|warm|comfortable|singable/i);
+    expect(seniorProfile.exclusions.join(' ')).toMatch(/bel[t|ted]|aggressive|rapid|harsh/i);
+
+    for (const channel of channels) {
+      const base = makeOptions({ channel, songCount: 15, lyricLanguage: channel.primaryLanguage, sunoEngine: { ...SUNO_V6_ENGINE_PROFILES.v6 } });
+      const genres = genrePacks.filter(genre => base.genreIds.includes(genre.id));
+      const moods = moodPacks.filter(mood => base.moodIds.includes(mood.id));
+      const baselineSlots = preallocateSongSlots(base, genres);
+      const baseline = baselineSlots.map(slot => ({ genreId: slot.genreId, vocalType: slot.vocalType, hook: slot.hookPhrase, tempo: slot.tempo }));
+      const profile = audienceProfileForChannelArchetype(channel.archetype, channel.audience);
+      expect(profile.id).toBe('senior');
+      expect(baselineSlots.every(slot => !slot.genreId?.startsWith('krkids') && !slot.genreId?.startsWith('jpkids'))).toBe(true);
+      expect(new Set(baselineSlots.map(slot => slot.genreId)).size).toBeGreaterThan(1);
+      expect(new Set(baselineSlots.map(slot => slot.vocalText)).size).toBeGreaterThan(1);
+      const instruction = buildClaudeCodeInstruction(base, genres, moods, season, { usedTitles: [], usedHooks: [] }, baselineSlots);
+      expect(instruction).toContain('[SUNO ENGINE]');
+      expect(instruction).not.toContain('[JP CHILI LAB STORY CONTRACT]');
+      expect(instruction).not.toContain('[JP CAFE CHILI LAB STORY CONTRACT]');
+
+      for (const model of ['v6', 'v6-wild', 'v6-mini'] as const) {
+        const opts = { ...base, sunoEngine: { ...SUNO_V6_ENGINE_PROFILES[model] } };
+        const slots = preallocateSongSlots(opts, genres);
+        expect(slots.map(slot => ({ genreId: slot.genreId, vocalType: slot.vocalType, hook: slot.hookPhrase, tempo: slot.tempo })), `${channel.id}/${model}`).toEqual(baseline);
+        expect(buildClaudeCodeInstruction(opts, genres, moods, season, { usedTitles: [], usedHooks: [] }, slots), `${channel.id}/${model}`).toContain(`Model: ${model}`);
+      }
+    }
+  });
+
+  it('keeps every real kids age tier, language, lyric difficulty, hook, and safety boundary through engine switching', () => {
+    const channels = [
+      channelPresets.find(channel => channel.id === 'bedtime-lullaby-radio')!,
+      channelPresets.find(channel => channel.id === 'daily-habit-learning-song')!,
+      channelPresets.find(channel => channel.id === 'follow-along-action-song')!,
+      channelPresets.find(channel => channel.id === 'little-singalong-radio')!
+    ];
+    for (const channel of channels) {
+      const tierId = channel.kidsAgeTierId ?? DEFAULT_KIDS_AGE_TIER_ID;
+      const tier = kidsAgeTierFor(tierId);
+      const base = makeOptions({ channel, songCount: 15, lyricLanguage: channel.primaryLanguage, kidsAgeTierId: tierId, sunoEngine: { ...SUNO_V6_ENGINE_PROFILES.v6 } });
+      const genres = genrePacks.filter(genre => base.genreIds.includes(genre.id));
+      const moods = moodPacks.filter(mood => base.moodIds.includes(mood.id));
+      const baselineSlots = preallocateSongSlots(base, genres);
+      const baseline = baselineSlots.map(slot => ({ genreId: slot.genreId, vocalType: slot.vocalType, hook: slot.hookPhrase, tier: slot.effectiveKidsAgeTierId }));
+      expect(tier.ageRange[0]).toBeGreaterThanOrEqual(0);
+      expect(tier.totalWordTarget).toBeGreaterThan(0);
+      expect(tier.minHookRepeats).toBeGreaterThan(0);
+      expect(channel.forbiddenCliches.join(' ')).toMatch(/adult romantic|senior|nursery rhyme|scary/i);
+      expect(baselineSlots.every(slot => slot.effectiveKidsAgeTierId === tierId), channel.id).toBe(true);
+      expect(baselineSlots.every(slot => !slot.genreId?.startsWith('oldpop') && !slot.genreId?.startsWith('kridol'))).toBe(true);
+      const baselineInstruction = buildClaudeCodeInstruction(base, genres, moods, season, { usedTitles: [], usedHooks: [] }, baselineSlots);
+      expect(baselineInstruction).not.toContain('[JP CHILI LAB STORY CONTRACT]');
+      expect(baselineInstruction).not.toContain('[JP CAFE CHILI LAB STORY CONTRACT]');
+
+      for (const model of ['v6', 'v6-wild', 'v6-mini'] as const) {
+        const opts = { ...base, sunoEngine: { ...SUNO_V6_ENGINE_PROFILES[model] } };
+        const slots = preallocateSongSlots(opts, genres);
+        const instruction = buildClaudeCodeInstruction(opts, genres, moods, season, { usedTitles: [], usedHooks: [] }, slots);
+        expect({ language: opts.lyricLanguage, tier: opts.kidsAgeTierId, plan: slots.map(slot => ({ genreId: slot.genreId, vocalType: slot.vocalType, hook: slot.hookPhrase, tier: slot.effectiveKidsAgeTierId })) }, `${channel.id}/${model}`).toEqual({ language: base.lyricLanguage, tier: tierId, plan: baseline });
+        expect(instruction, `${channel.id}/${model}`).toContain(`Model: ${model}`);
+        expect(instruction, `${channel.id}/${model}`).toContain('preassignedSongs');
+      }
+    }
+  });
+
+  it('loads a v5.5-era senior and kids saved option shape with v6 fallback only', () => {
+    for (const id of ['good-morning-memory-radio', 'bedtime-lullaby-radio']) {
+      const channel = channelPresets.find(item => item.id === id)!;
+      const saved = makeOptions({ channel, songCount: 12, lyricLanguage: channel.primaryLanguage, kidsAgeTierId: channel.kidsAgeTierId });
+      delete saved.sunoEngine;
+      const restored = { ...saved, sunoEngine: effectiveSunoEngineForOptions(saved) };
+      expect(restored.sunoEngine, id).toMatchObject({ model: 'v6', recommendedVariety: 0, purpose: 'production' });
+      expect(restored.lyricLanguage, id).toBe(saved.lyricLanguage);
+      expect(restored.genreIds, id).toEqual(saved.genreIds);
+      expect(restored.vocalQuota, id).toEqual(saved.vocalQuota);
+      expect(restored.kidsAgeTierId, id).toBe(saved.kidsAgeTierId);
+    }
   });
 });
